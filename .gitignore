@@ -1,0 +1,85 @@
+# ===== OS =====
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ===== IDE =====
+*.iml
+*.ipr
+*.iws
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ===== Flutter / Dart =====
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+/coverage/
+**/doc/api/
+**/ios/Flutter/.last_build_id
+*.g.dart
+*.freezed.dart
+*.mocks.dart
+
+# ===== Android =====
+/android/.gradle/
+/android/app/debug/
+/android/app/profile/
+/android/app/release/
+/android/app/build/
+/android/build/
+/android/local.properties
+/android/key.properties
+/android/*.jks
+/android/*.keystore
+/android/app/google-services.json
+
+# ===== iOS =====
+/ios/.symlinks/
+/ios/Pods/
+/ios/Flutter/Flutter.framework
+/ios/Flutter/Flutter.podspec
+/ios/Flutter/Generated.xcconfig
+/ios/Flutter/app.flx
+/ios/Flutter/app.zip
+/ios/Flutter/flutter_assets/
+/ios/Flutter/flutter_export_environment.sh
+/ios/ServiceDefinitions.json
+/ios/Runner/GeneratedPluginRegistrant.*
+/ios/GoogleService-Info.plist
+
+# ===== Build / Artifacts =====
+*.class
+*.log
+*.pyc
+*.o
+*.so
+*.dylib
+app.*.symbols
+app.*.map.json
+
+# ===== Miscellaneous =====
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+*.env
+*.env.local
+.firebase/
+firebase-debug.log
+firestore-debug.log
+pubspec.lock

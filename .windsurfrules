@@ -1,0 +1,87 @@
+# Minivo — Project Rules for Cascade
+
+## Project Overview
+- **App Name:** Minivo
+- **Developer:** Puzzlora Games
+- **Package:** com.puzzloragames.dropzy
+- **Dart package name:** minivo
+- **Path:** /Users/kalpesh.panchbhai/Developer/Personal/minivo
+- **Description:** Mobile game aggregator with 100+ mini games — puzzles, arcade, board & more.
+
+## Tech Stack
+- Flutter (latest stable)
+- Flame engine for game rendering
+- GoRouter for navigation
+- SharedPreferences for local storage
+- Google Fonts (Poppins) for typography
+- flutter_animate for animations
+
+## Architecture
+- Feature-based folder structure under lib/features/
+- Games under lib/games/ with one folder per game
+- Core utilities under lib/core/ (constants, models, services, widgets)
+- Routing under lib/routing/
+
+## Key Patterns
+- **GameRegistry** (lib/games/game_registry.dart): Central registry mapping game IDs to widget builders and game metadata. Every new game MUST be registered here.
+- **GameWrapper** (lib/games/game_wrapper.dart): Universal game lifecycle wrapper providing HUD, pause overlay, game over overlay, score tracking, star rating, and coin economy. Every game screen MUST be wrapped in GameWrapper.
+- **ScoreService** (lib/core/services/score_service.dart): Singleton service using SharedPreferences for persisting high scores, favorites, settings, recently played, coins, and games played.
+- **AudioService** (lib/core/services/audio_service.dart): Singleton for haptic feedback and sound effects.
+
+## Screens (13 total)
+1. SplashScreen → OnboardingScreen or HomeScreen
+2. OnboardingScreen (3 pages)
+3. MainShell (bottom nav: Home, Leaderboard, Profile)
+4. HomeScreen (featured carousel, categories, trending, recently played)
+5. SearchScreen
+6. CategoryScreen
+7. GameDetailScreen
+8. GamePlayScreen (wraps GameWrapper + game widget)
+9. LeaderboardScreen
+10. ProfileScreen
+11. SettingsScreen
+12. AchievementsScreen
+
+## Games Built
+- Flappy Tap (Flame engine) — lib/games/flappy_tap/
+- Number Merge 2048 (Flutter widgets) — lib/games/number_merge/
+- Block Fit (Flutter widgets) — lib/games/block_fit/
+
+## UI/UX Rules
+- UI must be simple and minimalist
+- UX must be very intuitive and easy to use
+- Design should feel "soft" — rounded corners (14-16px), subtle shadows, pastel accents
+- Colors defined in AppColors (lib/core/constants/app_colors.dart)
+- Theme defined in AppTheme (lib/core/constants/app_theme.dart)
+- All user-facing strings in AppStrings (lib/core/constants/app_strings.dart)
+- Font: Poppins via Google Fonts
+- Minimum tap target: 44x44
+
+## Coding Rules
+- Do NOT change the package name (com.puzzloragames.dropzy)
+- Do NOT add comments or documentation unless explicitly asked
+- All new games MUST: (1) create a folder under lib/games/, (2) register in GameRegistry with builder and GameInfo, (3) use GameWrapper for lifecycle
+- Use relative imports within the project (not package: imports)
+- No hardcoded strings — use AppStrings
+- No hardcoded colors — use AppColors
+- Keep app lightweight — no heavy assets, lazy load where possible
+- Portrait orientation only
+
+## Testing
+- Test files under test/screens/ (one per screen)
+- Test helpers under test/helpers/
+- Test all screens against 14 device sizes (7 Android + 7 iOS, from iPhone SE to iPad Pro 12.9")
+- Overflow detection: tests must fail if any RenderFlex overflow occurs
+- Never weaken tests to fix failures — always fix the UI code instead
+
+## Build & Run
+```bash
+flutter pub get
+flutter run
+```
+
+## Future Plans
+- Add more games (target: 100+ mini games)
+- Firebase integration (Auth, Firestore, Analytics)
+- AdMob monetization (interstitial on game over, rewarded for continue, banner on home)
+- App store publishing (Google Play + App Store)
