@@ -144,95 +144,135 @@ class _BlockFitScreenState extends State<BlockFitScreen> {
       });
     }
 
-    final screenWidth = MediaQuery.of(context).size.width;
-    final cellSize = (screenWidth - 48) / boardSize;
-
     return Container(
+      width: double.infinity,
+      height: double.infinity,
       color: const Color(0xFFF5F3EE),
       child: SafeArea(
-        child: Column(
-          children: [
-            const SizedBox(height: 80),
-            // Board
-            Center(
-              child: Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE8E4DD),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: SizedBox(
-                  width: cellSize * boardSize + 4,
-                  height: cellSize * boardSize + 4,
-                  child: GridView.builder(
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: boardSize,
-                      mainAxisSpacing: 2,
-                      crossAxisSpacing: 2,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final h = constraints.maxHeight;
+            final w = constraints.maxWidth;
+            if (h < 60 || w < 60) {
+              return const SizedBox.shrink();
+            }
+            final topSpace = (h * 0.08).clamp(20.0, 80.0).toDouble();
+            final traySpace = (h * 0.16).clamp(60.0, 120.0).toDouble();
+            final boardArea =
+                (h - topSpace - traySpace).clamp(60.0, double.infinity).toDouble();
+            final boardWidthAvail =
+                (w - 32).clamp(60.0, double.infinity).toDouble();
+            final boardDim =
+                boardArea < boardWidthAvail ? boardArea : boardWidthAvail;
+            final cellSize =
+                ((boardDim - 16) / boardSize).clamp(6.0, 80.0).toDouble();
+            final actualBoard = cellSize * boardSize + 4;
+            final miniCellSize =
+                (cellSize * 0.42).clamp(4.0, 36.0).toDouble();
+
+            return Stack(
+              children: [
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: topSpace,
+                  bottom: traySpace,
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE8E4DD),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: SizedBox(
+                        width: actualBoard,
+                        height: actualBoard,
+                        child: GridView.builder(
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate:
+                              SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: boardSize,
+                            mainAxisSpacing: 2,
+                            crossAxisSpacing: 2,
+                          ),
+                          itemCount: boardSize * boardSize,
+                          itemBuilder: (context, index) {
+                            final r = index ~/ boardSize;
+                            final c = index % boardSize;
+                            return DragTarget<_DragData>(
+                              onWillAcceptWithDetails: (details) {
+                                final data = details.data;
+                                return _canPlace(data.shape.shape, r, c);
+                              },
+                              onAcceptWithDetails: (details) {
+                                final data = details.data;
+                                setState(() {
+                                  _placeShape(data.shape.shape, r, c,
+                                      data.shape.color);
+                                  _available.removeAt(data.index);
+                                  if (_available.isEmpty) _generateShapes();
+                                  if (!_canPlaceAny()) {
+                                    wrapper.endGame();
+                                  }
+                                });
+                              },
+                              builder:
+                                  (context, candidateData, rejectedData) {
+                                return AnimatedContainer(
+                                  duration: const Duration(milliseconds: 150),
+                                  decoration: BoxDecoration(
+                                    color: _board[r][c]
+                                        ? const Color(0xFF6C63FF)
+                                            .withValues(alpha: 0.7)
+                                        : candidateData.isNotEmpty
+                                            ? const Color(0xFF6C63FF)
+                                                .withValues(alpha: 0.2)
+                                            : const Color(0xFFF8F6F1),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                        ),
+                      ),
                     ),
-                    itemCount: boardSize * boardSize,
-                    itemBuilder: (context, index) {
-                      final r = index ~/ boardSize;
-                      final c = index % boardSize;
-                      return DragTarget<_DragData>(
-                        onWillAcceptWithDetails: (details) {
-                          final data = details.data;
-                          return _canPlace(data.shape.shape, r, c);
-                        },
-                        onAcceptWithDetails: (details) {
-                          final data = details.data;
-                          setState(() {
-                            _placeShape(data.shape.shape, r, c, data.shape.color);
-                            _available.removeAt(data.index);
-                            if (_available.isEmpty) _generateShapes();
-                            if (!_canPlaceAny()) {
-                              wrapper.endGame();
-                            }
-                          });
-                        },
-                        builder: (context, candidateData, rejectedData) {
-                          return AnimatedContainer(
-                            duration: const Duration(milliseconds: 150),
-                            decoration: BoxDecoration(
-                              color: _board[r][c]
-                                  ? const Color(0xFF6C63FF).withValues(alpha: 0.7)
-                                  : candidateData.isNotEmpty
-                                      ? const Color(0xFF6C63FF).withValues(alpha: 0.2)
-                                      : const Color(0xFFF8F6F1),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                          );
-                        },
-                      );
-                    },
                   ),
                 ),
-              ),
-            ),
-
-            const Spacer(),
-
-            // Available blocks
-            Padding(
-              padding: const EdgeInsets.only(bottom: 30),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: List.generate(_available.length, (i) {
-                  final block = _available[i];
-                  return Draggable<_DragData>(
-                    data: _DragData(shape: block, index: i),
-                    feedback: _buildMiniBlock(block, cellSize * 0.6, 0.8),
-                    childWhenDragging: Opacity(
-                      opacity: 0.3,
-                      child: _buildMiniBlock(block, cellSize * 0.5, 1),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  height: traySpace,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: List.generate(_available.length, (i) {
+                        final block = _available[i];
+                        return Flexible(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Draggable<_DragData>(
+                              data: _DragData(shape: block, index: i),
+                              feedback: _buildMiniBlock(
+                                  block, cellSize * 0.55, 0.8),
+                              childWhenDragging: Opacity(
+                                opacity: 0.3,
+                                child: _buildMiniBlock(block, miniCellSize, 1),
+                              ),
+                              child: _buildMiniBlock(block, miniCellSize, 1),
+                            ),
+                          ),
+                        );
+                      }),
                     ),
-                    child: _buildMiniBlock(block, cellSize * 0.5, 1),
-                  );
-                }),
-              ),
-            ),
-          ],
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );

@@ -175,13 +175,20 @@ class _NumberMergeScreenState extends State<NumberMergeScreen> {
           _move(Direction.up);
         }
       },
-      child: Container(
-        color: const Color(0xFFFAF8F0),
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: AspectRatio(
-              aspectRatio: 1,
+      behavior: HitTestBehavior.opaque,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final maxW = constraints.maxWidth;
+          final maxH = constraints.maxHeight;
+          final boardDim = (maxW < maxH ? maxW : maxH) - 32;
+          return Container(
+            width: maxW,
+            height: maxH,
+            color: const Color(0xFFFAF8F0),
+            alignment: Alignment.center,
+            child: SizedBox(
+              width: boardDim,
+              height: boardDim,
               child: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
@@ -225,8 +232,8 @@ class _NumberMergeScreenState extends State<NumberMergeScreen> {
                 ),
               ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }

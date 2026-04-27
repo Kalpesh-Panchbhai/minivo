@@ -73,7 +73,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   const SizedBox(height: 16),
                   SizedBox(
-                    height: 36,
+                    height: 42,
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
                       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -115,12 +115,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 4),
                 child: MosaicGrid(
                   games: rankedGames,
-                  columns: 3,
-                  spacing: 6,
-                  cellHeight: 110,
                   onGameTap: (id) => context.push('/game/$id'),
                 ),
               ),

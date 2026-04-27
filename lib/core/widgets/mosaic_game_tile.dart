@@ -1,7 +1,17 @@
 import 'package:flutter/material.dart';
 import '../models/game_info.dart';
 
-enum TileSize { small, wide, large }
+enum TileSize {
+  small(1, 1),
+  wide(2, 1),
+  tall(1, 2),
+  medium(2, 2),
+  large(3, 3);
+
+  const TileSize(this.colSpan, this.rowSpan);
+  final int colSpan;
+  final int rowSpan;
+}
 
 class MosaicGameTile extends StatelessWidget {
   final GameInfo game;
@@ -15,31 +25,53 @@ class MosaicGameTile extends StatelessWidget {
     this.onTap,
   });
 
+  bool get _isSmall => tileSize == TileSize.small;
+  bool get _isBig => tileSize == TileSize.large || tileSize == TileSize.medium;
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: game.bgColor,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: game.color.withValues(alpha: 0.08),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              game.bgColor,
+              game.color.withValues(alpha: 0.25),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(_isSmall ? 10 : 14),
         ),
         clipBehavior: Clip.antiAlias,
         child: Stack(
           fit: StackFit.expand,
           children: [
-            Center(
+            Positioned(
+              right: _isBig ? -10 : -12,
+              bottom: _isBig ? -10 : -12,
               child: Icon(
                 game.icon,
-                size: _iconSize,
-                color: game.color.withValues(alpha: 0.2),
+                size: _bgIconSize,
+                color: game.color.withValues(alpha: 0.07),
+              ),
+            ),
+            Center(
+              child: Padding(
+                padding: EdgeInsets.only(bottom: _isSmall ? 14 : 24),
+                child: Container(
+                  padding: EdgeInsets.all(_isSmall ? 8 : 16),
+                  decoration: BoxDecoration(
+                    color: game.color.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    game.icon,
+                    size: _centerIconSize,
+                    color: game.color,
+                  ),
+                ),
               ),
             ),
             Positioned(
@@ -47,89 +79,55 @@ class MosaicGameTile extends StatelessWidget {
               right: 0,
               bottom: 0,
               child: Container(
-                padding: EdgeInsets.all(tileSize == TileSize.small ? 8 : 12),
+                padding: EdgeInsets.fromLTRB(
+                  _isSmall ? 5 : 10,
+                  _isSmall ? 6 : 8,
+                  _isSmall ? 5 : 10,
+                  _isSmall ? 5 : 8,
+                ),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.transparent,
-                      game.color.withValues(alpha: 0.85),
-                    ],
-                    stops: const [0.0, 0.7],
+                  color: game.color.withValues(alpha: 0.9),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(8),
                   ),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    SizedBox(height: tileSize == TileSize.small ? 16 : 24),
                     Text(
                       game.name,
                       style: TextStyle(
                         color: Colors.white,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w800,
                         fontSize: _titleFontSize,
-                        height: 1.2,
+                        height: 1.1,
                       ),
-                      maxLines: tileSize == TileSize.small ? 1 : 2,
+                      maxLines: _isSmall ? 1 : 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    if (tileSize != TileSize.small) ...[
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.star_rounded,
-                            size: 12,
+                    if (_isBig) ...[
+                      const SizedBox(height: 3),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          game.category.label,
+                          style: TextStyle(
                             color: Colors.white.withValues(alpha: 0.9),
+                            fontSize: 9,
+                            fontWeight: FontWeight.w600,
                           ),
-                          const SizedBox(width: 3),
-                          Text(
-                            game.rating.toStringAsFixed(1),
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.9),
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Icon(
-                            game.category.icon,
-                            size: 12,
-                            color: Colors.white.withValues(alpha: 0.7),
-                          ),
-                          const SizedBox(width: 3),
-                          Flexible(
-                            child: Text(
-                              game.category.label,
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.7),
-                                fontSize: 11,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ],
                   ],
-                ),
-              ),
-            ),
-            Positioned(
-              top: 8,
-              right: 8,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                decoration: BoxDecoration(
-                  color: game.color.withValues(alpha: 0.9),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Icon(
-                  Icons.play_arrow_rounded,
-                  size: tileSize == TileSize.small ? 14 : 18,
-                  color: Colors.white,
                 ),
               ),
             ),
@@ -139,25 +137,48 @@ class MosaicGameTile extends StatelessWidget {
     );
   }
 
-  double get _iconSize {
+  double get _bgIconSize {
     switch (tileSize) {
       case TileSize.large:
-        return 80;
+        return 140;
+      case TileSize.medium:
+        return 100;
+      case TileSize.tall:
+        return 72;
       case TileSize.wide:
-        return 56;
+        return 72;
       case TileSize.small:
-        return 40;
+        return 56;
+    }
+  }
+
+  double get _centerIconSize {
+    switch (tileSize) {
+      case TileSize.large:
+        return 64;
+      case TileSize.medium:
+        return 44;
+      case TileSize.tall:
+        return 36;
+      case TileSize.wide:
+        return 32;
+      case TileSize.small:
+        return 24;
     }
   }
 
   double get _titleFontSize {
     switch (tileSize) {
       case TileSize.large:
-        return 16;
-      case TileSize.wide:
+        return 18;
+      case TileSize.medium:
         return 14;
-      case TileSize.small:
+      case TileSize.tall:
         return 12;
+      case TileSize.wide:
+        return 12;
+      case TileSize.small:
+        return 9;
     }
   }
 }

@@ -24,7 +24,6 @@ class GameInfo {
   final IconData icon;
   final Color color;
   final Color bgColor;
-  final double rating;
   final int playCount;
   final bool isFeatured;
 
@@ -37,7 +36,6 @@ class GameInfo {
     required this.icon,
     required this.color,
     required this.bgColor,
-    this.rating = 4.5,
     this.playCount = 0,
     this.isFeatured = false,
   });

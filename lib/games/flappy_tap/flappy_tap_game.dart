@@ -12,6 +12,7 @@ class FlappyTapGame extends FlameGame with TapCallbacks, HasCollisionDetection {
   double _pipeTimer = 0;
   final _rand = Random();
   bool _started = false;
+  double _graceTimer = 0;
 
   static const double gravity = 900;
   static const double jumpForce = -350;
@@ -19,6 +20,7 @@ class FlappyTapGame extends FlameGame with TapCallbacks, HasCollisionDetection {
   static const double pipeGap = 160;
   static const double pipeWidth = 60;
   static const double pipeInterval = 1.8;
+  static const double gracePeriod = 0.5;
 
   @override
   Color backgroundColor() => const Color(0xFF87CEEB);
@@ -54,7 +56,14 @@ class FlappyTapGame extends FlameGame with TapCallbacks, HasCollisionDetection {
       return;
     }
 
-    _started = true;
+    if (!_started) {
+      _started = true;
+      _graceTimer = 0;
+      bird.position = Vector2(size.x * 0.3, size.y * 0.4);
+      bird.velocity = 0;
+    }
+
+    _graceTimer += dt;
 
     // Bird physics
     bird.velocity += gravity * dt;
@@ -88,8 +97,8 @@ class FlappyTapGame extends FlameGame with TapCallbacks, HasCollisionDetection {
       return false;
     });
 
-    // Collision detection
-    if (_checkCollision()) {
+    // Collision detection (skip during grace period)
+    if (_graceTimer > gracePeriod && _checkCollision()) {
       wrapper.endGame();
     }
   }

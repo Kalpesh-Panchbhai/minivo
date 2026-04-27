@@ -5,40 +5,38 @@ import '../services/game_score_ranker.dart';
 class MosaicGrid extends StatelessWidget {
   final List<RankedGame> games;
   final void Function(String gameId) onGameTap;
-  final int columns;
-  final double spacing;
-  final double cellHeight;
 
   const MosaicGrid({
     super.key,
     required this.games,
     required this.onGameTap,
-    this.columns = 3,
-    this.spacing = 8,
-    this.cellHeight = 100,
   });
+
+  static const int _columns = 6;
+  static const double _spacing = 3;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final totalW = constraints.maxWidth;
-        final cellW = (totalW - (columns - 1) * spacing) / columns;
+        final cellW = (totalW - (_columns - 1) * _spacing) / _columns;
+        final cellH = cellW;
         final placements = _computePlacements();
         final totalRows = placements.isEmpty
             ? 0
             : placements.map((p) => p.row + p.rowSpan).reduce((a, b) => a > b ? a : b);
-        final totalHeight = totalRows * cellHeight + (totalRows > 0 ? (totalRows - 1) * spacing : 0);
+        final totalHeight = totalRows * cellH + (totalRows > 0 ? (totalRows - 1) * _spacing : 0);
 
         return SizedBox(
           height: totalHeight,
           child: Stack(
             clipBehavior: Clip.none,
             children: placements.map((p) {
-              final w = cellW * p.colSpan + (p.colSpan - 1) * spacing;
-              final h = cellHeight * p.rowSpan + (p.rowSpan - 1) * spacing;
-              final x = p.col * (cellW + spacing);
-              final y = p.row * (cellHeight + spacing);
+              final w = cellW * p.colSpan + (p.colSpan - 1) * _spacing;
+              final h = cellH * p.rowSpan + (p.rowSpan - 1) * _spacing;
+              final x = p.col * (cellW + _spacing);
+              final y = p.row * (cellH + _spacing);
               return Positioned(
                 left: x,
                 top: y,
@@ -63,18 +61,18 @@ class MosaicGrid extends StatelessWidget {
 
     void ensureRows(int needed) {
       while (grid.length < needed) {
-        grid.add(List.filled(columns, false));
+        grid.add(List.filled(_columns, false));
       }
     }
 
     for (final game in games) {
-      final cs = _colSpan(game.tileSize);
-      final rs = _rowSpan(game.tileSize);
+      final cs = game.tileSize.colSpan;
+      final rs = game.tileSize.rowSpan;
 
       bool placed = false;
       for (int r = 0; !placed; r++) {
         ensureRows(r + rs);
-        for (int c = 0; c <= columns - cs; c++) {
+        for (int c = 0; c <= _columns - cs; c++) {
           if (_canPlace(grid, r, c, rs, cs)) {
             _markUsed(grid, r, c, rs, cs);
             result.add(_TilePlacement(
@@ -92,28 +90,6 @@ class MosaicGrid extends StatelessWidget {
       }
     }
     return result;
-  }
-
-  int _colSpan(TileSize size) {
-    switch (size) {
-      case TileSize.large:
-        return 2;
-      case TileSize.wide:
-        return 2;
-      case TileSize.small:
-        return 1;
-    }
-  }
-
-  int _rowSpan(TileSize size) {
-    switch (size) {
-      case TileSize.large:
-        return 2;
-      case TileSize.wide:
-        return 1;
-      case TileSize.small:
-        return 1;
-    }
   }
 
   bool _canPlace(List<List<bool>> grid, int r, int c, int rs, int cs) {

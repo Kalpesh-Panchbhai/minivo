@@ -28,13 +28,11 @@ class GameScoreRanker {
         .map((g) => g.playCount)
         .fold<int>(1, (a, b) => a > b ? a : b);
 
-    final ranked = allGames.map((game) {
+    final scored = allGames.map((game) {
       double score = 0;
 
       final trendNorm = game.playCount / maxPlayCount;
-      score += trendNorm * 40;
-
-      score += (game.rating / 5.0) * 10;
+      score += trendNorm * 50;
 
       final recentIndex = recentIds.indexOf(game.id);
       if (recentIndex >= 0) {
@@ -51,38 +49,43 @@ class GameScoreRanker {
         score += playBonus;
       }
 
-      score = score.clamp(0, 100);
-
-      TileSize tileSize;
-      if (score >= 65) {
-        tileSize = TileSize.large;
-      } else if (score >= 40) {
-        tileSize = TileSize.wide;
-      } else {
-        tileSize = TileSize.small;
-      }
-
-      return RankedGame(game: game, score: score, tileSize: tileSize);
+      return (game: game, score: score.clamp(0.0, 100.0));
     }).toList();
 
-    ranked.sort((a, b) => b.score.compareTo(a.score));
+    scored.sort((a, b) => b.score.compareTo(a.score));
 
-    int largeCount = ranked.where((r) => r.tileSize == TileSize.large).length;
-    if (largeCount > 2) {
-      for (int i = 0, found = 0; i < ranked.length; i++) {
-        if (ranked[i].tileSize == TileSize.large) {
-          found++;
-          if (found > 2) {
-            ranked[i] = RankedGame(
-              game: ranked[i].game,
-              score: ranked[i].score,
-              tileSize: TileSize.wide,
-            );
-          }
-        }
+    final sizes = _assignSizes(scored.length);
+
+    return List.generate(scored.length, (i) {
+      return RankedGame(
+        game: scored[i].game,
+        score: scored[i].score,
+        tileSize: sizes[i],
+      );
+    });
+  }
+
+  static List<TileSize> _assignSizes(int count) {
+    if (count == 0) return [];
+
+    final result = <TileSize>[];
+
+    for (int i = 0; i < count; i++) {
+      if (i == 0) {
+        result.add(TileSize.large);
+      } else if (i <= 2) {
+        result.add(TileSize.medium);
+      } else if (i <= 4) {
+        result.add(TileSize.tall);
+      } else {
+        const fill = [
+          TileSize.wide,
+          TileSize.small,
+          TileSize.small,
+        ];
+        result.add(fill[(i - 5) % fill.length]);
       }
     }
-
-    return ranked;
+    return result;
   }
 }

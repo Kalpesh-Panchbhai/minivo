@@ -52,7 +52,7 @@ void main() {
 
       testWidgets('category chips visible', (tester) async {
         await pumpScreen(tester, device, const HomeScreen());
-        expect(find.text('Action'), findsOneWidget);
+        expect(find.text('Action'), findsWidgets);
         expectNoOverflow(device, 'HomeScreen');
         cleanUp(tester);
       });

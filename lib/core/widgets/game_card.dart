@@ -76,22 +76,6 @@ class GameCard extends StatelessWidget {
                   Row(
                     children: [
                       Icon(
-                        Icons.star_rounded,
-                        size: 14,
-                        color: AppColors.starFilled,
-                      ),
-                      const SizedBox(width: 3),
-                      Flexible(
-                        child: Text(
-                          game.rating.toStringAsFixed(1),
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Icon(
                         Icons.play_arrow_rounded,
                         size: 14,
                         color: AppColors.textHint,
