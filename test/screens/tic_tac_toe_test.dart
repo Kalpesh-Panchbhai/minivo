@@ -61,7 +61,7 @@ void main() {
       await _startGame(tester);
       expect(find.text('Play vs. AI'), findsNothing);
       expect(find.text('Play with a Friend'), findsNothing);
-      expect(find.byIcon(Icons.pause_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.refresh_rounded), findsOneWidget);
       expectNoOverflow(_pixel6, 'playing state');
       cleanUp(tester);
     });
@@ -116,40 +116,28 @@ void main() {
       cleanUp(tester);
     });
 
-    testWidgets('pause and resume works', (tester) async {
+    testWidgets('restart button shows confirmation dialog', (tester) async {
       await pumpScreen(tester, _pixel6, _buildGame(), settle: false);
       await _startGame(tester);
-      await tester.tap(find.byIcon(Icons.pause_rounded));
+      await tester.tap(find.byIcon(Icons.refresh_rounded));
       await tester.pump(const Duration(milliseconds: 200));
-      expect(find.text('Resume'), findsOneWidget);
-      expect(find.text('Restart'), findsOneWidget);
-      expectNoOverflow(_pixel6, 'paused state');
+      expect(find.text('Restart'), findsWidgets);
+      expect(find.text('Cancel'), findsOneWidget);
+      expectNoOverflow(_pixel6, 'restart dialog');
 
-      await tester.tap(find.text('Resume'));
+      await tester.tap(find.text('Cancel'));
       await tester.pump(const Duration(milliseconds: 200));
-      expect(find.byIcon(Icons.pause_rounded), findsOneWidget);
-      expectNoOverflow(_pixel6, 'resumed state');
+      expect(find.byIcon(Icons.refresh_rounded), findsOneWidget);
+      expectNoOverflow(_pixel6, 'back to playing');
       cleanUp(tester);
     });
 
-    testWidgets('taps are blocked when paused', (tester) async {
+    testWidgets('restart button not shown in ready state', (tester) async {
       await pumpScreen(tester, _pixel6, _buildGame(), settle: false);
-      await _startGame(tester);
-      await tester.tap(find.byIcon(Icons.pause_rounded));
-      await tester.pump(const Duration(milliseconds: 200));
-      await tester.tap(_cell(0));
-      await tester.pump(const Duration(milliseconds: 100));
-      expect(find.text('X'), findsNothing);
-      expectNoOverflow(_pixel6, 'paused tap block');
-      cleanUp(tester);
-    });
-
-    testWidgets('no X or O marks shown in ready state', (tester) async {
-      await pumpScreen(tester, _pixel6, _buildGame(), settle: false);
-      // In ready state, only the mode picker is shown — no board or X/O text in cells.
-      // The mini grid badge contains decorative X and O glyphs, but those are part of the picker.
-      expect(find.byIcon(Icons.pause_rounded), findsNothing);
-      expectNoOverflow(_pixel6, 'ready tap block');
+      // In ready state, only the mode picker is shown — no restart button.
+      // The restart button is only shown during active play.
+      expect(find.byIcon(Icons.refresh_rounded), findsNothing);
+      expectNoOverflow(_pixel6, 'ready state no restart button');
       cleanUp(tester);
     });
 
@@ -160,7 +148,7 @@ void main() {
       // Tap cells while the board is still visible. Game may auto-transition
       // to the winner screen mid-loop — that's expected and acceptable.
       for (int i = 0; i < 9; i++) {
-        // Need at least pause-button + (i+1) cells.
+        // Need at least restart-button + (i+1) cells.
         final gdCount = find.byType(GestureDetector).evaluate().length;
         if (gdCount < i + 2) break;
         await tester.tap(_cell(i));
@@ -186,9 +174,9 @@ void main() {
       await tester.pump(const Duration(seconds: 1));
       expect(find.text('X'), findsWidgets);
 
-      await tester.tap(find.byIcon(Icons.pause_rounded));
+      await tester.tap(find.byIcon(Icons.refresh_rounded));
       await tester.pump(const Duration(milliseconds: 200));
-      await tester.tap(find.text('Restart'));
+      await tester.tap(find.text('Restart').last);
       await tester.pump(const Duration(milliseconds: 500));
 
       expect(find.text('Play vs. AI'), findsOneWidget);
@@ -243,12 +231,12 @@ void main() {
           cleanUp(tester);
         });
 
-        testWidgets('paused state', (tester) async {
+        testWidgets('restart button visible', (tester) async {
           await pumpScreen(tester, device, _buildGame(), settle: false);
           await _startGame(tester);
-          await tester.tap(find.byIcon(Icons.pause_rounded));
+          expect(find.byIcon(Icons.refresh_rounded), findsOneWidget);
           await tester.pump(const Duration(milliseconds: 200));
-          expectNoOverflow(device, 'paused');
+          expectNoOverflow(device, 'playing');
           await tester.pump(const Duration(seconds: 5));
           cleanUp(tester);
         });

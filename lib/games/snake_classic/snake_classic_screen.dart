@@ -13,6 +13,8 @@ import '../game_registry.dart';
 import '../game_wrapper.dart';
 import '../shared/animated_background.dart';
 import '../shared/animated_difficulty_icon.dart';
+import '../shared/game_control_buttons.dart';
+import '../shared/game_hud_bar.dart';
 import '../shared/generic_game_result_screen.dart' as game_result;
 import '../shared/spinning_slider.dart';
 import 'snake_classic_stats.dart';
@@ -45,19 +47,29 @@ enum _Difficulty { easy, medium, hard }
 extension _DifficultyX on _Difficulty {
   String get label   => ['EASY', 'MEDIUM', 'HARD'][index];
   Color  get color   => [_kEasyColor, _kMediumColor, _kHardColor][index];
-  int    get tickMs  => [260, 180, 60][index];
-  int    get pointsPerFood => [5, 10, 20][index];
-  String get subKey  => ['easy', 'medium', 'hard'][index];
+  // Speed model: snake starts at [startMs] and gets [deltaPerApple] ms
+  // faster per apple eaten, capped at [floorMs]. Easy stays constant
+  // (delta = 0), so casual players never feel chased.
+  int    get startMs        => [280, 220, 170][index];
+  int    get deltaPerApple  => [0,   1,   2  ][index];
+  int    get floorMs        => [280, 190, 130][index];
+  int    get pointsPerFood  => [5, 10, 20][index];
+  String get subKey         => ['easy', 'medium', 'hard'][index];
   String get hint => [
         'Slow & gentle — perfect for first-timers.',
-        'The classic challenge.',
-        'Lightning-fast — only for the bold.',
+        'Steady classic pace, gradual ramp.',
+        'Starts brisk, ramps to fast.',
       ][index];
   DifficultyKind get kind => [
         DifficultyKind.easy,
         DifficultyKind.medium,
         DifficultyKind.hard,
       ][index];
+
+  int tickMsForApples(int apples) {
+    final raw = startMs - deltaPerApple * apples;
+    return raw < floorMs ? floorMs : raw;
+  }
 }
 
 // ── Direction enum ─────────────────────────────────────────────────────────
@@ -113,6 +125,15 @@ class _SnakeClassicScreenState extends State<SnakeClassicScreen>
   bool _isNewBestScore = false;
   bool _gameOver = false;
 
+  // Apples eaten this run — drives speed progression. Reset on every
+  // game start (NOT on every tick).
+  int _applesEaten = 0;
+
+  // Eat-animation state. Each entry lasts ~700ms after spawn; the painter
+  // fades them out. Cleared on game start / back-to-picker.
+  final List<_EatEffect> _eatEffects = [];
+  int? _lastEatTimeMs;
+
   // Swipe gesture state — mirrors the dual-signal pattern from 2048.
   double _dragDx = 0;
   double _dragDy = 0;
@@ -138,6 +159,7 @@ class _SnakeClassicScreenState extends State<SnakeClassicScreen>
     super.dispose();
   }
 
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (_activeDifficulty == null || _gameOver) return;
@@ -155,6 +177,8 @@ class _SnakeClassicScreenState extends State<SnakeClassicScreen>
   void _onTickComplete(AnimationStatus status) {
     if (status != AnimationStatus.completed) return;
     if (!mounted || _gameOver) return;
+    // Don't tick when paused — the restart dialog or pause overlay is open.
+    if (GameWrapper.of(context).state == GameState.paused) return;
     _tick();
     if (mounted && !_gameOver) {
       _tickCtrl.forward(from: 0);
@@ -201,9 +225,12 @@ class _SnakeClassicScreenState extends State<SnakeClassicScreen>
       _bestScore = _bestFor(diff);
       _isNewBestScore = false;
       _gameOver = false;
+      _applesEaten = 0;
+      _eatEffects.clear();
+      _lastEatTimeMs = null;
     });
 
-    _tickCtrl.duration = Duration(milliseconds: diff.tickMs);
+    _tickCtrl.duration = Duration(milliseconds: diff.tickMsForApples(0));
     _tickCtrl.forward(from: 0);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -226,6 +253,9 @@ class _SnakeClassicScreenState extends State<SnakeClassicScreen>
       _score = 0;
       _snake = const [];
       _prevSnake = const [];
+      _applesEaten = 0;
+      _eatEffects.clear();
+      _lastEatTimeMs = null;
     });
   }
 
@@ -280,6 +310,9 @@ class _SnakeClassicScreenState extends State<SnakeClassicScreen>
     final newSnake = <math.Point<int>>[next, ..._snake];
     if (!ate) newSnake.removeLast();
 
+    final eatenPos = _food;
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+
     setState(() {
       _prevSnake = _snake;
       _snake = newSnake;
@@ -290,16 +323,35 @@ class _SnakeClassicScreenState extends State<SnakeClassicScreen>
           _isNewBestScore = true;
         }
         _score = newScore;
+        _applesEaten += 1;
         ScoreService().saveScore(
           kSnakeClassicGameId, newScore, subKey: diff.subKey,
         );
         AudioService().playScore();
         _food = _spawnFood(newSnake);
+
+        // Spawn an eat-effect for the apple that was just consumed and
+        // remember the moment for the head-pulse animation. Prune any
+        // expired effects while we're here so the list stays bounded.
+        _eatEffects.add(_EatEffect(
+          cellPos: eatenPos,
+          points: diff.pointsPerFood,
+          color: diff.color,
+          startTimeMs: nowMs,
+        ));
+        _lastEatTimeMs = nowMs;
+        _eatEffects.removeWhere((e) => nowMs - e.startTimeMs > 700);
       }
     });
 
     if (ate) {
       GameWrapper.of(context).updateScore(_score);
+      // Speed progression — applies on the next forward(from: 0) call,
+      // so the apple-eating tick keeps its existing duration and the
+      // ramp kicks in cleanly on the following move.
+      _tickCtrl.duration = Duration(
+        milliseconds: diff.tickMsForApples(_applesEaten),
+      );
     }
   }
 
@@ -322,6 +374,24 @@ class _SnakeClassicScreenState extends State<SnakeClassicScreen>
     if (_activeDifficulty == null || _gameOver) return;
     if (d.isOpposite(_dir)) return;
     _pendingDir = d;
+
+    // Snappy turn — without this, a swipe taken early in a tick has to
+    // wait up to one full tick (260 ms on Easy!) before the new
+    // direction takes effect. We fast-forward the in-flight animation
+    // so the next tick (which applies _pendingDir) starts almost
+    // immediately. Skip when there's <50 ms left — the natural finish
+    // is faster than the fast-forward window anyway.
+    if (_tickCtrl.isAnimating && _tickCtrl.duration != null) {
+      final remainingMs =
+          (1.0 - _tickCtrl.value) * _tickCtrl.duration!.inMilliseconds;
+      if (remainingMs > 50) {
+        _tickCtrl.animateTo(
+          1.0,
+          duration: const Duration(milliseconds: 40),
+          curve: Curves.linear,
+        );
+      }
+    }
   }
 
   // ── Build ────────────────────────────────────────────────────────────────
@@ -405,29 +475,21 @@ class _SnakeClassicScreenState extends State<SnakeClassicScreen>
   }
 
   Widget _buildGameHud() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _HudCircleButton(
-            icon: Icons.arrow_back_ios_new_rounded,
-            onTap: _backToPicker,
-          ),
-          Expanded(
-            child: Center(
-              child: _ScoreBoardPill(
-                difficulty: _activeDifficulty!,
-                score: _score,
-                best: _bestScore,
-              ),
-            ),
-          ),
-          _HudCircleButton(
-            icon: Icons.refresh_rounded,
-            onTap: _newGame,
-          ),
-        ],
+    return GameHudBar(
+      leading: GameBackButton(onTap: _backToPicker),
+      centerContent: _ScoreBoardPill(
+        difficulty: _activeDifficulty!,
+        score: _score,
+        best: _bestScore,
+      ),
+      trailing: GameRestartButton(
+        gameName: 'Snake',
+        accentColor: _kSnakeGreen,
+        onRestart: _newGame,
+        onDialogOpened: _tickCtrl.stop,
+        onDialogDismissed: () {
+          if (!_gameOver) _tickCtrl.forward(from: _tickCtrl.value);
+        },
       ),
     );
   }
@@ -493,6 +555,9 @@ class _SnakeClassicScreenState extends State<SnakeClassicScreen>
                       food: _food,
                       dir: _dir,
                       t: _tickCtrl.value,
+                      eatEffects: _eatEffects,
+                      lastEatTimeMs: _lastEatTimeMs,
+                      nowMs: DateTime.now().millisecondsSinceEpoch,
                     ),
                   ),
                 ),
@@ -1022,53 +1087,29 @@ class _ScoreBoardPill extends StatelessWidget {
   }
 }
 
-class _HudCircleButton extends StatefulWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-  const _HudCircleButton({required this.icon, required this.onTap});
 
-  @override
-  State<_HudCircleButton> createState() => _HudCircleButtonState();
-}
+// ════════════════════════════════════════════════════════════════
+// Eat-effect data — passed through to the painter so it can render
+// the apple flash + floating "+N" score popup independent of game
+// state. Cleared on game start / back-to-picker.
+// ════════════════════════════════════════════════════════════════
 
-class _HudCircleButtonState extends State<_HudCircleButton> {
-  bool _pressed = false;
+class _EatEffect {
+  final math.Point<int> cellPos;
+  final int points;
+  final Color color;
+  final int startTimeMs;
 
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) {
-        setState(() => _pressed = false);
-        widget.onTap();
-      },
-      onTapCancel: () => setState(() => _pressed = false),
-      child: AnimatedScale(
-        scale: _pressed ? 0.92 : 1.0,
-        duration: const Duration(milliseconds: 120),
-        child: Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.10),
-                blurRadius: 16,
-                offset: const Offset(0, 6),
-              ),
-            ],
-          ),
-          child: Icon(widget.icon, size: 22, color: const Color(0xFF1B3A2A)),
-        ),
-      ),
-    );
-  }
+  const _EatEffect({
+    required this.cellPos,
+    required this.points,
+    required this.color,
+    required this.startTimeMs,
+  });
 }
 
 // ════════════════════════════════════════════════════════════════
-// CUSTOM PAINTER — snake board (snake + food + grid)
+// CUSTOM PAINTER — snake board (snake + food + grid + eat effects)
 // ════════════════════════════════════════════════════════════════
 
 class _SnakePainter extends CustomPainter {
@@ -1077,6 +1118,9 @@ class _SnakePainter extends CustomPainter {
   final math.Point<int> food;
   final _Dir dir;
   final double t;
+  final List<_EatEffect> eatEffects;
+  final int? lastEatTimeMs;
+  final int nowMs;
 
   _SnakePainter({
     required this.snake,
@@ -1084,7 +1128,12 @@ class _SnakePainter extends CustomPainter {
     required this.food,
     required this.dir,
     required this.t,
+    required this.eatEffects,
+    required this.lastEatTimeMs,
+    required this.nowMs,
   });
+
+  static double _lerp(double a, double b, double t) => a + (b - a) * t;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1096,23 +1145,29 @@ class _SnakePainter extends CustomPainter {
       ..strokeWidth = 1;
     for (int i = 1; i < _kBoardN; i++) {
       canvas.drawLine(
-        Offset(i * cs, 0),
-        Offset(i * cs, size.height),
-        gridPaint,
+        Offset(i * cs, 0), Offset(i * cs, size.height), gridPaint,
       );
       canvas.drawLine(
-        Offset(0, i * cs),
-        Offset(size.width, i * cs),
-        gridPaint,
+        Offset(0, i * cs), Offset(size.width, i * cs), gridPaint,
       );
     }
 
     // Food (apple) — drawn before the snake so head occlusion reads as "eaten".
     _drawFood(canvas, cs);
 
-    if (snake.isEmpty) return;
+    if (snake.isNotEmpty) {
+      _drawSnake(canvas, cs);
+    }
 
-    // Compute interpolated centers in pixel space.
+    // Eat effects (apple flash + score popup) layered above the snake so
+    // the floating "+N" never gets occluded by the body.
+    _drawEatEffects(canvas, cs);
+  }
+
+  // ── Snake body ───────────────────────────────────────────────────────────
+
+  void _drawSnake(Canvas canvas, double cs) {
+    // Interpolated segment centers.
     final centers = <Offset>[
       for (int i = 0; i < snake.length; i++)
         () {
@@ -1124,84 +1179,185 @@ class _SnakePainter extends CustomPainter {
         }(),
     ];
 
-    // Snake body — one continuous path through the centers, stroked with
-    // round caps and round joins so segments read as a smooth, gap-less
-    // body even at low cell sizes. Painted in two stacked strokes for a
-    // soft outer shell + brighter inner highlight.
-    if (centers.length >= 2) {
-      final path = Path()..moveTo(centers.first.dx, centers.first.dy);
-      for (int i = 1; i < centers.length; i++) {
-        path.lineTo(centers[i].dx, centers[i].dy);
-      }
-      canvas.drawPath(
-        path,
-        Paint()
-          ..color = _kSnakeDark
-          ..strokeWidth = cs * 0.94
-          ..strokeCap = StrokeCap.round
-          ..strokeJoin = StrokeJoin.round
-          ..style = PaintingStyle.stroke,
-      );
-      canvas.drawPath(
-        path,
-        Paint()
-          ..color = _kSnakeGreen
-          ..strokeWidth = cs * 0.74
-          ..strokeCap = StrokeCap.round
-          ..strokeJoin = StrokeJoin.round
-          ..style = PaintingStyle.stroke,
-      );
-    } else {
-      // Single-segment snake — should only happen mid-init.
-      canvas.drawCircle(
-        centers.first, cs * 0.47, Paint()..color = _kSnakeDark,
-      );
-      canvas.drawCircle(
-        centers.first, cs * 0.37, Paint()..color = _kSnakeGreen,
-      );
+    if (centers.length < 2) {
+      // Single-segment fallback — only hit during init/race conditions.
+      canvas.drawCircle(centers.first, cs * 0.47,
+          Paint()..color = _kSnakeDark);
+      canvas.drawCircle(centers.first, cs * 0.32,
+          Paint()..color = _kSnakeGreen);
+      _drawHead(canvas, centers.first, cs);
+      return;
     }
 
-    // Head bulge — slightly wider circle on top so the head reads as
-    // distinct without breaking the body's continuity.
-    final head = centers.first;
-    canvas.drawCircle(head, cs * 0.48, Paint()..color = _kSnakeDark);
+    // Build the body as N-1 sub-paths. Each sub-path runs from the
+    // midpoint of (i-1, i) through centers[i] (control point) to the
+    // midpoint of (i, i+1). Endpoints clamp to centers[0] / centers.last.
+    //
+    // Two passes:
+    //   1. Outer dark stroke, tapering 0.94 → 0.55 of cs (head→tail).
+    //   2. Inner mint highlight, tapering 0.66 → 0.30 of cs.
+    //
+    // The quadratic-Bezier-per-segment approach makes corners curve
+    // smoothly while straight runs collapse to lines (3 collinear
+    // points → degenerate quadratic = line).
+
+    final segs = <(Offset, Offset, Offset, double)>[];
+    final n = centers.length;
+    for (int i = 0; i < n - 1; i++) {
+      final from = i == 0
+          ? centers[0]
+          : Offset.lerp(centers[i - 1], centers[i], 0.5)!;
+      final to = i == n - 2
+          ? centers.last
+          : Offset.lerp(centers[i], centers[i + 1], 0.5)!;
+      final ctl = centers[i];
+      // tFromHead: 0 at head, 1 at tail. Used for both strokes' taper.
+      final tFromHead = i / (n - 1);
+      segs.add((from, ctl, to, tFromHead));
+    }
+
+    final outer = Paint()
+      ..color = _kSnakeDark
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    for (final (from, ctl, to, p) in segs) {
+      outer.strokeWidth = _lerp(cs * 0.94, cs * 0.55, p);
+      final path = Path()
+        ..moveTo(from.dx, from.dy)
+        ..quadraticBezierTo(ctl.dx, ctl.dy, to.dx, to.dy);
+      canvas.drawPath(path, outer);
+    }
+
+    final inner = Paint()
+      ..color = _kSnakeGreen
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    for (final (from, ctl, to, p) in segs) {
+      inner.strokeWidth = _lerp(cs * 0.66, cs * 0.30, p);
+      final path = Path()
+        ..moveTo(from.dx, from.dy)
+        ..quadraticBezierTo(ctl.dx, ctl.dy, to.dx, to.dy);
+      canvas.drawPath(path, inner);
+    }
+
+    _drawHead(canvas, centers.first, cs);
+  }
+
+  void _drawHead(Canvas canvas, Offset head, double cs) {
+    // Head pulse on eat: scale 1.0 → 1.18 → 1.0 over 180 ms.
+    var headScale = 1.0;
+    if (lastEatTimeMs != null) {
+      final age = nowMs - lastEatTimeMs!;
+      if (age >= 0 && age < 180) {
+        final pulseT = age / 180.0;
+        headScale = 1.0 + 0.18 * math.sin(pulseT * math.pi);
+      }
+    }
+
+    canvas.drawCircle(
+      head, cs * 0.48 * headScale, Paint()..color = _kSnakeDark,
+    );
     canvas.drawCircle(
       Offset(head.dx - cs * 0.10, head.dy - cs * 0.10),
-      cs * 0.14,
+      cs * 0.14 * headScale,
       Paint()..color = _kSnakeGreen.withValues(alpha: 0.45),
     );
     _drawEyesAt(canvas, head, cs);
   }
 
+  // ── Food ─────────────────────────────────────────────────────────────────
+
   void _drawFood(Canvas canvas, double cs) {
     final cx = (food.x + 0.5) * cs;
     final cy = (food.y + 0.5) * cs;
     canvas.drawCircle(
-      Offset(cx, cy),
-      cs * 0.50,
+      Offset(cx, cy), cs * 0.50,
       Paint()
         ..color = _kFoodColor.withValues(alpha: 0.18)
         ..maskFilter = MaskFilter.blur(BlurStyle.normal, cs * 0.30),
     );
     canvas.drawCircle(
-      Offset(cx, cy),
-      cs * 0.34,
-      Paint()..color = _kFoodColor,
+      Offset(cx, cy), cs * 0.34, Paint()..color = _kFoodColor,
     );
     canvas.drawCircle(
-      Offset(cx - cs * 0.10, cy - cs * 0.10),
-      cs * 0.10,
+      Offset(cx - cs * 0.10, cy - cs * 0.10), cs * 0.10,
       Paint()..color = _kFoodGlow.withValues(alpha: 0.85),
     );
     canvas.drawOval(
       Rect.fromCenter(
         center: Offset(cx + cs * 0.08, cy - cs * 0.32),
-        width: cs * 0.20,
-        height: cs * 0.10,
+        width: cs * 0.20, height: cs * 0.10,
       ),
       Paint()..color = const Color(0xFF22C55E),
     );
   }
+
+  // ── Eat effects (apple flash + floating score popup) ────────────────────
+
+  void _drawEatEffects(Canvas canvas, double cs) {
+    for (final e in eatEffects) {
+      final age = nowMs - e.startTimeMs;
+      if (age < 0 || age > 700) continue;
+
+      final cx = (e.cellPos.x + 0.5) * cs;
+      final cy = (e.cellPos.y + 0.5) * cs;
+
+      // Apple flash — scale up + fade out over 220 ms. Reads as the
+      // apple "popping" the moment it's eaten.
+      if (age < 220) {
+        final flashT = age / 220.0;
+        final scale = 1.0 + flashT * 0.55;
+        final alpha = 1.0 - flashT;
+        canvas.drawCircle(
+          Offset(cx, cy), cs * 0.50 * scale,
+          Paint()
+            ..color = _kFoodColor.withValues(alpha: 0.30 * alpha)
+            ..maskFilter = MaskFilter.blur(BlurStyle.normal, cs * 0.25),
+        );
+        canvas.drawCircle(
+          Offset(cx, cy), cs * 0.34 * scale,
+          Paint()..color = _kFoodColor.withValues(alpha: alpha),
+        );
+      }
+
+      // Score popup — "+N" floats up ~1.5 cells over 600 ms while
+      // fading. Coloured by difficulty so the player learns which
+      // tier is paying out.
+      if (age < 600) {
+        final popT = age / 600.0;
+        final yOffset = -popT * cs * 1.5;
+        final alpha = (1.0 - popT).clamp(0.0, 1.0);
+        final scale = 0.85 + (1 - popT) * 0.20;
+        final tp = TextPainter(
+          text: TextSpan(
+            text: '+${e.points}',
+            style: TextStyle(
+              color: e.color.withValues(alpha: alpha),
+              fontSize: cs * 0.62 * scale,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.4,
+              shadows: [
+                Shadow(
+                  color: Colors.white.withValues(alpha: alpha * 0.7),
+                  blurRadius: 4,
+                  offset: const Offset(0, 1),
+                ),
+              ],
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        tp.paint(
+          canvas,
+          Offset(cx - tp.width / 2, cy + yOffset - tp.height / 2),
+        );
+      }
+    }
+  }
+
+  // ── Eyes (head, oriented to direction) ──────────────────────────────────
 
   void _drawEyesAt(Canvas canvas, Offset center, double cs) {
     final cx = center.dx;
@@ -1240,7 +1396,10 @@ class _SnakePainter extends CustomPainter {
       old.prevSnake != prevSnake ||
       old.food != food ||
       old.dir != dir ||
-      old.t != t;
+      old.t != t ||
+      old.eatEffects != eatEffects ||
+      old.lastEatTimeMs != lastEatTimeMs ||
+      old.nowMs != nowMs;
 }
 
 // ════════════════════════════════════════════════════════════════

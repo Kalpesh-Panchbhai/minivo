@@ -56,7 +56,7 @@ void main() {
           cleanUp(tester);
         });
 
-        testWidgets('renders paused state without overflow', (tester) async {
+        testWidgets('renders playing state with restart button without overflow', (tester) async {
           await pumpScreen(
             tester,
             device,
@@ -65,9 +65,9 @@ void main() {
           );
           await tester.tap(find.text('Tap to Start'));
           await tester.pump(const Duration(milliseconds: 200));
-          await tester.tap(find.byIcon(Icons.pause_rounded));
+          expect(find.byIcon(Icons.refresh_rounded), findsOneWidget);
           await tester.pump(const Duration(milliseconds: 200));
-          expectNoOverflow(device, '${game.name} paused');
+          expectNoOverflow(device, '${game.name} playing');
           await tester.pump(const Duration(seconds: 5));
           cleanUp(tester);
         });

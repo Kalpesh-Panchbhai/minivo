@@ -11,6 +11,8 @@ import '../game_registry.dart';
 import '../game_wrapper.dart';
 import '../shared/animated_background.dart';
 import '../shared/animated_difficulty_icon.dart';
+import '../shared/game_control_buttons.dart';
+import '../shared/game_hud_bar.dart';
 import '../shared/spinning_slider.dart';
 import 'tic_tac_toe_stats.dart';
 
@@ -569,6 +571,8 @@ class _TicTacToeScreenState extends State<TicTacToeScreen>
       streak: _streak,
       showStreakBadge: _showStreakBadge,
       onCellTap: _onCellTap,
+      onBack: _backOrHome,
+      onRestart: _playAgainSameMode,
     );
   }
 }
@@ -1183,6 +1187,8 @@ class _BoardScreen extends StatelessWidget {
   final int streak;
   final bool showStreakBadge;
   final ValueChanged<int> onCellTap;
+  final VoidCallback onBack;
+  final VoidCallback onRestart;
 
   const _BoardScreen({
     required this.board,
@@ -1200,6 +1206,8 @@ class _BoardScreen extends StatelessWidget {
     required this.streak,
     required this.showStreakBadge,
     required this.onCellTap,
+    required this.onBack,
+    required this.onRestart,
   });
 
   @override
@@ -1243,24 +1251,20 @@ class _BoardScreen extends StatelessWidget {
                     // Reserve enough top space for the floating tab above
                     // the score pill so it doesn't clip under SafeArea.
                     const SizedBox(height: 12),
-                    // Top bar: score pill centred + pause button right.
-                    Padding(
+                    // Top bar: back button left + score pill centred + restart button right
+                    GameHudBar(
                       padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                      child: Row(
-                        children: [
-                          const SizedBox(width: 48),
-                          Expanded(
-                            child: Center(
-                              child: _ScoreBoardPill(
-                                mode: mode,
-                                difficulty: difficulty,
-                                xWins: xWins,
-                                oWins: oWins,
-                              ),
-                            ),
-                          ),
-                          const GamePauseButton(),
-                        ],
+                      leading: GameBackButton(onTap: onBack),
+                      centerContent: _ScoreBoardPill(
+                        mode: mode,
+                        difficulty: difficulty,
+                        xWins: xWins,
+                        oWins: oWins,
+                      ),
+                      trailing: GameRestartButton(
+                        gameName: 'Tic Tac Toe',
+                        accentColor: _kAiColor,
+                        onRestart: onRestart,
                       ),
                     ),
                     // Streak badge appears inline with a small AnimatedSize

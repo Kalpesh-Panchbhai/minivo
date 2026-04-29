@@ -3,9 +3,12 @@ import 'package:flutter/material.dart';
 /// Snake Classic brand logo. Renders as a [size]×[size] square that fills the
 /// host tile (mosaic_game_tile, game_card, home_screen, etc.).
 ///
-/// Design: green gradient field with a stylised pixel snake snaking across
-/// and a red apple in the corner. `CustomPaint` keeps the elements crisp at
-/// any size from the 60×60 home thumbnail to the 96×96 detail-screen badge.
+/// Design mirrors the in-game look: a smooth bezier-tapered snake body with
+/// a head bulge and an apple drawn in the same red+glow+highlight+leaf
+/// style as the playing-field food. The brand stays white-on-green for
+/// silhouette legibility at the 60×60 home thumbnail size — using the
+/// in-game dark green on its own dark green background would crush the
+/// shape.
 ///
 /// Referenced from `GameRegistry`'s `snake_classic` entry as a const tear-off
 /// so it can sit inside `const GameInfo(...)`.
@@ -20,75 +23,138 @@ Widget buildSnakeLogo(double size) {
         end: Alignment.bottomRight,
       ),
     ),
-    child: CustomPaint(
-      size: Size(size, size),
-      painter: _SnakeLogoPainter(),
+    child: ClipRect(
+      child: CustomPaint(
+        size: Size(size, size),
+        painter: _SnakeLogoPainter(),
+      ),
     ),
   );
 }
 
 class _SnakeLogoPainter extends CustomPainter {
+  // Logical 6×6 grid. Snake centers run head→tail (matches the in-game
+  // painter's convention so we can reuse the same drawing algorithm).
+  // Layout: head at (4, 2) with the body curling down-and-left to the
+  // tail at (0, 4) — a clear "S" silhouette aimed at the apple above.
+  static const _cells = <(int, int)>[
+    (4, 2), // head
+    (3, 2),
+    (2, 2),
+    (2, 3),
+    (2, 4),
+    (1, 4),
+    (0, 4), // tail
+  ];
+
+  static const _appleCellX = 5;
+  static const _appleCellY = 1;
+
+  // In-game palette so the apple matches the gameplay food exactly.
+  static const _foodColor = Color(0xFFEF4444);
+  static const _foodGlow  = Color(0xFFFFB4B4);
+  static const _leafColor = Color(0xFF22C55E);
+  static const _eyeColor  = Color(0xFF1B3A2A);
+
+  static double _lerp(double a, double b, double t) => a + (b - a) * t;
+
+  static const _textColor = Color(0xFFFFFFFF);
+  static const _fontSize = 16.0;
+
   @override
   void paint(Canvas canvas, Size size) {
-    // Logical 6×6 grid keeps the snake recognisable at any rendered size.
     final cs = size.width / 6;
-    final inset = cs * 0.10;
 
-    // Snake body — S-curve from left to right.
-    const cells = <(int, int)>[
-      (0, 4), (1, 4), (2, 4),  // bottom run
-      (2, 3),                   // turn up
-      (2, 2), (3, 2), (4, 2),  // middle run (head at end)
+    // Snake centers in pixel space.
+    final centers = <Offset>[
+      for (final (x, y) in _cells)
+        Offset((x + 0.5) * cs, (y + 0.5) * cs),
     ];
 
-    final body = Paint()..color = Colors.white;
-    for (int i = 0; i < cells.length - 1; i++) {
-      final (x, y) = cells[i];
-      final r = Rect.fromLTWH(
-        x * cs + inset, y * cs + inset,
-        cs - 2 * inset, cs - 2 * inset,
-      );
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(r, Radius.circular(cs * 0.24)),
-        body,
-      );
+    // Sub-segments — each runs from midpoint(i-1, i) through centers[i]
+    // (control point) to midpoint(i, i+1). Endpoints clamp to head/tail.
+    // This is the same algorithm the in-game painter uses, so logo and
+    // gameplay share the same tapered, smoothly-curved silhouette.
+    final n = centers.length;
+    final segs = <(Offset, Offset, Offset, double)>[];
+    for (int i = 0; i < n - 1; i++) {
+      final from = i == 0
+          ? centers[0]
+          : Offset.lerp(centers[i - 1], centers[i], 0.5)!;
+      final to = i == n - 2
+          ? centers.last
+          : Offset.lerp(centers[i], centers[i + 1], 0.5)!;
+      final ctl = centers[i];
+      segs.add((from, ctl, to, i / (n - 1)));
     }
 
-    // Snake head — same shape but with an eye dot for character.
-    final (hx, hy) = cells.last;
-    final headRect = Rect.fromLTWH(
-      hx * cs + inset, hy * cs + inset,
-      cs - 2 * inset, cs - 2 * inset,
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(headRect, Radius.circular(cs * 0.24)),
-      body,
-    );
+    // Body — single tapered white stroke for high contrast on the
+    // green gradient. Width tapers from 0.82×cs at the head to
+    // 0.42×cs at the tail.
+    final body = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    for (final (from, ctl, to, p) in segs) {
+      body.strokeWidth = _lerp(cs * 0.82, cs * 0.42, p);
+      final path = Path()
+        ..moveTo(from.dx, from.dy)
+        ..quadraticBezierTo(ctl.dx, ctl.dy, to.dx, to.dy);
+      canvas.drawPath(path, body);
+    }
+
+    // Head bulge — slightly larger circle for a distinct silhouette.
+    final head = centers.first;
+    canvas.drawCircle(head, cs * 0.45, Paint()..color = Colors.white);
+
+    // Single eye, oriented toward the apple (up-right).
     canvas.drawCircle(
-      Offset((hx + 0.72) * cs, (hy + 0.40) * cs),
+      Offset(head.dx + cs * 0.15, head.dy - cs * 0.10),
       cs * 0.09,
-      Paint()..color = const Color(0xFF1B3A2A),
+      Paint()..color = _eyeColor,
     );
 
-    // Apple — top-right corner with a tiny green leaf.
-    final apple = Offset(5 * cs, 1 * cs);
+    // Apple — same construction as the in-game painter's food: outer
+    // glow, body, highlight blip, leaf. Top-right corner of the logo.
+    final apple = Offset((_appleCellX + 0.5) * cs, (_appleCellY + 0.5) * cs);
     canvas.drawCircle(
-      apple, cs * 0.32,
-      Paint()..color = const Color(0xFFEF4444),
+      apple, cs * 0.55,
+      Paint()
+        ..color = _foodColor.withValues(alpha: 0.22)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, cs * 0.30),
     );
-    // Highlight blip
+    canvas.drawCircle(apple, cs * 0.36, Paint()..color = _foodColor);
     canvas.drawCircle(
       Offset(apple.dx - cs * 0.10, apple.dy - cs * 0.10),
-      cs * 0.08,
-      Paint()..color = const Color(0xFFFFB4B4),
+      cs * 0.11,
+      Paint()..color = _foodGlow.withValues(alpha: 0.85),
     );
-    // Leaf
     canvas.drawOval(
       Rect.fromCenter(
-        center: Offset(apple.dx + cs * 0.10, apple.dy - cs * 0.32),
-        width: cs * 0.20, height: cs * 0.10,
+        center: Offset(apple.dx + cs * 0.08, apple.dy - cs * 0.34),
+        width: cs * 0.22, height: cs * 0.11,
       ),
-      Paint()..color = const Color(0xFF22C55E),
+      Paint()..color = _leafColor,
+    );
+
+    // Game name at bottom
+    final textPainter = TextPainter(
+      text: const TextSpan(
+        text: 'SNAKE',
+        style: TextStyle(
+          color: _textColor,
+          fontWeight: FontWeight.w900,
+          fontSize: _fontSize,
+          letterSpacing: 0.5,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    );
+    textPainter.layout();
+    textPainter.paint(
+      canvas,
+      Offset((size.width - textPainter.width) / 2, size.height - cs * 0.7),
     );
   }
 

@@ -6,6 +6,7 @@ import 'number_merge/number_merge_screen.dart';
 import 'block_fit/block_fit_screen.dart';
 import 'snake_classic/snake_classic_logo.dart';
 import 'snake_classic/snake_classic_screen.dart';
+import 'tic_tac_toe/tic_tac_toe_logo.dart';
 import 'tic_tac_toe/tic_tac_toe_screen.dart';
 
 typedef GameWidgetBuilder = Widget Function();
@@ -154,7 +155,7 @@ class GameRegistry {
       color: Color(0xFFBE4BDB),
       bgColor: Color(0xFFF8F0FC),
       playCount: 8900,
-      iconAsset: 'assets/games/tic_tac_toe/icon.png',
+      customLogo: buildTicTacToeLogo,
     ),
   ];
 

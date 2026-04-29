@@ -12,6 +12,8 @@ import '../game_registry.dart';
 import '../game_wrapper.dart';
 import '../shared/animated_background.dart';
 import '../shared/animated_difficulty_icon.dart';
+import '../shared/game_control_buttons.dart';
+import '../shared/game_hud_bar.dart';
 import '../shared/generic_game_result_screen.dart' as game_result;
 import '../shared/spinning_slider.dart';
 import 'number_merge_stats.dart';
@@ -563,29 +565,17 @@ class _NumberMergeScreenState extends State<NumberMergeScreen> {
   }
 
   Widget _buildGameHud() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _HudCircleButton(
-            icon: Icons.arrow_back_ios_new_rounded,
-            onTap: _backToPicker,
-          ),
-          Expanded(
-            child: Center(
-              child: _ScoreBoardPill(
-                difficulty: _activeDifficulty!,
-                score: _score,
-                best: _bestScore,
-              ),
-            ),
-          ),
-          _HudCircleButton(
-            icon: Icons.refresh_rounded,
-            onTap: _newGame,
-          ),
-        ],
+    return GameHudBar(
+      leading: GameBackButton(onTap: _backToPicker),
+      centerContent: _ScoreBoardPill(
+        difficulty: _activeDifficulty!,
+        score: _score,
+        best: _bestScore,
+      ),
+      trailing: GameRestartButton(
+        gameName: '2048 Merge',
+        accentColor: _kGolden,
+        onRestart: _newGame,
       ),
     );
   }
@@ -1345,51 +1335,6 @@ class _ScoreBoardPill extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _HudCircleButton extends StatefulWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-  const _HudCircleButton({required this.icon, required this.onTap});
-
-  @override
-  State<_HudCircleButton> createState() => _HudCircleButtonState();
-}
-
-class _HudCircleButtonState extends State<_HudCircleButton> {
-  bool _pressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) {
-        setState(() => _pressed = false);
-        widget.onTap();
-      },
-      onTapCancel: () => setState(() => _pressed = false),
-      child: AnimatedScale(
-        scale: _pressed ? 0.92 : 1.0,
-        duration: const Duration(milliseconds: 120),
-        child: Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.10),
-                blurRadius: 16,
-                offset: const Offset(0, 6),
-              ),
-            ],
-          ),
-          child: Icon(widget.icon, size: 22, color: _kTextDark),
-        ),
-      ),
     );
   }
 }
