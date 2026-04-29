@@ -5,14 +5,15 @@ import '../features/onboarding/onboarding_screen.dart';
 import '../features/home/main_shell.dart';
 import '../features/search/search_screen.dart';
 import '../features/category/category_screen.dart';
-import '../features/game_detail/game_detail_screen.dart';
 import '../features/settings/settings_screen.dart';
 import '../features/achievements/achievements_screen.dart';
 import '../games/game_play_screen.dart';
+import '../games/game_registry.dart';
+import '../games/shared/single_mode_game_screen.dart';
 
 /// App-wide route observer. Subscribed to by screens that need to refresh
 /// when the user pops back to them (e.g. HomeScreen refreshing the
-/// favourites rail after toggling a heart on GameDetailScreen).
+/// favourites rail after toggling a heart on a detail screen).
 final RouteObserver<PageRoute<dynamic>> appRouteObserver =
     RouteObserver<PageRoute<dynamic>>();
 
@@ -47,11 +48,14 @@ class AppRouter {
         path: '/game/:id',
         redirect: (context, state) {
           final id = state.pathParameters['id'];
-          // Games with built-in mode pickers bypass the generic detail screen.
-          if (id == 'tic_tac_toe' || id == 'number_merge') return '/play/$id';
+          // Games with built-in mode pickers handle the detail UX themselves
+          // — route straight to the picker/play screen.
+          if (id != null && GameRegistry.usesCombinedPickerScreen(id)) {
+            return '/play/$id';
+          }
           return null;
         },
-        builder: (context, state) => GameDetailScreen(
+        builder: (context, state) => SingleModeGameScreen(
           gameId: state.pathParameters['id']!,
         ),
       ),

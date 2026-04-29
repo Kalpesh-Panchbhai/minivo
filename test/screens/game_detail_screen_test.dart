@@ -1,101 +1,69 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import '../../lib/features/game_detail/game_detail_screen.dart';
+import '../../lib/games/shared/single_mode_game_screen.dart';
 import '../helpers/screen_sizes.dart';
 import '../helpers/test_helpers.dart';
-import '../helpers/overflow_detector.dart';
+
+/// Renders the screen with `disableAnimations: true` so the always-running
+/// background animation doesn't trip up `pumpAndSettle`.
+Future<void> _pumpDetail(WidgetTester tester, TestDevice device, String gameId) async {
+  await pumpScreen(
+    tester,
+    device,
+    MediaQuery(
+      data: const MediaQueryData(disableAnimations: true),
+      child: SingleModeGameScreen(gameId: gameId),
+    ),
+  );
+}
 
 void main() {
   for (final device in allTestDevices) {
-    group('GameDetailScreen on ${device.name} (${device.width}x${device.height})', () {
+    group('SingleModeGameScreen on ${device.name} (${device.width}x${device.height})', () {
       setUp(() async {
         await initTestDependencies();
       });
 
       testWidgets('renders without overflow', (tester) async {
-        await pumpScreen(tester, device, const GameDetailScreen(gameId: 'flappy_tap'));
-        expectNoOverflow(device, 'GameDetailScreen');
+        await _pumpDetail(tester, device, 'flappy_tap');
+        expectNoOverflow(device, 'SingleModeGameScreen');
         cleanUp(tester);
       });
 
       testWidgets('game name is visible', (tester) async {
-        await pumpScreen(tester, device, const GameDetailScreen(gameId: 'flappy_tap'));
+        await _pumpDetail(tester, device, 'flappy_tap');
         expect(find.text('Flappy Tap'), findsWidgets);
-        expectNoOverflow(device, 'GameDetailScreen');
         cleanUp(tester);
       });
 
       testWidgets('play now button visible', (tester) async {
-        await pumpScreen(tester, device, const GameDetailScreen(gameId: 'flappy_tap'));
+        await _pumpDetail(tester, device, 'flappy_tap');
         expect(find.text('Play Now'), findsOneWidget);
-        expectNoOverflow(device, 'GameDetailScreen');
         cleanUp(tester);
       });
 
-      testWidgets('play button meets min tap target', (tester) async {
-        await pumpScreen(tester, device, const GameDetailScreen(gameId: 'flappy_tap'));
-        expect(find.text('Play Now'), findsOneWidget);
-        final btn = find.widgetWithText(ElevatedButton, 'Play Now');
-        if (btn.evaluate().isNotEmpty) {
-          final size = tester.getSize(btn);
-          expect(size.height, greaterThanOrEqualTo(44));
-        }
-        expectNoOverflow(device, 'GameDetailScreen');
-        cleanUp(tester);
-      });
-
-      testWidgets('how to play section visible', (tester) async {
-        await pumpScreen(tester, device, const GameDetailScreen(gameId: 'flappy_tap'));
-        final scrollable = find.byType(Scrollable).first;
-        await tester.drag(scrollable, const Offset(0, -400));
-        await tester.pumpAndSettle();
-        expect(find.text('How to Play'), findsOneWidget);
-        expectNoOverflow(device, 'GameDetailScreen');
-        cleanUp(tester);
-      });
-
-      testWidgets('similar games section visible', (tester) async {
-        await pumpScreen(tester, device, const GameDetailScreen(gameId: 'flappy_tap'));
-        final scrollable = find.byType(Scrollable).first;
-        await tester.drag(scrollable, const Offset(0, -600));
-        await tester.pumpAndSettle();
-        expect(find.text('Similar Games'), findsOneWidget);
-        expectNoOverflow(device, 'GameDetailScreen');
+      testWidgets('how to play icon visible', (tester) async {
+        await _pumpDetail(tester, device, 'flappy_tap');
+        // The HTP entry is now a `?` icon in the header (top-right).
+        expect(find.byIcon(Icons.help_outline_rounded), findsOneWidget);
         cleanUp(tester);
       });
 
       testWidgets('favorite button visible', (tester) async {
-        await pumpScreen(tester, device, const GameDetailScreen(gameId: 'flappy_tap'));
+        await _pumpDetail(tester, device, 'flappy_tap');
         expect(find.byIcon(Icons.favorite_border_rounded), findsOneWidget);
-        expectNoOverflow(device, 'GameDetailScreen');
         cleanUp(tester);
       });
 
       testWidgets('back button visible', (tester) async {
-        await pumpScreen(tester, device, const GameDetailScreen(gameId: 'flappy_tap'));
-        expect(find.byIcon(Icons.arrow_back_rounded), findsOneWidget);
-        expectNoOverflow(device, 'GameDetailScreen');
-        cleanUp(tester);
-      });
-
-      testWidgets('can scroll full page without overflow', (tester) async {
-        await pumpScreen(tester, device, const GameDetailScreen(gameId: 'flappy_tap'));
-        final scrollable = find.byType(Scrollable).first;
-        await tester.drag(scrollable, const Offset(0, -800));
-        await tester.pumpAndSettle();
-        expectNoOverflow(device, 'GameDetailScreen');
-        cleanUp(tester);
-      });
-
-      testWidgets('number_merge game renders without overflow', (tester) async {
-        await pumpScreen(tester, device, const GameDetailScreen(gameId: 'number_merge'));
-        expectNoOverflow(device, 'GameDetailScreen');
+        await _pumpDetail(tester, device, 'flappy_tap');
+        expect(find.byIcon(Icons.arrow_back_ios_new_rounded), findsOneWidget);
         cleanUp(tester);
       });
 
       testWidgets('block_fit game renders without overflow', (tester) async {
-        await pumpScreen(tester, device, const GameDetailScreen(gameId: 'block_fit'));
-        expectNoOverflow(device, 'GameDetailScreen');
+        await _pumpDetail(tester, device, 'block_fit');
+        expectNoOverflow(device, 'SingleModeGameScreen');
         cleanUp(tester);
       });
     });

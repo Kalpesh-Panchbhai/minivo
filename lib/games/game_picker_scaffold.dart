@@ -5,7 +5,10 @@ import 'package:flutter/material.dart';
 class GamePickerScaffold extends StatelessWidget {
   final Color bgColorTop;
   final Color bgColorBottom;
-  final CustomPainter? bgPainter;
+  /// Optional fully-formed background widget (typically [AnimatedBackground]).
+  /// Painted behind the foreground content via [IgnorePointer]. Use this
+  /// instead of a static painter so the bg can animate.
+  final Widget? animatedBg;
 
   // Icon area
   final List<Color> iconRingColors; // 3 colors for SweepGradient
@@ -19,11 +22,15 @@ class GamePickerScaffold extends StatelessWidget {
   final VoidCallback onBack;
   final bool isFavorite;
   final VoidCallback onFavoriteToggle;
-  final VoidCallback? onHelp; // if null, help button not shown
 
   // Body
   final Widget body;
-  final VoidCallback? onHowToPlay; // if null, HTP link not shown
+
+  /// Opens the "How to play" sheet. Renders as a `?` icon in the top-right
+  /// of the header (the universally-recognized re-entry point in 2025
+  /// casual games — Wordle, Block Blast, NYT puzzles, Sudoku.com).
+  /// If null, the icon is hidden.
+  final VoidCallback? onHowToPlay;
 
   // Layout threshold
   final double tallThreshold;
@@ -32,7 +39,7 @@ class GamePickerScaffold extends StatelessWidget {
     super.key,
     required this.bgColorTop,
     required this.bgColorBottom,
-    this.bgPainter,
+    this.animatedBg,
     required this.iconRingColors,
     required this.iconChild,
     required this.title,
@@ -40,7 +47,6 @@ class GamePickerScaffold extends StatelessWidget {
     required this.onBack,
     required this.isFavorite,
     required this.onFavoriteToggle,
-    this.onHelp,
     required this.body,
     this.onHowToPlay,
     this.tallThreshold = 800,
@@ -59,13 +65,8 @@ class GamePickerScaffold extends StatelessWidget {
         ),
         child: Stack(
           children: [
-            if (bgPainter != null)
-              IgnorePointer(
-                child: CustomPaint(
-                  size: Size.infinite,
-                  painter: bgPainter,
-                ),
-              ),
+            if (animatedBg != null)
+              Positioned.fill(child: animatedBg!),
             SafeArea(
               child: LayoutBuilder(
                 builder: (context, constraints) {
@@ -102,10 +103,10 @@ class GamePickerScaffold extends StatelessWidget {
             ringColor: ringColor,
           ),
           const Spacer(),
-          if (onHelp != null) ...[
+          if (onHowToPlay != null) ...[
             _GameNavButton(
               icon: Icons.help_outline_rounded,
-              onTap: onHelp!,
+              onTap: onHowToPlay!,
               ringColor: ringColor,
             ),
             const SizedBox(width: 10),
@@ -162,39 +163,9 @@ class GamePickerScaffold extends StatelessWidget {
     );
   }
 
-  Widget _buildHowToPlayLink() {
-    if (onHowToPlay == null) return const SizedBox.shrink();
-    final mutedColor = const Color(0xFF9E9E9E);
-    return Center(
-      child: GestureDetector(
-        onTap: onHowToPlay,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.help_outline_rounded, size: 14, color: mutedColor),
-              const SizedBox(width: 4),
-              Text(
-                'How to play?',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: mutedColor,
-                  decoration: TextDecoration.underline,
-                  decorationColor: mutedColor,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildTallBody() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 10),
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -202,7 +173,6 @@ class GamePickerScaffold extends StatelessWidget {
           _buildTitleArea(),
           const Spacer(flex: 3),
           body,
-          _buildHowToPlayLink(),
         ],
       ),
     );
@@ -210,14 +180,13 @@ class GamePickerScaffold extends StatelessWidget {
 
   Widget _buildScrollBody() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _buildTitleArea(),
           const SizedBox(height: 22),
           body,
-          _buildHowToPlayLink(),
         ],
       ),
     );

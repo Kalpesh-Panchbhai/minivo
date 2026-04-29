@@ -24,7 +24,7 @@ class GameCard extends StatelessWidget {
   }
 
   Widget _buildFull(BuildContext context) {
-    final hasAsset = game.iconAsset != null;
+    final hasBranded = game.hasBrandedLogo;
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -41,12 +41,12 @@ class GameCard extends StatelessWidget {
           ],
         ),
         clipBehavior: Clip.antiAlias,
-        child: hasAsset
-            ? Image.asset(
-                game.iconAsset!,
-                fit: BoxFit.cover,
-                width: double.infinity,
-                height: double.infinity,
+        child: hasBranded
+            ? LayoutBuilder(
+                builder: (context, c) => game.buildBrandedLogo(
+                      size: c.maxWidth > c.maxHeight ? c.maxWidth : c.maxHeight,
+                    ) ??
+                    const SizedBox.shrink(),
               )
             : Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -125,19 +125,14 @@ class GameCard extends StatelessWidget {
                 ],
               ),
               clipBehavior: Clip.antiAlias,
-              child: game.iconAsset != null
-                  ? Image.asset(
-                      game.iconAsset!,
-                      fit: BoxFit.cover,
-                      width: 64,
-                      height: 64,
-                    )
+              child: game.hasBrandedLogo
+                  ? game.buildBrandedLogo(size: 64)
                   : Center(
                       child: game.buildIcon(size: 30),
                     ),
             ),
             const SizedBox(height: 8),
-            if (game.iconAsset == null)
+            if (!game.hasBrandedLogo)
               Text(
                 game.name,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(

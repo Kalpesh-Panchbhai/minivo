@@ -26,7 +26,7 @@ class MosaicGameTile extends StatelessWidget {
   bool get _isSmall => tileSize == TileSize.small;
   bool get _isBig => tileSize == TileSize.large || tileSize == TileSize.medium;
 
-  bool get _hasAsset => game.iconAsset != null;
+  bool get _hasBranded => game.hasBrandedLogo;
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +34,7 @@ class MosaicGameTile extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          gradient: _hasAsset
+          gradient: _hasBranded
               ? null
               : LinearGradient(
                   begin: Alignment.topCenter,
@@ -44,18 +44,20 @@ class MosaicGameTile extends StatelessWidget {
                     game.color.withValues(alpha: 0.25),
                   ],
                 ),
-          color: _hasAsset ? game.bgColor : null,
+          color: _hasBranded ? game.bgColor : null,
           borderRadius: BorderRadius.circular(_isSmall ? 10 : 14),
         ),
         clipBehavior: Clip.antiAlias,
         child: Stack(
           fit: StackFit.expand,
           children: [
-            if (_hasAsset)
+            if (_hasBranded)
               Positioned.fill(
-                child: Image.asset(
-                  game.iconAsset!,
-                  fit: BoxFit.cover,
+                child: LayoutBuilder(
+                  builder: (context, c) => game.buildBrandedLogo(
+                        size: c.maxWidth > c.maxHeight ? c.maxWidth : c.maxHeight,
+                      ) ??
+                      const SizedBox.shrink(),
                 ),
               )
             else ...[
@@ -82,7 +84,7 @@ class MosaicGameTile extends StatelessWidget {
                 ),
               ),
             ],
-            if (!_hasAsset)
+            if (!_hasBranded)
               Positioned(
                 left: 0,
                 right: 0,

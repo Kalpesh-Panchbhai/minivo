@@ -222,13 +222,8 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                           ),
                         ),
                         clipBehavior: Clip.antiAlias,
-                        child: game.iconAsset != null
-                            ? Image.asset(
-                                game.iconAsset!,
-                                fit: BoxFit.cover,
-                                width: 60,
-                                height: 60,
-                              )
+                        child: game.hasBrandedLogo
+                            ? game.buildBrandedLogo(size: 60)
                             : Center(child: game.buildIcon(size: 28)),
                       ),
                       // Tiny heart badge in the top-right corner.
@@ -304,13 +299,8 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                     ),
                   ),
                   clipBehavior: Clip.antiAlias,
-                  child: game.iconAsset != null
-                      ? Image.asset(
-                          game.iconAsset!,
-                          fit: BoxFit.cover,
-                          width: 60,
-                          height: 60,
-                        )
+                  child: game.hasBrandedLogo
+                      ? game.buildBrandedLogo(size: 60)
                       : Center(
                           child: game.buildIcon(size: 28),
                         ),

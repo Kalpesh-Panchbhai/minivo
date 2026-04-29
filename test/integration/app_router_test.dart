@@ -9,6 +9,12 @@ import '../../lib/routing/app_router.dart';
 Widget _app() => MaterialApp.router(
       theme: AppTheme.light,
       routerConfig: AppRouter.router,
+      // Disable always-running picker animations during tests so
+      // `pumpAndSettle` doesn't time out waiting for them to drain.
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(disableAnimations: true),
+        child: child!,
+      ),
     );
 
 Future<void> _pump(WidgetTester tester) async {
@@ -71,14 +77,16 @@ void main() {
       expect(find.text('Play vs. AI'), findsOneWidget);
     });
 
-    testWidgets('/game/flappy_tap renders GameDetailScreen', (tester) async {
+    testWidgets('/game/flappy_tap renders SingleModeGameScreen', (tester) async {
       await ScoreService().setOnboardingSeen();
       await _pump(tester);
       await tester.pump(const Duration(milliseconds: 2200));
       await tester.pumpAndSettle();
       AppRouter.router.go('/game/flappy_tap');
       await tester.pumpAndSettle();
-      expect(find.text('How to Play'), findsWidgets);
+      // Generic detail screen surfaces the game name + Play Now CTA.
+      expect(find.text('Flappy Tap'), findsWidgets);
+      expect(find.text('Play Now'), findsOneWidget);
     });
   });
 }

@@ -9,6 +9,9 @@ import '../../core/widgets/how_to_play_sheet.dart';
 import '../game_picker_scaffold.dart';
 import '../game_registry.dart';
 import '../game_wrapper.dart';
+import '../shared/animated_background.dart';
+import '../shared/animated_difficulty_icon.dart';
+import '../shared/spinning_slider.dart';
 import 'tic_tac_toe_stats.dart';
 
 /// Test-only override for the very first starter pick of a session.
@@ -600,19 +603,18 @@ class _ModePickerScreen extends StatelessWidget {
     return GamePickerScaffold(
       bgColorTop: _kBgTop,
       bgColorBottom: _kBgBot,
-      bgPainter: _TttBackgroundPainter(),
+      animatedBg: AnimatedBackground(
+        factory: (t) => _TttBackgroundPainter(t),
+        period: const Duration(seconds: 9),
+      ),
       iconRingColors: const [Color(0xFF6C4EF3), Color(0xFFFF5A5F), Color(0xFF6C4EF3)],
       iconChild: Builder(builder: (ctx) {
         final info = GameRegistry.getById(kTicTacToeGameId);
-        if (info?.iconAsset != null) {
+        final logo = info?.buildBrandedLogo(size: 84);
+        if (logo != null) {
           return ClipRRect(
             borderRadius: BorderRadius.circular(42),
-            child: Image.asset(
-              info!.iconAsset!,
-              width: 84,
-              height: 84,
-              fit: BoxFit.cover,
-            ),
+            child: logo,
           );
         }
         return const Icon(Icons.close_rounded, size: 40, color: Color(0xFF6C4EF3));
@@ -622,7 +624,6 @@ class _ModePickerScreen extends StatelessWidget {
       onBack: onBack,
       isFavorite: isFavorite,
       onFavoriteToggle: onFavoriteToggle,
-      onHelp: onHelp,
       onHowToPlay: onHelp,
       tallThreshold: 860,
       body: Column(
@@ -853,9 +854,14 @@ class _DifficultyHint extends StatelessWidget {
   }
 }
 
-class _TttBackgroundPainter extends CustomPainter {
+/// Animated TTT background — X's, O's and mini-grids gently bob and rotate
+/// with phase-offset sine waves so the canvas feels alive without distracting.
+class _TttBackgroundPainter extends AnimatedBgPainter {
+  const _TttBackgroundPainter(super.t);
+
   @override
-  void paint(Canvas canvas, Size size) {
+  void paintAt(Canvas canvas, Size size, double t) {
+    final phase = t * 2 * math.pi;
     final xPaint = Paint()
       ..color = const Color(0xFFE85D75).withValues(alpha: 0.10)
       ..strokeWidth = 3.5
@@ -871,53 +877,76 @@ class _TttBackgroundPainter extends CustomPainter {
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke;
 
-    void drawX(double cx, double cy, double r) {
-      canvas.drawLine(Offset(cx - r, cy - r), Offset(cx + r, cy + r), xPaint);
-      canvas.drawLine(Offset(cx + r, cy - r), Offset(cx - r, cy + r), xPaint);
+    void drawX(double cx, double cy, double r, double itemPhase) {
+      final rot = math.sin(phase + itemPhase) * 0.12; // slight tilt
+      canvas.save();
+      canvas.translate(cx, cy);
+      canvas.rotate(rot);
+      canvas.drawLine(Offset(-r, -r), Offset(r, r), xPaint);
+      canvas.drawLine(Offset(r, -r), Offset(-r, r), xPaint);
+      canvas.restore();
     }
 
-    void drawO(double cx, double cy, double r) {
-      canvas.drawCircle(Offset(cx, cy), r, oPaint);
+    void drawO(double cx, double cy, double r, double itemPhase) {
+      final pulseR = r + math.sin(phase + itemPhase) * 1.5;
+      canvas.drawCircle(Offset(cx, cy), pulseR, oPaint);
     }
 
-    void drawMiniGrid(double cx, double cy, double size) {
-      final t = size / 3;
-      canvas.drawLine(Offset(cx + t, cy), Offset(cx + t, cy + size), gridPaint);
-      canvas.drawLine(Offset(cx + t * 2, cy), Offset(cx + t * 2, cy + size), gridPaint);
-      canvas.drawLine(Offset(cx, cy + t), Offset(cx + size, cy + t), gridPaint);
-      canvas.drawLine(Offset(cx, cy + t * 2), Offset(cx + size, cy + t * 2), gridPaint);
+    void drawMiniGrid(double cx, double cy, double s, double itemPhase) {
+      final tt = s / 3;
+      final rot = math.sin(phase + itemPhase) * 0.06;
+      canvas.save();
+      canvas.translate(cx + s / 2, cy + s / 2);
+      canvas.rotate(rot);
+      canvas.translate(-s / 2, -s / 2);
+      canvas.drawLine(Offset(tt, 0), Offset(tt, s), gridPaint);
+      canvas.drawLine(Offset(tt * 2, 0), Offset(tt * 2, s), gridPaint);
+      canvas.drawLine(Offset(0, tt), Offset(s, tt), gridPaint);
+      canvas.drawLine(Offset(0, tt * 2), Offset(s, tt * 2), gridPaint);
+      canvas.restore();
     }
 
     final w = size.width;
     final h = size.height;
 
-    // Scatter X's
-    drawX(w * 0.08, h * 0.12, 18);
-    drawX(w * 0.88, h * 0.08, 14);
-    drawX(w * 0.15, h * 0.55, 12);
-    drawX(w * 0.92, h * 0.42, 20);
-    drawX(w * 0.05, h * 0.80, 16);
-    drawX(w * 0.75, h * 0.90, 13);
-    drawX(w * 0.50, h * 0.04, 10);
-    drawX(w * 0.30, h * 0.95, 15);
-
-    // Scatter O's
-    drawO(w * 0.82, h * 0.22, 16);
-    drawO(w * 0.10, h * 0.35, 14);
-    drawO(w * 0.93, h * 0.68, 18);
-    drawO(w * 0.18, h * 0.72, 12);
-    drawO(w * 0.60, h * 0.97, 16);
-    drawO(w * 0.40, h * 0.02, 12);
-    drawO(w * 0.88, h * 0.50, 10);
+    // Each item gets a different phase + a vertical bob so the cluster feels
+    // organic instead of moving in lock-step. Bob amplitude is tile-radius
+    // proportional so smaller marks barely shift.
+    final items = [
+      // X marks: (xRel, yRel, radius, phase)
+      ('x', 0.08, 0.12, 18.0, 0.0),
+      ('x', 0.88, 0.08, 14.0, 0.7),
+      ('x', 0.15, 0.55, 12.0, 1.4),
+      ('x', 0.92, 0.42, 20.0, 2.1),
+      ('x', 0.05, 0.80, 16.0, 2.8),
+      ('x', 0.75, 0.90, 13.0, 3.5),
+      ('x', 0.50, 0.04, 10.0, 4.2),
+      ('x', 0.30, 0.95, 15.0, 4.9),
+      // O marks
+      ('o', 0.82, 0.22, 16.0, 0.3),
+      ('o', 0.10, 0.35, 14.0, 1.0),
+      ('o', 0.93, 0.68, 18.0, 1.7),
+      ('o', 0.18, 0.72, 12.0, 2.4),
+      ('o', 0.60, 0.97, 16.0, 3.1),
+      ('o', 0.40, 0.02, 12.0, 3.8),
+      ('o', 0.88, 0.50, 10.0, 4.5),
+    ];
+    for (final (kind, xRel, yRel, r, p) in items) {
+      final bobY = math.sin(phase + p * 0.5) * (r * 0.18);
+      final x = w * xRel;
+      final y = h * yRel + bobY;
+      if (kind == 'x') {
+        drawX(x, y, r, p);
+      } else {
+        drawO(x, y, r, p);
+      }
+    }
 
     // Mini grids
-    drawMiniGrid(w * 0.70, h * 0.02, 48);
-    drawMiniGrid(w * 0.02, h * 0.90, 40);
-    drawMiniGrid(w * 0.78, h * 0.75, 36);
+    drawMiniGrid(w * 0.70, h * 0.02 + math.sin(phase + 0.5) * 4, 48, 0.5);
+    drawMiniGrid(w * 0.02, h * 0.90 + math.sin(phase + 2.5) * 3, 40, 2.5);
+    drawMiniGrid(w * 0.78, h * 0.75 + math.sin(phase + 4.5) * 4, 36, 4.5);
   }
-
-  @override
-  bool shouldRepaint(covariant _TttBackgroundPainter old) => false;
 }
 
 // ── Difficulty palette ─────────────────────────────────────────────────────
@@ -928,28 +957,29 @@ const Color _kHardColor   = Color(0xFFEF4444); // vivid red
 _DifficultyMeta _difficultyMeta(_Difficulty d) => switch (d) {
       _Difficulty.easy => const _DifficultyMeta(
           label: 'EASY',
-          emoji: '🌱',
           color: _kEasyColor,
         ),
       _Difficulty.medium => const _DifficultyMeta(
           label: 'MEDIUM',
-          emoji: '🔥',
           color: _kMediumColor,
         ),
       _Difficulty.hard => const _DifficultyMeta(
           label: 'HARD',
-          emoji: '💀',
           color: _kHardColor,
         ),
     };
 
+DifficultyKind _kindFor(_Difficulty d) => switch (d) {
+      _Difficulty.easy => DifficultyKind.easy,
+      _Difficulty.medium => DifficultyKind.medium,
+      _Difficulty.hard => DifficultyKind.hard,
+    };
+
 class _DifficultyMeta {
   final String label;
-  final String emoji;
   final Color color;
   const _DifficultyMeta({
     required this.label,
-    required this.emoji,
     required this.color,
   });
 }
@@ -979,8 +1009,8 @@ class _DifficultyLabel extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(meta.emoji, style: const TextStyle(fontSize: 26, height: 1.0)),
-            const SizedBox(width: 10),
+            AnimatedDifficultyIcon(kind: _kindFor(difficulty), size: 32),
+            const SizedBox(width: 12),
             Text(
               meta.label,
               style: TextStyle(
@@ -1007,131 +1037,12 @@ class _DifficultyTrack extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const values = _Difficulty.values;
-    final activeIndex = values.indexOf(difficulty);
-    return LayoutBuilder(
-      builder: (context, c) {
-        final width = c.maxWidth;
-        const trackHeight = 44.0;
-        const knob = 36.0;
-        final stops = [
-          knob / 2,
-          width / 2,
-          width - knob / 2,
-        ];
-        final left = stops[activeIndex] - knob / 2;
-
-        // Pick the closest stop for a given x and notify if it changed.
-        void snapTo(double dx) {
-          final i = stops
-              .asMap()
-              .entries
-              .reduce(
-                (a, b) => (dx - a.value).abs() < (dx - b.value).abs() ? a : b,
-              )
-              .key;
-          if (values[i] != difficulty) onChanged(values[i]);
-        }
-
-        final activeColor = _difficultyMeta(difficulty).color;
-
-        return GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTapDown: (d) => snapTo(d.localPosition.dx),
-          // Live drag: continuously snap to the nearest stop as the finger
-          // moves so the knob feels like it's following the touch.
-          onHorizontalDragStart: (d) => snapTo(d.localPosition.dx),
-          onHorizontalDragUpdate: (d) => snapTo(d.localPosition.dx),
-          child: SizedBox(
-            height: trackHeight,
-            width: width,
-            child: Stack(
-              alignment: Alignment.centerLeft,
-              children: [
-                // Track (neutral mauve baseline).
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  height: 14,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE2DAEE),
-                    borderRadius: BorderRadius.circular(99),
-                  ),
-                ),
-                // Animated coloured progress fill — green at easy, fades
-                // through orange to red as the knob slides right. Always
-                // emits ≥ 2 colours since LinearGradient.lerp (used by
-                // AnimatedContainer) asserts on a single-colour list.
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 240),
-                  curve: Curves.easeOutCubic,
-                  margin: const EdgeInsets.only(left: 4),
-                  height: 14,
-                  width: (stops[activeIndex] - 4).clamp(0.0, width - 8),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: switch (difficulty) {
-                        _Difficulty.easy => const [_kEasyColor, _kEasyColor],
-                        _Difficulty.medium =>
-                          const [_kEasyColor, _kMediumColor],
-                        _Difficulty.hard => const [
-                            _kEasyColor,
-                            _kMediumColor,
-                            _kHardColor,
-                          ],
-                      },
-                    ),
-                    borderRadius: BorderRadius.circular(99),
-                    boxShadow: [
-                      BoxShadow(
-                        color: activeColor.withValues(alpha: 0.30),
-                        blurRadius: 8,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                ),
-                // Stop markers — small dots at each step.
-                for (int i = 0; i < stops.length; i++)
-                  Positioned(
-                    left: stops[i] - 4,
-                    child: Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: i <= activeIndex
-                            ? Colors.white
-                            : const Color(0xFF8475C2).withValues(alpha: 0.18),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  ),
-                // Animated knob — colour matches the active difficulty.
-                AnimatedPositioned(
-                  duration: const Duration(milliseconds: 220),
-                  curve: Curves.easeOutCubic,
-                  left: left,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 240),
-                    width: knob,
-                    height: knob,
-                    decoration: BoxDecoration(
-                      color: activeColor,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 4),
-                      boxShadow: [
-                        BoxShadow(
-                          color: activeColor.withValues(alpha: 0.40),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
+    return SpinningSlider(
+      stopCount: values.length,
+      activeIndex: values.indexOf(difficulty),
+      activeColor: _difficultyMeta(difficulty).color,
+      stopColors: const [_kEasyColor, _kMediumColor, _kHardColor],
+      onChanged: (i) => onChanged(values[i]),
     );
   }
 }
@@ -1674,7 +1585,11 @@ class _ScoreBoardPill extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (isAiMode) ...[
-                Text(meta!.emoji, style: const TextStyle(fontSize: 12)),
+                AnimatedDifficultyIcon(
+                  kind: _kindFor(difficulty),
+                  size: 14,
+                  prominent: false,
+                ),
                 const SizedBox(width: 6),
               ],
               Text(
