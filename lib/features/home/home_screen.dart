@@ -223,7 +223,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
         final screenWidth = constraints.maxWidth;
         final isWide = screenWidth > 600;
         final columns = isWide ? 6 : 3;
-        final spacing = 3.0;
+        final spacing = 12.0;
         final cellSize = (screenWidth - (columns - 1) * spacing) / columns;
 
         final tiles = <_GridTile>[];
