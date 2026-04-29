@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import '../core/constants/app_colors.dart';
@@ -11,14 +12,19 @@ enum GameState { ready, playing, paused, gameOver }
 class GameWrapper extends StatefulWidget {
   final String gameId;
   final Widget child;
+  final bool customOverlays;
 
   const GameWrapper({
     super.key,
     required this.gameId,
     required this.child,
+    this.customOverlays = false,
   });
 
   static GameWrapperState of(BuildContext context) {
+    final scope =
+        context.dependOnInheritedWidgetOfExactType<_GameStateScope>();
+    if (scope != null) return scope._wrapper;
     return context.findAncestorStateOfType<GameWrapperState>()!;
   }
 
@@ -89,9 +95,19 @@ class GameWrapperState extends State<GameWrapper> {
     if (_getStars() == 3) coins += 15;
     ScoreService().addCoins(coins);
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    // Defer state change if we're mid-build/layout, otherwise apply immediately.
+    // Using only addPostFrameCallback can fail to fire when the engine is idle
+    // (e.g. after a long Future.delayed window with no animations running),
+    // because addPostFrameCallback does not itself schedule a frame.
+    final phase = SchedulerBinding.instance.schedulerPhase;
+    if (phase == SchedulerPhase.idle ||
+        phase == SchedulerPhase.postFrameCallbacks) {
       if (mounted) setState(() => _state = GameState.gameOver);
-    });
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _state = GameState.gameOver);
+      });
+    }
   }
 
   void restartGame() {
@@ -113,21 +129,34 @@ class GameWrapperState extends State<GameWrapper> {
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
+        fit: StackFit.expand,
         children: [
-          // Game canvas
-          Positioned.fill(child: widget.child),
+          // Game canvas — wrapped in InheritedWidget so descendants rebuild on state change
+          Positioned.fill(
+            child: _GameStateScope(
+              wrapper: this,
+              state: _state,
+              score: _score,
+              highScore: _highScore,
+              child: widget.child,
+            ),
+          ),
 
-          // HUD
-          if (_state == GameState.playing) _buildHUD(context),
+          // Default HUD — skipped when the game uses a fully custom overlay
+          // and renders its own scoreboard / controls.
+          if (_state == GameState.playing && !widget.customOverlays)
+            _buildHUD(context),
 
           // Ready overlay
-          if (_state == GameState.ready) _buildReadyOverlay(context),
+          if (!widget.customOverlays && _state == GameState.ready)
+            _buildReadyOverlay(context),
 
           // Pause overlay
           if (_state == GameState.paused) _buildPauseOverlay(context),
 
           // Game over overlay
-          if (_state == GameState.gameOver) _buildGameOverOverlay(context),
+          if (!widget.customOverlays && _state == GameState.gameOver)
+            _buildGameOverOverlay(context),
         ],
       ),
     );
@@ -136,47 +165,15 @@ class GameWrapperState extends State<GameWrapper> {
   Widget _buildHUD(BuildContext context) {
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  '$_score',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 32,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                Text(
-                  '${AppStrings.bestScore}: $_highScore',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.6),
-                    fontSize: 13,
-                  ),
-                ),
-              ],
+            _SlideFadeIn(
+              child: _ScoreChip(score: _score, bestScore: _highScore),
             ),
-            GestureDetector(
-              onTap: pauseGame,
-              child: Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: const Icon(
-                  Icons.pause_rounded,
-                  color: Colors.white,
-                  size: 24,
-                ),
-              ),
-            ),
+            const _SlideFadeIn(child: GamePauseButton()),
           ],
         ),
       ),
@@ -406,6 +403,243 @@ class GameWrapperState extends State<GameWrapper> {
             borderRadius: BorderRadius.circular(14),
           ),
           elevation: 0,
+        ),
+      ),
+    );
+  }
+}
+
+class _GameStateScope extends InheritedWidget {
+  final GameState state;
+  final int score;
+  final int highScore;
+  final GameWrapperState _wrapper;
+
+  const _GameStateScope({
+    required this.state,
+    required this.score,
+    required this.highScore,
+    required GameWrapperState wrapper,
+    required super.child,
+  }) : _wrapper = wrapper;
+
+  @override
+  bool updateShouldNotify(_GameStateScope old) =>
+      state != old.state ||
+      score != old.score ||
+      highScore != old.highScore;
+}
+
+// ════════════════════════════════════════════════════════════════
+// REUSABLE HUD COMPONENTS (used by every game via GameWrapper)
+// ════════════════════════════════════════════════════════════════
+
+/// One-shot slide-down + fade-in entrance using TweenAnimationBuilder.
+/// Self-disposing — leaves no pending timers when the widget is unmounted.
+class _SlideFadeIn extends StatelessWidget {
+  final Widget child;
+  const _SlideFadeIn({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: const Duration(milliseconds: 420),
+      curve: Curves.easeOutCubic,
+      builder: (context, t, ch) {
+        return Opacity(
+          opacity: t,
+          child: Transform.translate(
+            offset: Offset(0, (1 - t) * -16),
+            child: ch,
+          ),
+        );
+      },
+      child: child,
+    );
+  }
+}
+
+class _ScoreChip extends StatelessWidget {
+  final int score;
+  final int bestScore;
+
+  const _ScoreChip({required this.score, required this.bestScore});
+
+  @override
+  Widget build(BuildContext context) {
+    final showBest = bestScore > 0;
+    return Container(
+      padding: EdgeInsets.fromLTRB(12, 8, showBest ? 14 : 12, 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.10),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Trophy badge
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFFFC233), Color(0xFFFF8A00)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFFF9500).withValues(alpha: 0.45),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.emoji_events_rounded,
+              size: 18,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Score label
+              Text(
+                'SCORE',
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.2,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 1),
+              // Animated score number
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 280),
+                transitionBuilder: (child, anim) => ScaleTransition(
+                  scale: CurvedAnimation(
+                    parent: anim,
+                    curve: Curves.easeOutBack,
+                  ),
+                  child: FadeTransition(opacity: anim, child: child),
+                ),
+                child: Text(
+                  '$score',
+                  key: ValueKey<int>(score),
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.textPrimary,
+                    height: 1,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (showBest) ...[
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 10),
+              width: 1,
+              height: 26,
+              color: AppColors.textPrimary.withValues(alpha: 0.10),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'BEST',
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.2,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  '$bestScore',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textPrimary.withValues(alpha: 0.7),
+                    height: 1,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Reusable, design-consistent pause button — same look across every game.
+/// If [onTap] is omitted, calls `GameWrapper.of(context).pauseGame()`.
+class GamePauseButton extends StatefulWidget {
+  final VoidCallback? onTap;
+
+  const GamePauseButton({super.key, this.onTap});
+
+  @override
+  State<GamePauseButton> createState() => _GamePauseButtonState();
+}
+
+class _GamePauseButtonState extends State<GamePauseButton> {
+  bool _pressed = false;
+
+  void _handleTap() {
+    if (widget.onTap != null) {
+      widget.onTap!();
+    } else {
+      GameWrapper.of(context).pauseGame();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapCancel: () => setState(() => _pressed = false),
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTap: _handleTap,
+      child: AnimatedScale(
+        scale: _pressed ? 0.92 : 1.0,
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOut,
+        child: Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.10),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: const Icon(
+            Icons.pause_rounded,
+            size: 26,
+            color: AppColors.textPrimary,
+          ),
         ),
       ),
     );

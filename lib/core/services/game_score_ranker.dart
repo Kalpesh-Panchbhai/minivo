@@ -75,15 +75,8 @@ class GameScoreRanker {
         result.add(TileSize.large);
       } else if (i <= 2) {
         result.add(TileSize.medium);
-      } else if (i <= 4) {
-        result.add(TileSize.tall);
       } else {
-        const fill = [
-          TileSize.wide,
-          TileSize.small,
-          TileSize.small,
-        ];
-        result.add(fill[(i - 5) % fill.length]);
+        result.add(TileSize.small);
       }
     }
     return result;

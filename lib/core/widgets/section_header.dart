@@ -23,14 +23,22 @@ class SectionHeader extends StatelessWidget {
             style: Theme.of(context).textTheme.titleMedium,
           ),
           if (onSeeAll != null)
+            // Wrap "See all" so the tap target meets the 44dp minimum the
+            // project rules require.
             GestureDetector(
+              behavior: HitTestBehavior.opaque,
               onTap: onSeeAll,
-              child: Text(
-                'See all',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.w500,
-                    ),
+              child: Container(
+                constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
+                alignment: Alignment.centerRight,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Text(
+                  'See all',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                ),
               ),
             ),
         ],

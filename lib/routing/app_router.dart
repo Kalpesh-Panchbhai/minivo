@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 import '../features/splash/splash_screen.dart';
 import '../features/onboarding/onboarding_screen.dart';
@@ -9,9 +10,16 @@ import '../features/settings/settings_screen.dart';
 import '../features/achievements/achievements_screen.dart';
 import '../games/game_play_screen.dart';
 
+/// App-wide route observer. Subscribed to by screens that need to refresh
+/// when the user pops back to them (e.g. HomeScreen refreshing the
+/// favourites rail after toggling a heart on GameDetailScreen).
+final RouteObserver<PageRoute<dynamic>> appRouteObserver =
+    RouteObserver<PageRoute<dynamic>>();
+
 class AppRouter {
   static final GoRouter router = GoRouter(
     initialLocation: '/',
+    observers: [appRouteObserver],
     routes: [
       GoRoute(
         path: '/',
@@ -37,6 +45,12 @@ class AppRouter {
       ),
       GoRoute(
         path: '/game/:id',
+        redirect: (context, state) {
+          final id = state.pathParameters['id'];
+          // Tic Tac Toe has its own game-screen UI that combines detail + mode picker.
+          if (id == 'tic_tac_toe') return '/play/$id';
+          return null;
+        },
         builder: (context, state) => GameDetailScreen(
           gameId: state.pathParameters['id']!,
         ),

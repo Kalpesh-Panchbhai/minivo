@@ -17,6 +17,7 @@ const _gameIds = [
   'flappy_tap',
   'number_merge',
   'block_fit',
+  'tic_tac_toe',
 ];
 
 void main() {

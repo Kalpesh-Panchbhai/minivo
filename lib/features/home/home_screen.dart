@@ -9,6 +9,7 @@ import '../../core/services/score_service.dart';
 import '../../core/widgets/category_chip.dart';
 import '../../core/widgets/mosaic_grid.dart';
 import '../../games/game_registry.dart';
+import '../../routing/app_router.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -17,11 +18,34 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with RouteAware {
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route is PageRoute) {
+      appRouteObserver.subscribe(this, route);
+    }
+  }
+
+  @override
+  void dispose() {
+    appRouteObserver.unsubscribe(this);
+    super.dispose();
+  }
+
+  // Refresh when the user returns from a pushed route (e.g. game detail or
+  // play screen) so any newly-toggled favourites or recent plays show up.
+  @override
+  void didPopNext() {
+    if (mounted) setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     final rankedGames = GameScoreRanker.rankAllGames();
     final recentIds = ScoreService().getRecentlyPlayed();
+    final favoriteIds = ScoreService().getFavorites();
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -92,6 +116,14 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
 
+            if (favoriteIds.isNotEmpty)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                  child: _buildFavoritesRow(favoriteIds),
+                ),
+              ),
+
             if (recentIds.isNotEmpty)
               SliverToBoxAdapter(
                 child: Padding(
@@ -127,6 +159,108 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  // Favourites rail — heart-marked games surface first so users can jump
+  // straight back into their go-to picks. Mirrors the Recently Played row
+  // visually but with a heart-tinted ring around each tile.
+  Widget _buildFavoritesRow(List<String> favoriteIds) {
+    final games = favoriteIds
+        .map((id) => GameRegistry.getById(id))
+        .where((g) => g != null)
+        .cast<GameInfo>()
+        .toList();
+    if (games.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(
+              Icons.favorite_rounded,
+              size: 18,
+              color: Color(0xFFE85D75),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              AppStrings.favorites,
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w700),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 72,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: games.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            itemBuilder: (context, index) {
+              final game = games[index];
+              return GestureDetector(
+                onTap: () => context.push('/game/${game.id}'),
+                child: SizedBox(
+                  width: 60,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Container(
+                        width: 60,
+                        height: 60,
+                        decoration: BoxDecoration(
+                          color: game.bgColor,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: const Color(0xFFE85D75)
+                                .withValues(alpha: 0.5),
+                            width: 1.5,
+                          ),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: game.iconAsset != null
+                            ? Image.asset(
+                                game.iconAsset!,
+                                fit: BoxFit.cover,
+                                width: 60,
+                                height: 60,
+                              )
+                            : Center(child: game.buildIcon(size: 28)),
+                      ),
+                      // Tiny heart badge in the top-right corner.
+                      Positioned(
+                        top: -3,
+                        right: -3,
+                        child: Container(
+                          width: 18,
+                          height: 18,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE85D75),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: AppColors.background,
+                              width: 2,
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.favorite_rounded,
+                            size: 8,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
@@ -169,9 +303,17 @@ class _HomeScreenState extends State<HomeScreen> {
                       color: game.color.withValues(alpha: 0.2),
                     ),
                   ),
-                  child: Center(
-                    child: Icon(game.icon, color: game.color, size: 28),
-                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: game.iconAsset != null
+                      ? Image.asset(
+                          game.iconAsset!,
+                          fit: BoxFit.cover,
+                          width: 60,
+                          height: 60,
+                        )
+                      : Center(
+                          child: game.buildIcon(size: 28),
+                        ),
                 ),
               );
             },

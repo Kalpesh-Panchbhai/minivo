@@ -216,13 +216,20 @@ class ProfileScreen extends StatelessWidget {
         ),
         if (onTap != null)
           GestureDetector(
+            behavior: HitTestBehavior.opaque,
             onTap: onTap,
-            child: Text(
-              'See all',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w500,
-                  ),
+            child: Container(
+              constraints:
+                  const BoxConstraints(minHeight: 44, minWidth: 44),
+              alignment: Alignment.centerRight,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Text(
+                'See all',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w500,
+                    ),
+              ),
             ),
           ),
       ],

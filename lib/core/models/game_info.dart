@@ -26,6 +26,7 @@ class GameInfo {
   final Color bgColor;
   final int playCount;
   final bool isFeatured;
+  final String? iconAsset;
 
   const GameInfo({
     required this.id,
@@ -38,7 +39,24 @@ class GameInfo {
     required this.bgColor,
     this.playCount = 0,
     this.isFeatured = false,
+    this.iconAsset,
   });
+
+  Widget buildIcon({double size = 48}) {
+    if (iconAsset != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(size * 0.2),
+        child: Image.asset(
+          iconAsset!,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => Icon(icon, size: size, color: color),
+        ),
+      );
+    }
+    return Icon(icon, size: size, color: color);
+  }
 
   String get playCountFormatted {
     if (playCount >= 1000000) {

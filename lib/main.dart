@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'core/constants/app_theme.dart';
 import 'core/services/score_service.dart';
+import 'games/game_stats_bootstrap.dart';
 import 'routing/app_router.dart';
 
 void main() async {
@@ -17,6 +18,7 @@ void main() async {
   ]);
 
   await ScoreService().init();
+  registerAllGameStats();
 
   runApp(const MinivoApp());
 }

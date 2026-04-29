@@ -3,6 +3,7 @@ import '../core/models/game_info.dart';
 import 'flappy_tap/flappy_tap_screen.dart';
 import 'number_merge/number_merge_screen.dart';
 import 'block_fit/block_fit_screen.dart';
+import 'tic_tac_toe/tic_tac_toe_screen.dart';
 
 typedef GameWidgetBuilder = Widget Function();
 
@@ -13,6 +14,7 @@ class GameRegistry {
     'flappy_tap': () => const FlappyTapScreen(),
     'number_merge': () => const NumberMergeScreen(),
     'block_fit': () => const BlockFitScreen(),
+    'tic_tac_toe': () => const TicTacToeScreen(),
   };
 
   static Widget buildGame(String gameId) {
@@ -24,6 +26,11 @@ class GameRegistry {
   }
 
   static bool hasGame(String gameId) => _builders.containsKey(gameId);
+
+  static const Set<String> _customOverlayGames = {'tic_tac_toe'};
+
+  static bool usesCustomOverlays(String gameId) =>
+      _customOverlayGames.contains(gameId);
 
   static final List<GameInfo> allGames = [
     const GameInfo(
@@ -112,12 +119,19 @@ class GameRegistry {
       id: 'tic_tac_toe',
       name: 'Tic Tac Toe',
       description: 'Classic X and O. Play against the computer!',
-      howToPlay: 'Take turns placing X or O on the 3x3 grid. Get three in a row, column, or diagonal to win!',
+      howToPlay:
+          'Choose your difficulty (Easy, Medium, Hard) or play with a friend on the same device.\n'
+          'Players take turns — X always goes first in any given round.\n'
+          'Tap an empty cell on the 3x3 grid to place your mark there.\n'
+          'Get three of your marks in a row, column, or diagonal to win the round.\n'
+          'Win two rounds in a row to start a Streak — keep it going for bragging rights!\n'
+          'After each round the starter alternates, so you both get a fair go.',
       category: GameCategory.board,
       icon: Icons.close_rounded,
       color: Color(0xFFBE4BDB),
       bgColor: Color(0xFFF8F0FC),
       playCount: 8900,
+      iconAsset: 'assets/games/tic_tac_toe/icon.png',
     ),
   ];
 

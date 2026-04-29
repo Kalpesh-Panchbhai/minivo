@@ -11,6 +11,7 @@ class GamePlayScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return GameWrapper(
       gameId: gameId,
+      customOverlays: GameRegistry.usesCustomOverlays(gameId),
       child: GameRegistry.buildGame(gameId),
     );
   }

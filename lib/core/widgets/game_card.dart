@@ -24,6 +24,7 @@ class GameCard extends StatelessWidget {
   }
 
   Widget _buildFull(BuildContext context) {
+    final hasAsset = game.iconAsset != null;
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -40,61 +41,64 @@ class GameCard extends StatelessWidget {
           ],
         ),
         clipBehavior: Clip.antiAlias,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: game.bgColor,
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(20),
-                  ),
-                ),
-                child: Center(
-                  child: Icon(
-                    game.icon,
-                    size: 48,
-                    color: game.color,
-                  ),
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
+        child: hasAsset
+            ? Image.asset(
+                game.iconAsset!,
+                fit: BoxFit.cover,
+                width: double.infinity,
+                height: double.infinity,
+              )
+            : Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    game.name,
-                    style: Theme.of(context).textTheme.titleMedium,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.play_arrow_rounded,
-                        size: 14,
-                        color: AppColors.textHint,
-                      ),
-                      const SizedBox(width: 2),
-                      Flexible(
-                        child: Text(
-                          game.playCountFormatted,
-                          style: Theme.of(context).textTheme.bodySmall,
-                          overflow: TextOverflow.ellipsis,
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: game.bgColor,
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(20),
                         ),
                       ),
-                    ],
+                      child: Center(
+                        child: game.buildIcon(size: 48),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          game.name,
+                          style: Theme.of(context).textTheme.titleMedium,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.play_arrow_rounded,
+                              size: 14,
+                              color: AppColors.textHint,
+                            ),
+                            const SizedBox(width: 2),
+                            Flexible(
+                              child: Text(
+                                game.playCountFormatted,
+                                style: Theme.of(context).textTheme.bodySmall,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -120,21 +124,30 @@ class GameCard extends StatelessWidget {
                   ),
                 ],
               ),
-              child: Center(
-                child: Icon(game.icon, size: 30, color: game.color),
-              ),
+              clipBehavior: Clip.antiAlias,
+              child: game.iconAsset != null
+                  ? Image.asset(
+                      game.iconAsset!,
+                      fit: BoxFit.cover,
+                      width: 64,
+                      height: 64,
+                    )
+                  : Center(
+                      child: game.buildIcon(size: 30),
+                    ),
             ),
             const SizedBox(height: 8),
-            Text(
-              game.name,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.textPrimary,
-                  ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-            ),
+            if (game.iconAsset == null)
+              Text(
+                game.name,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.textPrimary,
+                    ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+              ),
           ],
         ),
       ),

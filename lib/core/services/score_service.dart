@@ -11,17 +11,32 @@ class ScoreService {
     _prefs = await SharedPreferences.getInstance();
   }
 
-  int getHighScore(String gameId) {
-    return _prefs?.getInt('highscore_$gameId') ?? 0;
+  // ── High score (per game, optionally scoped by sub-key) ────────────────
+  // The optional [subKey] lets games bucket scores by difficulty / mode /
+  // board-size / etc. Pass `null` (default) for games with a single bucket.
+  // Storage key: `highscore_<gameId>` or `highscore_<gameId>_<subKey>`.
+
+  String _scoreKey(String gameId, String? subKey) =>
+      subKey == null ? 'highscore_$gameId' : 'highscore_${gameId}_$subKey';
+
+  int getHighScore(String gameId, {String? subKey}) {
+    return _prefs?.getInt(_scoreKey(gameId, subKey)) ?? 0;
   }
 
-  Future<bool> saveScore(String gameId, int score) async {
-    final current = getHighScore(gameId);
+  /// Persists [score] as the new high score iff it beats the existing one.
+  /// Returns `true` when a new high was stored.
+  Future<bool> saveScore(String gameId, int score, {String? subKey}) async {
+    final current = getHighScore(gameId, subKey: subKey);
     if (score > current) {
-      await _prefs?.setInt('highscore_$gameId', score);
+      await _prefs?.setInt(_scoreKey(gameId, subKey), score);
       return true;
     }
     return false;
+  }
+
+  /// Wipe a single high-score bucket. Mostly for tests / settings reset.
+  Future<void> clearHighScore(String gameId, {String? subKey}) async {
+    await _prefs?.remove(_scoreKey(gameId, subKey));
   }
 
   int getTotalGamesPlayed() {
@@ -112,4 +127,5 @@ class ScoreService {
     final current = getGamePlayCount(gameId);
     await _prefs?.setInt('play_count_$gameId', current + 1);
   }
+
 }

@@ -69,7 +69,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
                       value: game.id,
                       child: Row(
                         children: [
-                          Icon(game.icon, size: 20, color: game.color),
+                          game.buildIcon(size: 20),
                           const SizedBox(width: 10),
                           Text(game.name),
                         ],
