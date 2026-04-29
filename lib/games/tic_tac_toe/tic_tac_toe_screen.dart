@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/services/audio_service.dart';
 import '../../core/services/score_service.dart';
 import '../../core/widgets/how_to_play_sheet.dart';
+import '../game_picker_scaffold.dart';
 import '../game_registry.dart';
 import '../game_wrapper.dart';
 import 'tic_tac_toe_stats.dart';
@@ -28,8 +29,6 @@ const Color _kFriendColor = Color(0xFFFF5A5F); // warm coral
 const Color _kBgTop    = Color(0xFFFFF9F5);   // warm cream
 const Color _kBgBot    = Color(0xFFF8F5FF);   // pale lavender
 const Color _kCardBg   = Colors.white;
-const Color _kTextDark = Color(0xFF1C1B4B);   // deep indigo
-const Color _kTextMid  = Color(0xFF8B87A3);   // muted purple-gray
 
 // ── Board ambient tints ────────────────────────────────────────────────────
 // Neutral-warm baseline, leaning warm on X turn and cool on O turn.
@@ -598,65 +597,56 @@ class _ModePickerScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox.expand(
-      child: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [_kBgTop, _kBgBot],
+    return GamePickerScaffold(
+      bgColorTop: _kBgTop,
+      bgColorBottom: _kBgBot,
+      bgPainter: _TttBackgroundPainter(),
+      iconRingColors: const [Color(0xFF6C4EF3), Color(0xFFFF5A5F), Color(0xFF6C4EF3)],
+      iconChild: Builder(builder: (ctx) {
+        final info = GameRegistry.getById(kTicTacToeGameId);
+        if (info?.iconAsset != null) {
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(42),
+            child: Image.asset(
+              info!.iconAsset!,
+              width: 84,
+              height: 84,
+              fit: BoxFit.cover,
+            ),
+          );
+        }
+        return const Icon(Icons.close_rounded, size: 40, color: Color(0xFF6C4EF3));
+      }),
+      title: 'Tic Tac Toe',
+      subtitle: 'Three in a row wins.',
+      onBack: onBack,
+      isFavorite: isFavorite,
+      onFavoriteToggle: onFavoriteToggle,
+      onHelp: onHelp,
+      onHowToPlay: onHelp,
+      tallThreshold: 860,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _AiSection(
+            difficulty: difficulty,
+            onDifficultyChanged: onDifficultyChanged,
+            onPlayAi: onPlayAi,
           ),
-        ),
-        child: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, c) {
-              final isTall = c.maxHeight >= 860;
-              return Stack(
-                children: [
-                  // Full-screen X/O/grid background texture
-                  const _TttBackground(),
-                  Column(
-                    children: [
-                      _PickerHeader(
-                        onBack: onBack,
-                        isFavorite: isFavorite,
-                        onFavoriteToggle: onFavoriteToggle,
-                      ),
-                      Expanded(
-                        child: isTall
-                            ? _PickerBodyTall(
-                                difficulty: difficulty,
-                                onDifficultyChanged: onDifficultyChanged,
-                                onPlayAi: onPlayAi,
-                                onPlayFriend: onPlayFriend,
-                                onHelp: onHelp,
-                              )
-                            : _PickerBodyScroll(
-                                difficulty: difficulty,
-                                onDifficultyChanged: onDifficultyChanged,
-                                onPlayAi: onPlayAi,
-                                onPlayFriend: onPlayFriend,
-                                onHelp: onHelp,
-                              ),
-                      ),
-                    ],
-                  ),
-                ],
-              );
-            },
+          const SizedBox(height: 12),
+          _GameButton(
+            label: 'Play with a Friend',
+            sublabel: 'Pass & play on one device',
+            icon: Icons.people_alt_rounded,
+            gradientColors: const [_kFriendColor, Color(0xFFFF8E53)],
+            onTap: onPlayFriend,
           ),
-        ),
+        ],
       ),
     );
   }
 }
 
-// Tall-screen layout — distributes content with Spacers so the picker fills
-// the whole available height, putting the play buttons within thumb reach.
-// Difficulty card visually attached to the AI play button — sage-tinted card
-// with a robot eyebrow + a downward chevron pointing to the AI CTA below.
-// This makes it visually obvious that the difficulty selector applies only
-// to the "Play vs. AI" mode without saying it in words.
 class _AiSection extends StatelessWidget {
   final _Difficulty difficulty;
   final ValueChanged<_Difficulty> onDifficultyChanged;
@@ -753,277 +743,6 @@ class _AiSection extends StatelessWidget {
             .animate()
             .fadeIn(delay: 200.ms, duration: 320.ms)
             .slideY(begin: 0.08, end: 0, duration: 320.ms),
-      ],
-    );
-  }
-}
-
-class _PickerBodyTall extends StatelessWidget {
-  final _Difficulty difficulty;
-  final ValueChanged<_Difficulty> onDifficultyChanged;
-  final VoidCallback onPlayAi;
-  final VoidCallback onPlayFriend;
-  final VoidCallback onHelp;
-  const _PickerBodyTall({
-    required this.difficulty,
-    required this.onDifficultyChanged,
-    required this.onPlayAi,
-    required this.onPlayFriend,
-    required this.onHelp,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Spacer(flex: 2),
-          const _MascotAndTitle(),
-          const Spacer(flex: 3),
-          _AiSection(
-            difficulty: difficulty,
-            onDifficultyChanged: onDifficultyChanged,
-            onPlayAi: onPlayAi,
-          ),
-          const SizedBox(height: 12),
-          _GameButton(
-            label: 'Play with a Friend',
-            sublabel: 'Pass & play on one device',
-            icon: Icons.people_alt_rounded,
-            gradientColors: [_kFriendColor, Color(0xFFFF8E53)],
-            onTap: onPlayFriend,
-          )
-              .animate()
-              .fadeIn(delay: 280.ms, duration: 320.ms)
-              .slideY(begin: 0.08, end: 0, duration: 320.ms),
-          const SizedBox(height: 6),
-          Center(child: _HowToPlayLink(onTap: onHelp)),
-        ],
-      ),
-    );
-  }
-}
-
-// Compact / short-screen fallback that just scrolls its content.
-class _PickerBodyScroll extends StatelessWidget {
-  final _Difficulty difficulty;
-  final ValueChanged<_Difficulty> onDifficultyChanged;
-  final VoidCallback onPlayAi;
-  final VoidCallback onPlayFriend;
-  final VoidCallback onHelp;
-  const _PickerBodyScroll({
-    required this.difficulty,
-    required this.onDifficultyChanged,
-    required this.onPlayAi,
-    required this.onPlayFriend,
-    required this.onHelp,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const _MascotAndTitle(),
-          const SizedBox(height: 22),
-          _AiSection(
-            difficulty: difficulty,
-            onDifficultyChanged: onDifficultyChanged,
-            onPlayAi: onPlayAi,
-          ),
-          const SizedBox(height: 12),
-          _GameButton(
-            label: 'Play with a Friend',
-            sublabel: 'Pass & play on one device',
-            icon: Icons.people_alt_rounded,
-            gradientColors: const [_kFriendColor, Color(0xFFFF8E53)],
-            onTap: onPlayFriend,
-          ),
-          const SizedBox(height: 8),
-          Center(child: _HowToPlayLink(onTap: onHelp)),
-        ],
-      ),
-    );
-  }
-}
-
-class _PickerHeader extends StatelessWidget {
-  final VoidCallback onBack;
-  final bool isFavorite;
-  final VoidCallback onFavoriteToggle;
-  const _PickerHeader({
-    required this.onBack,
-    required this.isFavorite,
-    required this.onFavoriteToggle,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-      child: Row(
-        children: [
-          _NavButton(
-            icon: Icons.arrow_back_rounded,
-            onTap: onBack,
-          ),
-          const Spacer(),
-          _NavButton(
-            icon: isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-            onTap: onFavoriteToggle,
-            iconColor: isFavorite ? const Color(0xFFFF5A5F) : _kTextDark,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _NavButton extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-  final Color? iconColor;
-  const _NavButton({required this.icon, required this.onTap, this.iconColor});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          color: _kCardBg,
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF6C4EF3).withValues(alpha: 0.12),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Icon(icon, size: 22, color: iconColor ?? _kTextDark),
-      ),
-    );
-  }
-}
-
-class _HowToPlayLink extends StatelessWidget {
-  final VoidCallback onTap;
-  const _HowToPlayLink({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.help_outline_rounded, size: 14, color: _kTextMid),
-            const SizedBox(width: 5),
-            Text(
-              'How to play?',
-              style: TextStyle(
-                color: _kTextMid,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                decoration: TextDecoration.underline,
-                decorationColor: _kTextMid.withValues(alpha: 0.4),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _MascotAndTitle extends StatelessWidget {
-  const _MascotAndTitle();
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // Icon with layered gradient ring
-        Stack(
-          alignment: Alignment.center,
-          children: [
-            // Outer glow ring
-            Container(
-              width: 118,
-              height: 118,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const SweepGradient(
-                  colors: [_kAiColor, _kFriendColor, _kAiColor],
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: _kAiColor.withValues(alpha: 0.22),
-                    blurRadius: 24,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-            ),
-            Container(
-              width: 110,
-              height: 110,
-              decoration: const BoxDecoration(
-                color: _kCardBg,
-                shape: BoxShape.circle,
-              ),
-              padding: const EdgeInsets.all(10),
-              child: ClipOval(
-                child: Image.asset(
-                  'assets/games/tic_tac_toe/icon.png',
-                  fit: BoxFit.cover,
-                ),
-              ),
-            ),
-          ],
-        )
-            .animate()
-            .scale(
-              begin: const Offset(0.5, 0.5),
-              end: const Offset(1.0, 1.0),
-              duration: 450.ms,
-              curve: Curves.easeOutBack,
-            )
-            .fadeIn(duration: 300.ms),
-        const SizedBox(height: 16),
-        const Text(
-          'Tic Tac Toe',
-          style: TextStyle(
-            color: _kTextDark,
-            fontSize: 30,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 0.5,
-            height: 1.0,
-          ),
-        )
-            .animate()
-            .fadeIn(delay: 80.ms, duration: 340.ms)
-            .slideY(begin: 0.15, end: 0, duration: 340.ms),
-        const SizedBox(height: 5),
-        const Text(
-          'Three in a row wins.',
-          style: TextStyle(
-            color: _kTextMid,
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
-        )
-            .animate()
-            .fadeIn(delay: 130.ms, duration: 340.ms),
       ],
     );
   }
@@ -1130,18 +849,6 @@ class _DifficultyHint extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-// Full-screen scattered X's and O's background for the mode picker.
-class _TttBackground extends StatelessWidget {
-  const _TttBackground();
-
-  @override
-  Widget build(BuildContext context) {
-    return Positioned.fill(
-      child: CustomPaint(painter: _TttBackgroundPainter()),
     );
   }
 }

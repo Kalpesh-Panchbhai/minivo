@@ -7,28 +7,28 @@ import 'package:go_router/go_router.dart';
 import '../../core/services/audio_service.dart';
 import '../../core/services/score_service.dart';
 import '../../core/widgets/how_to_play_sheet.dart';
+import '../game_picker_scaffold.dart';
 import '../game_registry.dart';
 import '../game_wrapper.dart';
-import 'number_merge_logic.dart';
 import 'number_merge_stats.dart';
 
-// ── Design tokens (mirrors TicTacToe's palette language) ─────────────────────
-const Color _kBgTop    = Color(0xFFFFFBF0);  // warm golden cream
-const Color _kBgBot    = Color(0xFFFFF5E0);  // soft warm peach
+// ── Design tokens ──────────────────────────────────────────────────────────
+const Color _kBgTop    = Color(0xFFFFFBF0);
+const Color _kBgBot    = Color(0xFFFFF5E0);
 const Color _kCardBg   = Colors.white;
-const Color _kTextDark = Color(0xFF2D2600);  // deep warm brown
-const Color _kTextMid  = Color(0xFF9E8B5C);  // muted warm gold
+const Color _kTextDark = Color(0xFF2D2600);
+const Color _kTextMid  = Color(0xFF9E8B5C);
 
 // ── 2048 brand colors ──────────────────────────────────────────────────────
-const Color _kGolden = Color(0xFFEDC22E);   // 2048 tile gold
-const Color _kOrange = Color(0xFFF67C5F);   // warm orange accent
+const Color _kGolden = Color(0xFFEDC22E);
+const Color _kOrange = Color(0xFFF67C5F);
 
 // ── Difficulty palette ─────────────────────────────────────────────────────
 const Color _kEasyColor   = Color(0xFF22C55E);
 const Color _kMediumColor = Color(0xFFF59E0B);
 const Color _kHardColor   = Color(0xFFEF4444);
 
-// ── Tile color palette (original 2048) ────────────────────────────────────
+// ── Tile color palette ─────────────────────────────────────────────────────
 const Map<int, _TileStyle> _kTileStyles = {
   0:    _TileStyle(Color(0xFFCDC1B4), Colors.transparent),
   2:    _TileStyle(Color(0xFFEEE4DA), Color(0xFF776E65)),
@@ -68,7 +68,7 @@ extension _DifficultyX on _Difficulty {
   String get emoji   => ['🌱', '🔥', '💀'][index];
   Color  get color   => [_kEasyColor, _kMediumColor, _kHardColor][index];
   int    get target  => [1024, 2048, 4096][index];
-  double get twoProb => [0.90, 0.80, 0.65][index]; // probability of spawning 2 vs 4
+  double get twoProb => [0.90, 0.80, 0.65][index];
   String get subKey  => ['easy', 'medium', 'hard'][index];
   String get desc    =>
       ['Reach 1024 — great for beginners',
@@ -76,8 +76,28 @@ extension _DifficultyX on _Difficulty {
        'Reach 4096 — only for the brave'][index];
 }
 
+// ── Tile identity tracking ─────────────────────────────────────────────────
+class _Tile {
+  final int id;
+  int value;
+  int row;
+  int col;
+  bool justSpawned;
+  bool mergedOut = false;
+
+  _Tile({
+    required this.id,
+    required this.value,
+    required this.row,
+    required this.col,
+    this.justSpawned = false,
+  });
+}
+
+const int _kN = 4; // board size
+
 // ════════════════════════════════════════════════════════════════
-// Root screen — handles picker → game transition (mirrors TicTacToeScreen)
+// Root screen
 // ════════════════════════════════════════════════════════════════
 
 class NumberMergeScreen extends StatefulWidget {
@@ -87,26 +107,25 @@ class NumberMergeScreen extends StatefulWidget {
   State<NumberMergeScreen> createState() => _NumberMergeScreenState();
 }
 
-class _NumberMergeScreenState extends State<NumberMergeScreen>
-    with TickerProviderStateMixin {
-  // null = showing picker; non-null = playing
+class _NumberMergeScreenState extends State<NumberMergeScreen> {
   _Difficulty? _activeDifficulty;
   _Difficulty _pickerDifficulty = _Difficulty.medium;
 
   bool _isFavorite = false;
 
-  // ── Board state ──────────────────────────────────────────────────────────
+  // ── Tile state ───────────────────────────────────────────────────────────
   final _rng = Random();
-  MergeBoard _board = MergeBoard.empty();
+  List<_Tile> _tiles = [];
+  int _nextId = 0;
   int _score = 0;
   int _bestScore = 0;
-
-  final Set<int> _spawnedIndices = {};
-  final Set<int> _mergedIndices  = {};
 
   bool _won = false;
   bool _continueAfterWin = false;
   bool _gameOver = false;
+
+  // For swipe gesture tracking
+  Offset? _panStart;
 
   @override
   void initState() {
@@ -114,8 +133,6 @@ class _NumberMergeScreenState extends State<NumberMergeScreen>
     _isFavorite = ScoreService().isFavorite(kNumberMergeGameId);
     _bestScore = _loadBest(_Difficulty.medium);
   }
-
-  // ── Helpers ──────────────────────────────────────────────────────────────
 
   int _loadBest(_Difficulty d) =>
       ScoreService().getHighScore(kNumberMergeGameId, subKey: d.subKey);
@@ -139,24 +156,23 @@ class _NumberMergeScreenState extends State<NumberMergeScreen>
   // ── Game start / restart ─────────────────────────────────────────────────
 
   void _startGame(_Difficulty diff) {
-    var board = MergeBoard.empty();
-    board = board.spawnTile(_rng);
-    board = board.spawnTile(_rng);
+    final tiles = <_Tile>[];
+    _nextId = 0;
+    // Spawn 2 initial tiles
+    tiles.addAll(_spawnNewTile(tiles));
+    tiles.addAll(_spawnNewTile(tiles));
 
     setState(() {
       _activeDifficulty = diff;
       _pickerDifficulty = diff;
-      _board = board;
+      _tiles = tiles;
       _score = 0;
       _bestScore = _loadBest(diff);
-      _spawnedIndices.clear();
-      _mergedIndices.clear();
       _won = false;
       _continueAfterWin = false;
       _gameOver = false;
     });
 
-    // Tell GameWrapper we started
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         GameWrapper.of(context).startGame();
@@ -178,160 +194,317 @@ class _NumberMergeScreenState extends State<NumberMergeScreen>
     });
   }
 
-  // ── Swipe handling ────────────────────────────────────────────────────────
+  // ── Tile spawning ────────────────────────────────────────────────────────
 
-  void _handleSlide(SlideResult result) {
-    if (!result.moved) return;
-    if (_gameOver) return;
-
-    final prev = _board.cells;
-    final next = result.board;
-
-    // Detect merged tiles
-    final merged = <int>{};
-    for (int i = 0; i < 16; i++) {
-      if (next[i] != 0 && next[i] != prev[i] && prev[i] != 0) merged.add(i);
+  List<_Tile> _spawnNewTile(List<_Tile> existing, {double? twoProb}) {
+    final occupied = <String>{};
+    for (final t in existing) {
+      if (!t.mergedOut) occupied.add('${t.row},${t.col}');
     }
+    final empties = <(int, int)>[];
+    for (int r = 0; r < _kN; r++) {
+      for (int c = 0; c < _kN; c++) {
+        if (!occupied.contains('$r,$c')) empties.add((r, c));
+      }
+    }
+    if (empties.isEmpty) return [];
+    final (r, c) = empties[_rng.nextInt(empties.length)];
+    final prob = twoProb ?? 0.9;
+    final value = _rng.nextDouble() < prob ? 2 : 4;
+    return [_Tile(id: _nextId++, value: value, row: r, col: c, justSpawned: true)];
+  }
 
-    // Spawn new tile with difficulty-adjusted probability
+  // ── Slide logic ───────────────────────────────────────────────────────────
+
+  (List<_Tile>, int, bool) _slideLeft(List<_Tile> tiles) {
+    final result = <_Tile>[];
+    int score = 0;
+    bool moved = false;
+
+    for (int row = 0; row < _kN; row++) {
+      final rowTiles = tiles.where((t) => t.row == row && !t.mergedOut).toList()
+        ..sort((a, b) => a.col.compareTo(b.col));
+
+      int targetCol = 0;
+      int i = 0;
+      while (i < rowTiles.length) {
+        final tile = rowTiles[i];
+        if (i + 1 < rowTiles.length && tile.value == rowTiles[i + 1].value) {
+          final merged = tile..value = tile.value * 2;
+          if (merged.col != targetCol || merged.row != row) moved = true;
+          merged.col = targetCol;
+          merged.row = row;
+          result.add(merged);
+
+          final loser = rowTiles[i + 1];
+          if (loser.col != targetCol || loser.row != row) moved = true;
+          loser.col = targetCol;
+          loser.row = row;
+          loser.mergedOut = true;
+          result.add(loser);
+
+          score += merged.value;
+          i += 2;
+        } else {
+          if (tile.col != targetCol || tile.row != row) moved = true;
+          tile.col = targetCol;
+          tile.row = row;
+          result.add(tile);
+          i++;
+        }
+        targetCol++;
+      }
+    }
+    return (result, score, moved);
+  }
+
+  (List<_Tile>, int, bool) _slideRight(List<_Tile> tiles) {
+    final result = <_Tile>[];
+    int score = 0;
+    bool moved = false;
+
+    for (int row = 0; row < _kN; row++) {
+      final rowTiles = tiles.where((t) => t.row == row && !t.mergedOut).toList()
+        ..sort((a, b) => b.col.compareTo(a.col));
+
+      int targetCol = _kN - 1;
+      int i = 0;
+      while (i < rowTiles.length) {
+        final tile = rowTiles[i];
+        if (i + 1 < rowTiles.length && tile.value == rowTiles[i + 1].value) {
+          final merged = tile..value = tile.value * 2;
+          if (merged.col != targetCol || merged.row != row) moved = true;
+          merged.col = targetCol;
+          merged.row = row;
+          result.add(merged);
+
+          final loser = rowTiles[i + 1];
+          if (loser.col != targetCol || loser.row != row) moved = true;
+          loser.col = targetCol;
+          loser.row = row;
+          loser.mergedOut = true;
+          result.add(loser);
+
+          score += merged.value;
+          i += 2;
+        } else {
+          if (tile.col != targetCol || tile.row != row) moved = true;
+          tile.col = targetCol;
+          tile.row = row;
+          result.add(tile);
+          i++;
+        }
+        targetCol--;
+      }
+    }
+    return (result, score, moved);
+  }
+
+  (List<_Tile>, int, bool) _slideUp(List<_Tile> tiles) {
+    final result = <_Tile>[];
+    int score = 0;
+    bool moved = false;
+
+    for (int col = 0; col < _kN; col++) {
+      final colTiles = tiles.where((t) => t.col == col && !t.mergedOut).toList()
+        ..sort((a, b) => a.row.compareTo(b.row));
+
+      int targetRow = 0;
+      int i = 0;
+      while (i < colTiles.length) {
+        final tile = colTiles[i];
+        if (i + 1 < colTiles.length && tile.value == colTiles[i + 1].value) {
+          final merged = tile..value = tile.value * 2;
+          if (merged.row != targetRow || merged.col != col) moved = true;
+          merged.row = targetRow;
+          merged.col = col;
+          result.add(merged);
+
+          final loser = colTiles[i + 1];
+          if (loser.row != targetRow || loser.col != col) moved = true;
+          loser.row = targetRow;
+          loser.col = col;
+          loser.mergedOut = true;
+          result.add(loser);
+
+          score += merged.value;
+          i += 2;
+        } else {
+          if (tile.row != targetRow || tile.col != col) moved = true;
+          tile.row = targetRow;
+          tile.col = col;
+          result.add(tile);
+          i++;
+        }
+        targetRow++;
+      }
+    }
+    return (result, score, moved);
+  }
+
+  (List<_Tile>, int, bool) _slideDown(List<_Tile> tiles) {
+    final result = <_Tile>[];
+    int score = 0;
+    bool moved = false;
+
+    for (int col = 0; col < _kN; col++) {
+      final colTiles = tiles.where((t) => t.col == col && !t.mergedOut).toList()
+        ..sort((a, b) => b.row.compareTo(a.row));
+
+      int targetRow = _kN - 1;
+      int i = 0;
+      while (i < colTiles.length) {
+        final tile = colTiles[i];
+        if (i + 1 < colTiles.length && tile.value == colTiles[i + 1].value) {
+          final merged = tile..value = tile.value * 2;
+          if (merged.row != targetRow || merged.col != col) moved = true;
+          merged.row = targetRow;
+          merged.col = col;
+          result.add(merged);
+
+          final loser = colTiles[i + 1];
+          if (loser.row != targetRow || loser.col != col) moved = true;
+          loser.row = targetRow;
+          loser.col = col;
+          loser.mergedOut = true;
+          result.add(loser);
+
+          score += merged.value;
+          i += 2;
+        } else {
+          if (tile.row != targetRow || tile.col != col) moved = true;
+          tile.row = targetRow;
+          tile.col = col;
+          result.add(tile);
+          i++;
+        }
+        targetRow--;
+      }
+    }
+    return (result, score, moved);
+  }
+
+  bool _isGameOver(List<_Tile> tiles) {
+    // Board full?
+    final occupied = <String>{};
+    for (final t in tiles) {
+      if (!t.mergedOut) occupied.add('${t.row},${t.col}');
+    }
+    if (occupied.length < _kN * _kN) return false;
+
+    // Any adjacent merge possible?
+    for (final t in tiles) {
+      if (t.mergedOut) continue;
+      for (final other in tiles) {
+        if (other.mergedOut || other.id == t.id) continue;
+        if (other.value == t.value) {
+          if ((other.row == t.row && (other.col - t.col).abs() == 1) ||
+              (other.col == t.col && (other.row - t.row).abs() == 1)) {
+            return false;
+          }
+        }
+      }
+    }
+    return true;
+  }
+
+  void _handleSwipeDirection(String dir) {
+    if (_activeDifficulty == null || _gameOver) return;
+
+    final (slidResult, gained, moved) = switch (dir) {
+      'left'  => _slideLeft(List.from(_tiles)),
+      'right' => _slideRight(List.from(_tiles)),
+      'up'    => _slideUp(List.from(_tiles)),
+      _       => _slideDown(List.from(_tiles)),
+    };
+
+    if (!moved) return;
+
     final diff = _activeDifficulty!;
-    final spawned = _spawnWithProb(MergeBoard.from(next), diff.twoProb);
-    final spawnedIdx = <int>{};
-    for (int i = 0; i < 16; i++) {
-      if (spawned.cells[i] != 0 && next[i] == 0) spawnedIdx.add(i);
-    }
+    final spawned = _spawnNewTile(slidResult, twoProb: diff.twoProb);
+    final allTiles = [...slidResult, ...spawned];
 
-    final newScore = _score + result.scoreGained;
+    final newScore = _score + gained;
     if (newScore > _bestScore) _bestScore = newScore;
-
-    // Persist per-difficulty best
     ScoreService().saveScore(kNumberMergeGameId, newScore, subKey: diff.subKey);
-
-    if (result.scoreGained > 0) AudioService().playScore();
+    if (gained > 0) AudioService().playScore();
 
     setState(() {
-      _board = spawned;
+      _tiles = allTiles;
       _score = newScore;
-      _spawnedIndices..clear()..addAll(spawnedIdx);
-      _mergedIndices..clear()..addAll(merged);
     });
 
     GameWrapper.of(context).updateScore(newScore);
 
-    // Win check
-    if (!_won && spawned.cells.any((v) => v >= diff.target)) {
+    if (!_won && allTiles.any((t) => !t.mergedOut && t.value >= diff.target)) {
       setState(() => _won = true);
     }
 
-    // Game-over check
-    if (spawned.isGameOver) {
-      setState(() => _gameOver = true);
-      GameWrapper.of(context).endGame();
-    }
-  }
+    // Cleanup after animation
+    Future.delayed(const Duration(milliseconds: 140), () {
+      if (!mounted) return;
+      setState(() {
+        _tiles.removeWhere((t) => t.mergedOut);
+        for (final t in _tiles) {
+          t.justSpawned = false;
+        }
+      });
 
-  MergeBoard _spawnWithProb(MergeBoard board, double twoProb) {
-    final empty = board.emptyIndices;
-    if (empty.isEmpty) return board;
-    final index = empty[_rng.nextInt(empty.length)];
-    final value = _rng.nextDouble() < twoProb ? 2 : 4;
-    final next = List<int>.from(board.cells);
-    next[index] = value;
-    return MergeBoard.from(next);
-  }
-
-  void _onSwipe(DragEndDetails d) {
-    if (_activeDifficulty == null || _gameOver) return;
-    final v = d.velocity.pixelsPerSecond;
-    final dx = v.dx.abs(), dy = v.dy.abs();
-    if (dx < 150 && dy < 150) return;
-    SlideResult r;
-    if (dx > dy) {
-      r = v.dx > 0 ? _board.slideRight() : _board.slideLeft();
-    } else {
-      r = v.dy > 0 ? _board.slideDown() : _board.slideUp();
-    }
-    _handleSlide(r);
+      if (_isGameOver(_tiles)) {
+        setState(() => _gameOver = true);
+        GameWrapper.of(context).endGame();
+      }
+    });
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [_kBgTop, _kBgBot],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
-      ),
-      child: Stack(
-        children: [
-          const _MergeBg(),
-          SafeArea(
-            child: _activeDifficulty == null
-                ? _buildPicker()
-                : _buildGame(),
-          ),
-        ],
-      ),
-    );
+    if (_activeDifficulty == null) {
+      return _buildPicker();
+    }
+    return _buildGame();
   }
 
   // ════════════════════════════════════════════════════════════════
-  // MODE PICKER
+  // MODE PICKER — uses GamePickerScaffold
   // ════════════════════════════════════════════════════════════════
 
   Widget _buildPicker() {
-    return LayoutBuilder(
-      builder: (context, c) {
-        final isTall = c.maxHeight >= 800;
-        return Column(
-          children: [
-            _buildPickerHeader(),
-            Expanded(
-              child: isTall
-                  ? _buildPickerBodyTall()
-                  : _buildPickerBodyScroll(),
+    return GamePickerScaffold(
+      bgColorTop: _kBgTop,
+      bgColorBottom: _kBgBot,
+      bgPainter: _MergeBgPainter(),
+      iconRingColors: const [_kGolden, _kOrange, _kGolden],
+      iconChild: Container(
+        decoration: BoxDecoration(
+          color: _kGolden.withValues(alpha: 0.12),
+          shape: BoxShape.circle,
+        ),
+        child: const Center(
+          child: Text(
+            '2048',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+              color: _kGolden,
+              letterSpacing: -1,
+              height: 1,
             ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildPickerHeader() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-      child: Row(
-        children: [
-          _NavButton(icon: Icons.arrow_back_ios_new_rounded, onTap: () => context.pop()),
-          const Spacer(),
-          _NavButton(
-            icon: Icons.help_outline_rounded,
-            onTap: _showHelp,
           ),
-          const SizedBox(width: 10),
-          _NavButton(
-            icon: _isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-            iconColor: _isFavorite ? const Color(0xFFE85D75) : null,
-            onTap: _toggleFavorite,
-          ),
-        ],
+        ),
       ),
-    );
-  }
-
-  Widget _buildPickerBodyTall() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 10),
-      child: Column(
+      title: '2048 Merge',
+      subtitle: 'Slide • Merge • Reach the goal',
+      onBack: () => context.pop(),
+      isFavorite: _isFavorite,
+      onFavoriteToggle: _toggleFavorite,
+      onHelp: _showHelp,
+      onHowToPlay: _showHelp,
+      body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Spacer(flex: 2),
-          const _MergeMascotAndTitle(),
-          const Spacer(flex: 3),
           _DifficultyCard(
             selected: _pickerDifficulty,
             onChanged: (d) => setState(() => _pickerDifficulty = d),
@@ -340,36 +513,10 @@ class _NumberMergeScreenState extends State<NumberMergeScreen>
           _PlayButton(
             difficulty: _pickerDifficulty,
             onTap: () => _startGame(_pickerDifficulty),
-          ).animate().fadeIn(delay: 280.ms, duration: 320.ms)
+          ).animate()
+           .fadeIn(delay: 280.ms, duration: 320.ms)
            .slideY(begin: 0.08, end: 0, duration: 320.ms),
           const SizedBox(height: 6),
-          Center(
-            child: _HowToPlayLink(onTap: _showHelp),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPickerBodyScroll() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const _MergeMascotAndTitle(),
-          const SizedBox(height: 22),
-          _DifficultyCard(
-            selected: _pickerDifficulty,
-            onChanged: (d) => setState(() => _pickerDifficulty = d),
-          ),
-          const SizedBox(height: 12),
-          _PlayButton(
-            difficulty: _pickerDifficulty,
-            onTap: () => _startGame(_pickerDifficulty),
-          ),
-          const SizedBox(height: 8),
-          Center(child: _HowToPlayLink(onTap: _showHelp)),
         ],
       ),
     );
@@ -380,15 +527,36 @@ class _NumberMergeScreenState extends State<NumberMergeScreen>
   // ════════════════════════════════════════════════════════════════
 
   Widget _buildGame() {
-    return Column(
-      children: [
-        _buildGameHud(),
-        const SizedBox(height: 8),
-        Expanded(child: _buildBoardArea()),
-        if (_won && !_continueAfterWin) _buildWinBanner(),
-        if (_gameOver) _buildGameOverBanner(),
-        const SizedBox(height: 8),
-      ],
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [_kBgTop, _kBgBot],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+      ),
+      child: Stack(
+        children: [
+          IgnorePointer(
+            child: CustomPaint(
+              size: Size.infinite,
+              painter: _MergeBgPainter(),
+            ),
+          ),
+          SafeArea(
+            child: Column(
+              children: [
+                _buildGameHud(),
+                const SizedBox(height: 8),
+                Expanded(child: _buildBoardArea()),
+                if (_won && !_continueAfterWin) _buildWinBanner(),
+                if (_gameOver) _buildGameOverBanner(),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -403,7 +571,7 @@ class _NumberMergeScreenState extends State<NumberMergeScreen>
           const Spacer(),
           _ScoreChip(label: 'SCORE', value: _score),
           const SizedBox(width: 6),
-          _ScoreChip(label: 'BEST',  value: _bestScore),
+          _ScoreChip(label: 'BEST', value: _bestScore),
           const SizedBox(width: 8),
           _HudBtn(icon: Icons.refresh_rounded, onTap: _newGame),
         ],
@@ -417,69 +585,119 @@ class _NumberMergeScreenState extends State<NumberMergeScreen>
       child: AspectRatio(
         aspectRatio: 1,
         child: GestureDetector(
-          onHorizontalDragEnd: _onSwipe,
-          onVerticalDragEnd: _onSwipe,
-          child: Container(
-            decoration: BoxDecoration(
-              color: const Color(0xFFBBADA0),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            padding: const EdgeInsets.all(8),
-            child: GridView.builder(
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: kBoardSize,
-                crossAxisSpacing: 8,
-                mainAxisSpacing: 8,
-              ),
-              itemCount: 16,
-              itemBuilder: (_, i) => _buildTile(i),
-            ),
+          onPanStart: (details) {
+            _panStart = details.globalPosition;
+          },
+          onPanEnd: (details) {
+            if (_panStart == null) return;
+            final v = details.velocity.pixelsPerSecond;
+            final dx = v.dx.abs();
+            final dy = v.dy.abs();
+            if (dx < 50 && dy < 50) {
+              _panStart = null;
+              return;
+            }
+            if (dx > dy) {
+              _handleSwipeDirection(v.dx > 0 ? 'right' : 'left');
+            } else {
+              _handleSwipeDirection(v.dy > 0 ? 'down' : 'up');
+            }
+            _panStart = null;
+          },
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final side = constraints.maxWidth;
+              const padding = 8.0;
+              const gap = 8.0;
+              const n = _kN;
+              final cellSize = (side - 2 * padding - (n - 1) * gap) / n;
+
+              double tileLeft(int col) => padding + col * (cellSize + gap);
+              double tileTop(int row) => padding + row * (cellSize + gap);
+
+              return Container(
+                width: side,
+                height: side,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFBBADA0),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Stack(
+                  children: [
+                    // Static empty cell grid
+                    Padding(
+                      padding: const EdgeInsets.all(padding),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: List.generate(n, (r) => Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: List.generate(n, (c) => Container(
+                            width: cellSize,
+                            height: cellSize,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFCDC1B4),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                          )),
+                        )),
+                      ),
+                    ),
+                    // Animated tiles
+                    ..._tiles.map((tile) {
+                      final style = _styleFor(tile.value);
+                      Widget tileWidget = Container(
+                        width: cellSize,
+                        height: cellSize,
+                        decoration: BoxDecoration(
+                          color: style.bg,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Center(
+                          child: Text(
+                            '${tile.value}',
+                            style: TextStyle(
+                              color: style.fg,
+                              fontSize: _tileFont(tile.value),
+                              fontWeight: FontWeight.w800,
+                              height: 1,
+                            ),
+                          ),
+                        ),
+                      );
+
+                      if (tile.justSpawned) {
+                        tileWidget = tileWidget
+                            .animate()
+                            .scale(
+                              begin: Offset.zero,
+                              end: const Offset(1, 1),
+                              duration: 180.ms,
+                              curve: Curves.easeOutBack,
+                            );
+                      }
+                      if (tile.mergedOut) {
+                        tileWidget = Opacity(opacity: 0.0, child: tileWidget);
+                      }
+
+                      return AnimatedPositioned(
+                        key: ValueKey(tile.id),
+                        duration: const Duration(milliseconds: 120),
+                        curve: Curves.easeInOut,
+                        left: tileLeft(tile.col),
+                        top: tileTop(tile.row),
+                        width: cellSize,
+                        height: cellSize,
+                        child: tileWidget,
+                      );
+                    }),
+                  ],
+                ),
+              );
+            },
           ),
         ),
       ),
     );
-  }
-
-  Widget _buildTile(int index) {
-    final value = _board.cells[index];
-    final style = _styleFor(value);
-    final isSpawned = _spawnedIndices.contains(index);
-    final isMerged  = _mergedIndices.contains(index);
-
-    Widget tile = Container(
-      decoration: BoxDecoration(
-        color: style.bg,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: value == 0
-          ? const SizedBox.shrink()
-          : Center(
-              child: Text(
-                '$value',
-                style: TextStyle(
-                  color: style.fg,
-                  fontSize: _tileFont(value),
-                  fontWeight: FontWeight.w800,
-                  height: 1,
-                ),
-              ),
-            ),
-    );
-
-    if (isSpawned) {
-      tile = tile.animate().scale(
-        begin: const Offset(0, 0), end: const Offset(1, 1),
-        duration: 180.ms, curve: Curves.easeOutBack,
-      );
-    } else if (isMerged) {
-      tile = tile.animate()
-          .scale(begin: const Offset(1, 1), end: const Offset(1.15, 1.15), duration: 100.ms)
-          .then()
-          .scale(begin: const Offset(1.15, 1.15), end: const Offset(1, 1), duration: 100.ms);
-    }
-
-    return tile;
   }
 
   Widget _buildWinBanner() {
@@ -559,7 +777,11 @@ class _NumberMergeScreenState extends State<NumberMergeScreen>
               ),
               child: Text(
                 'Menu',
-                style: TextStyle(color: const Color(0xFF9F6B6B), fontWeight: FontWeight.w800, fontSize: 13),
+                style: TextStyle(
+                  color: const Color(0xFF9F6B6B),
+                  fontWeight: FontWeight.w800,
+                  fontSize: 13,
+                ),
               ),
             ),
           ),
@@ -572,103 +794,6 @@ class _NumberMergeScreenState extends State<NumberMergeScreen>
 // ════════════════════════════════════════════════════════════════
 // PICKER SUB-WIDGETS
 // ════════════════════════════════════════════════════════════════
-
-class _NavButton extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-  final Color? iconColor;
-  const _NavButton({required this.icon, required this.onTap, this.iconColor});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 44, height: 44,
-        decoration: BoxDecoration(
-          color: _kCardBg,
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: [
-            BoxShadow(
-              color: _kGolden.withValues(alpha: 0.18),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Icon(icon, size: 20, color: iconColor ?? _kTextDark),
-      ),
-    );
-  }
-}
-
-class _MergeMascotAndTitle extends StatelessWidget {
-  const _MergeMascotAndTitle();
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // Icon with gradient ring (mirrors TicTacToe's _MascotAndTitle)
-        Container(
-          width: 110, height: 110,
-          decoration: BoxDecoration(
-            gradient: const SweepGradient(
-              colors: [_kGolden, _kOrange, _kGolden],
-              stops: [0.0, 0.5, 1.0],
-            ),
-            shape: BoxShape.circle,
-          ),
-          padding: const EdgeInsets.all(4),
-          child: Container(
-            decoration: const BoxDecoration(
-              color: _kCardBg,
-              shape: BoxShape.circle,
-            ),
-            padding: const EdgeInsets.all(10),
-            child: Container(
-              decoration: BoxDecoration(
-                color: _kGolden.withValues(alpha: 0.12),
-                shape: BoxShape.circle,
-              ),
-              child: const Center(
-                child: Text(
-                  '2048',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                    color: _kGolden,
-                    letterSpacing: -1,
-                    height: 1,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ).animate().scale(
-          begin: const Offset(0.8, 0.8), end: const Offset(1, 1),
-          duration: 500.ms, curve: Curves.easeOutBack,
-        ),
-        const SizedBox(height: 16),
-        const Text(
-          '2048 Merge',
-          style: TextStyle(
-            fontSize: 28, fontWeight: FontWeight.w900,
-            color: _kTextDark, letterSpacing: -0.5,
-          ),
-        ).animate().fadeIn(delay: 120.ms, duration: 320.ms),
-        const SizedBox(height: 6),
-        Text(
-          'Slide tiles • Merge numbers • Reach the goal',
-          style: TextStyle(
-            fontSize: 13, fontWeight: FontWeight.w500,
-            color: _kTextMid, letterSpacing: 0.2,
-          ),
-        ).animate().fadeIn(delay: 200.ms, duration: 300.ms),
-      ],
-    );
-  }
-}
 
 class _DifficultyCard extends StatelessWidget {
   final _Difficulty selected;
@@ -705,9 +830,7 @@ class _DifficultyCard extends StatelessWidget {
               const SizedBox(width: 10),
               const Text(
                 'Difficulty',
-                style: TextStyle(
-                  fontSize: 15, fontWeight: FontWeight.w800, color: _kTextDark,
-                ),
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: _kTextDark),
               ),
             ],
           ),
@@ -835,60 +958,29 @@ class _PlayButtonState extends State<_PlayButton> {
               ),
               const SizedBox(width: 14),
               Flexible(
-               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Play Classic',
-                    style: TextStyle(
-                      color: Colors.white, fontSize: 17,
-                      fontWeight: FontWeight.w800, letterSpacing: 0.2,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Play Classic',
+                      style: TextStyle(
+                        color: Colors.white, fontSize: 17,
+                        fontWeight: FontWeight.w800, letterSpacing: 0.2,
+                      ),
                     ),
-                  ),
-                  Text(
-                    '${widget.difficulty.emoji}  ${widget.difficulty.label}  ·  Target ${widget.difficulty.target}',
-                    style: const TextStyle(
-                      color: Colors.white70, fontSize: 11,
-                      fontWeight: FontWeight.w600, letterSpacing: 0.3,
+                    Text(
+                      '${widget.difficulty.emoji}  ${widget.difficulty.label}  ·  Target ${widget.difficulty.target}',
+                      style: const TextStyle(
+                        color: Colors.white70, fontSize: 11,
+                        fontWeight: FontWeight.w600, letterSpacing: 0.3,
+                      ),
                     ),
-                  ),
-                ],
-               ),
+                  ],
+                ),
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _HowToPlayLink extends StatelessWidget {
-  final VoidCallback onTap;
-  const _HowToPlayLink({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.help_outline_rounded, size: 14, color: _kTextMid),
-            const SizedBox(width: 4),
-            Text(
-              'How to play?',
-              style: TextStyle(
-                fontSize: 13, fontWeight: FontWeight.w600,
-                color: _kTextMid,
-                decoration: TextDecoration.underline,
-                decorationColor: _kTextMid,
-              ),
-            ),
-          ],
         ),
       ),
     );
@@ -1001,22 +1093,8 @@ class _HudBtnState extends State<_HudBtn> {
 }
 
 // ════════════════════════════════════════════════════════════════
-// ANIMATED BACKGROUND — scattered 2, 4, 8 tiles
+// BACKGROUND PAINTER
 // ════════════════════════════════════════════════════════════════
-
-class _MergeBg extends StatelessWidget {
-  const _MergeBg();
-
-  @override
-  Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: CustomPaint(
-        size: Size.infinite,
-        painter: _MergeBgPainter(),
-      ),
-    );
-  }
-}
 
 class _MergeBgPainter extends CustomPainter {
   @override
@@ -1032,20 +1110,18 @@ class _MergeBgPainter extends CustomPainter {
       ('8',  Color(0xFFF2B179), Offset(size.width * 0.40, size.height * 0.05)),
     ];
 
-    RRect rrect(Offset center, double size) =>
+    RRect rrect(Offset center, double sz) =>
         RRect.fromRectAndRadius(
-          Rect.fromCenter(center: center, width: size, height: size),
-          Radius.circular(size * 0.18),
+          Rect.fromCenter(center: center, width: sz, height: sz),
+          Radius.circular(sz * 0.18),
         );
 
     for (final (label, color, center) in items) {
-      final tileSize = 52.0;
-      // Tile background
+      const tileSize = 52.0;
       canvas.drawRRect(
         rrect(center, tileSize),
         Paint()..color = color.withValues(alpha: 0.25),
       );
-      // Tile number
       final tp = TextPainter(
         text: TextSpan(
           text: label,
