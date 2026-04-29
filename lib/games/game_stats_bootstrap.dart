@@ -1,3 +1,4 @@
+import 'number_merge/number_merge_stats.dart';
 import 'tic_tac_toe/tic_tac_toe_stats.dart';
 
 /// Single entry point for registering all per-game custom stats builders.
@@ -7,4 +8,5 @@ import 'tic_tac_toe/tic_tac_toe_stats.dart';
 /// high-score builder in [BestStatsRegistry].
 void registerAllGameStats() {
   registerTicTacToeStats();
+  registerNumberMergeStats();
 }

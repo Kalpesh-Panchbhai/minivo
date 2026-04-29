@@ -610,7 +610,7 @@ class _ModePickerScreen extends StatelessWidget {
         child: SafeArea(
           child: LayoutBuilder(
             builder: (context, c) {
-              final isTall = c.maxHeight >= 720;
+              final isTall = c.maxHeight >= 860;
               return Stack(
                 children: [
                   // Full-screen X/O/grid background texture
