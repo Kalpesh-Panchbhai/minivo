@@ -8,8 +8,6 @@ import '../features/category/category_screen.dart';
 import '../features/settings/settings_screen.dart';
 import '../features/achievements/achievements_screen.dart';
 import '../games/game_play_screen.dart';
-import '../games/game_registry.dart';
-import '../games/shared/single_mode_game_screen.dart';
 
 /// App-wide route observer. Subscribed to by screens that need to refresh
 /// when the user pops back to them (e.g. HomeScreen refreshing the
@@ -44,20 +42,13 @@ class AppRouter {
           categoryName: state.pathParameters['name']!,
         ),
       ),
+      // Tapping a game from any list goes straight to its play screen — the
+      // picker (or the game itself, for single-mode games) is the detail
+      // surface. /game/:id is kept as a redirect alias so deep links and
+      // existing callers keep working.
       GoRoute(
         path: '/game/:id',
-        redirect: (context, state) {
-          final id = state.pathParameters['id'];
-          // Games with built-in mode pickers handle the detail UX themselves
-          // — route straight to the picker/play screen.
-          if (id != null && GameRegistry.usesCombinedPickerScreen(id)) {
-            return '/play/$id';
-          }
-          return null;
-        },
-        builder: (context, state) => SingleModeGameScreen(
-          gameId: state.pathParameters['id']!,
-        ),
+        redirect: (context, state) => '/play/${state.pathParameters['id']}',
       ),
       GoRoute(
         path: '/play/:id',

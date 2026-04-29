@@ -77,16 +77,20 @@ void main() {
       expect(find.text('Play vs. AI'), findsOneWidget);
     });
 
-    testWidgets('/game/flappy_tap renders SingleModeGameScreen', (tester) async {
+    testWidgets('/game/flappy_tap redirects to /play/flappy_tap',
+        (tester) async {
       await ScoreService().setOnboardingSeen();
       await _pump(tester);
       await tester.pump(const Duration(milliseconds: 2200));
       await tester.pumpAndSettle();
       AppRouter.router.go('/game/flappy_tap');
-      await tester.pumpAndSettle();
-      // Generic detail screen surfaces the game name + Play Now CTA.
-      expect(find.text('Flappy Tap'), findsWidgets);
-      expect(find.text('Play Now'), findsOneWidget);
+      // FlappyTap's gameplay loop is always animating, so pumpAndSettle
+      // never returns — pump the redirect + a couple of frames manually.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      // /game/:id now skips the detail surface — single-mode games drop
+      // straight onto the GameWrapper "Tap to Start" overlay.
+      expect(find.text('Tap to Start'), findsOneWidget);
     });
   });
 }

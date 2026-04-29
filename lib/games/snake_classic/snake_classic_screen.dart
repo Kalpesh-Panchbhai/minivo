@@ -45,7 +45,7 @@ enum _Difficulty { easy, medium, hard }
 extension _DifficultyX on _Difficulty {
   String get label   => ['EASY', 'MEDIUM', 'HARD'][index];
   Color  get color   => [_kEasyColor, _kMediumColor, _kHardColor][index];
-  int    get tickMs  => [220, 140, 80][index];
+  int    get tickMs  => [260, 180, 60][index];
   int    get pointsPerFood => [5, 10, 20][index];
   String get subKey  => ['easy', 'medium', 'hard'][index];
   String get hint => [
@@ -1112,22 +1112,65 @@ class _SnakePainter extends CustomPainter {
 
     if (snake.isEmpty) return;
 
-    // Snake — paint tail-first so the head sits on top.
-    for (int i = snake.length - 1; i >= 0; i--) {
-      final to = snake[i];
-      final from = (i < prevSnake.length) ? prevSnake[i] : to;
-      final px = from.x + (to.x - from.x) * t;
-      final py = from.y + (to.y - from.y) * t;
-      _drawSegment(
-        canvas,
-        px,
-        py,
-        cs,
-        isHead: i == 0,
-        indexFromHead: i,
-        total: snake.length,
+    // Compute interpolated centers in pixel space.
+    final centers = <Offset>[
+      for (int i = 0; i < snake.length; i++)
+        () {
+          final to = snake[i];
+          final from = (i < prevSnake.length) ? prevSnake[i] : to;
+          final px = from.x + (to.x - from.x) * t;
+          final py = from.y + (to.y - from.y) * t;
+          return Offset((px + 0.5) * cs, (py + 0.5) * cs);
+        }(),
+    ];
+
+    // Snake body — one continuous path through the centers, stroked with
+    // round caps and round joins so segments read as a smooth, gap-less
+    // body even at low cell sizes. Painted in two stacked strokes for a
+    // soft outer shell + brighter inner highlight.
+    if (centers.length >= 2) {
+      final path = Path()..moveTo(centers.first.dx, centers.first.dy);
+      for (int i = 1; i < centers.length; i++) {
+        path.lineTo(centers[i].dx, centers[i].dy);
+      }
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = _kSnakeDark
+          ..strokeWidth = cs * 0.94
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round
+          ..style = PaintingStyle.stroke,
+      );
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = _kSnakeGreen
+          ..strokeWidth = cs * 0.74
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round
+          ..style = PaintingStyle.stroke,
+      );
+    } else {
+      // Single-segment snake — should only happen mid-init.
+      canvas.drawCircle(
+        centers.first, cs * 0.47, Paint()..color = _kSnakeDark,
+      );
+      canvas.drawCircle(
+        centers.first, cs * 0.37, Paint()..color = _kSnakeGreen,
       );
     }
+
+    // Head bulge — slightly wider circle on top so the head reads as
+    // distinct without breaking the body's continuity.
+    final head = centers.first;
+    canvas.drawCircle(head, cs * 0.48, Paint()..color = _kSnakeDark);
+    canvas.drawCircle(
+      Offset(head.dx - cs * 0.10, head.dy - cs * 0.10),
+      cs * 0.14,
+      Paint()..color = _kSnakeGreen.withValues(alpha: 0.45),
+    );
+    _drawEyesAt(canvas, head, cs);
   }
 
   void _drawFood(Canvas canvas, double cs) {
@@ -1160,69 +1203,27 @@ class _SnakePainter extends CustomPainter {
     );
   }
 
-  void _drawSegment(
-    Canvas canvas,
-    double x,
-    double y,
-    double cs, {
-    required bool isHead,
-    required int indexFromHead,
-    required int total,
-  }) {
-    final inset = cs * 0.06;
-    final rect = Rect.fromLTWH(
-      x * cs + inset,
-      y * cs + inset,
-      cs - 2 * inset,
-      cs - 2 * inset,
-    );
-    final radius = Radius.circular(cs * 0.30);
-    final rrect = RRect.fromRectAndRadius(rect, radius);
-
-    // Body gradient: head dark green, tail mint.
-    final progress = total > 1 ? indexFromHead / (total - 1) : 0.0;
-    final segColor = Color.lerp(_kSnakeDark, _kSnakeGreen, progress * 0.85)!;
-    canvas.drawRRect(rrect, Paint()..color = segColor);
-
-    if (isHead) {
-      // Inner highlight for shape.
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(
-            rect.left + cs * 0.12,
-            rect.top + cs * 0.12,
-            rect.width * 0.30,
-            rect.height * 0.20,
-          ),
-          Radius.circular(cs * 0.12),
-        ),
-        Paint()..color = Colors.white.withValues(alpha: 0.16),
-      );
-      _drawEyes(canvas, rect, cs);
-    }
-  }
-
-  void _drawEyes(Canvas canvas, Rect rect, double cs) {
-    final cx = rect.center.dx;
-    final cy = rect.center.dy;
-    final off = cs * 0.20;
+  void _drawEyesAt(Canvas canvas, Offset center, double cs) {
+    final cx = center.dx;
+    final cy = center.dy;
+    final off = cs * 0.18;
     final Offset e1, e2;
     switch (dir) {
       case _Dir.right:
-        e1 = Offset(cx + cs * 0.10, cy - off);
-        e2 = Offset(cx + cs * 0.10, cy + off);
+        e1 = Offset(cx + cs * 0.12, cy - off);
+        e2 = Offset(cx + cs * 0.12, cy + off);
         break;
       case _Dir.left:
-        e1 = Offset(cx - cs * 0.10, cy - off);
-        e2 = Offset(cx - cs * 0.10, cy + off);
+        e1 = Offset(cx - cs * 0.12, cy - off);
+        e2 = Offset(cx - cs * 0.12, cy + off);
         break;
       case _Dir.up:
-        e1 = Offset(cx - off, cy - cs * 0.10);
-        e2 = Offset(cx + off, cy - cs * 0.10);
+        e1 = Offset(cx - off, cy - cs * 0.12);
+        e2 = Offset(cx + off, cy - cs * 0.12);
         break;
       case _Dir.down:
-        e1 = Offset(cx - off, cy + cs * 0.10);
-        e2 = Offset(cx + off, cy + cs * 0.10);
+        e1 = Offset(cx - off, cy + cs * 0.12);
+        e2 = Offset(cx + off, cy + cs * 0.12);
         break;
     }
     final whitePaint = Paint()..color = Colors.white;

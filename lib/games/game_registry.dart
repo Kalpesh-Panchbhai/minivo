@@ -40,14 +40,6 @@ class GameRegistry {
   static bool usesCustomOverlays(String gameId) =>
       _customOverlayGames.contains(gameId);
 
-  /// Games whose play widget IS the picker (mode selection happens inside
-  /// the same screen as gameplay). Routing `/game/:id` for these skips the
-  /// generic detail screen and goes straight to `/play/:id`.
-  static const Set<String> _combinedPickerScreens = {'tic_tac_toe', 'number_merge'};
-
-  static bool usesCombinedPickerScreen(String gameId) =>
-      _combinedPickerScreens.contains(gameId);
-
   static final List<GameInfo> allGames = [
     const GameInfo(
       id: 'flappy_tap',
