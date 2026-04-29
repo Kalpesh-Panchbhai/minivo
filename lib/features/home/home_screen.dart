@@ -141,7 +141,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
 
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: _buildMasonryGrid(
                   recentIds: recentIds,
                   favoriteIds: favoriteIds,
