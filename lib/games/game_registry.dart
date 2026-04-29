@@ -4,6 +4,8 @@ import 'flappy_tap/flappy_tap_screen.dart';
 import 'number_merge/number_merge_logo.dart';
 import 'number_merge/number_merge_screen.dart';
 import 'block_fit/block_fit_screen.dart';
+import 'snake_classic/snake_classic_logo.dart';
+import 'snake_classic/snake_classic_screen.dart';
 import 'tic_tac_toe/tic_tac_toe_screen.dart';
 
 typedef GameWidgetBuilder = Widget Function();
@@ -15,6 +17,7 @@ class GameRegistry {
     'flappy_tap': () => const FlappyTapScreen(),
     'number_merge': () => const NumberMergeScreen(),
     'block_fit': () => const BlockFitScreen(),
+    'snake_classic': () => const SnakeClassicScreen(),
     'tic_tac_toe': () => const TicTacToeScreen(),
   };
 
@@ -28,7 +31,11 @@ class GameRegistry {
 
   static bool hasGame(String gameId) => _builders.containsKey(gameId);
 
-  static const Set<String> _customOverlayGames = {'tic_tac_toe', 'number_merge'};
+  static const Set<String> _customOverlayGames = {
+    'tic_tac_toe',
+    'number_merge',
+    'snake_classic',
+  };
 
   static bool usesCustomOverlays(String gameId) =>
       _customOverlayGames.contains(gameId);
@@ -123,13 +130,21 @@ class GameRegistry {
     const GameInfo(
       id: 'snake_classic',
       name: 'Snake Classic',
-      description: 'Guide the snake to eat food and grow longer!',
-      howToPlay: 'Swipe to change direction. Eat food to grow longer. Don\'t hit the walls or your own tail!',
+      description: 'Guide the snake to eat apples and grow longer. How long can you survive?',
+      howToPlay:
+          'Choose your difficulty (Easy, Medium, Hard) — speed and points scale with the level.\n'
+          'Swipe up, down, left, or right to steer the snake. The snake moves on its own; you only choose direction.\n'
+          'You can\'t reverse 180° — pivot through a perpendicular turn first.\n'
+          'Eat the red apple to grow longer and score 5/10/20 points (Easy/Medium/Hard).\n'
+          'The game ends if the snake hits a wall or runs into its own body.\n'
+          'Plan your turns — fast modes punish hesitation!',
       category: GameCategory.action,
       icon: Icons.pest_control_rounded,
       color: Color(0xFF20C997),
       bgColor: Color(0xFFE6FCF5),
       playCount: 11000,
+      isFeatured: true,
+      customLogo: buildSnakeLogo,
     ),
     const GameInfo(
       id: 'tic_tac_toe',
