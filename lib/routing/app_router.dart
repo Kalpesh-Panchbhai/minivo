@@ -47,8 +47,8 @@ class AppRouter {
         path: '/game/:id',
         redirect: (context, state) {
           final id = state.pathParameters['id'];
-          // Tic Tac Toe has its own game-screen UI that combines detail + mode picker.
-          if (id == 'tic_tac_toe') return '/play/$id';
+          // Games with built-in mode pickers bypass the generic detail screen.
+          if (id == 'tic_tac_toe' || id == 'number_merge') return '/play/$id';
           return null;
         },
         builder: (context, state) => GameDetailScreen(

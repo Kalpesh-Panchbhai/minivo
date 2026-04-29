@@ -27,7 +27,7 @@ class GameRegistry {
 
   static bool hasGame(String gameId) => _builders.containsKey(gameId);
 
-  static const Set<String> _customOverlayGames = {'tic_tac_toe'};
+  static const Set<String> _customOverlayGames = {'tic_tac_toe', 'number_merge'};
 
   static bool usesCustomOverlays(String gameId) =>
       _customOverlayGames.contains(gameId);
@@ -50,7 +50,13 @@ class GameRegistry {
       id: 'number_merge',
       name: '2048 Merge',
       description: 'Slide tiles and merge numbers. Can you reach 2048?',
-      howToPlay: 'Swipe in any direction to move all tiles. When two tiles with the same number touch, they merge into one. Try to reach 2048!',
+      howToPlay:
+          'Swipe left, right, up, or down to slide all tiles on the board.\n'
+          'When two tiles with the same number collide, they merge into one tile worth double the value.\n'
+          'Every swipe spawns a new tile (usually a 2, occasionally a 4).\n'
+          'Reach the target tile for your chosen difficulty — 1024 on Easy, 2048 on Medium, 4096 on Hard.\n'
+          'The game ends when the board is full and no moves remain.\n'
+          'Plan your moves — avoid cornering your highest tile!',
       category: GameCategory.puzzle,
       icon: Icons.calculate_rounded,
       color: Color(0xFFFF6B6B),
