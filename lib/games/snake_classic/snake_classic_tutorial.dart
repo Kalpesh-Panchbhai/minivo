@@ -19,15 +19,15 @@ List<GameHowToPlayStep> snakeClassicSteps() => [
       GameHowToPlayStep(
         text: 'Eat the apples to grow and score',
         demo: AnimatedDemo(
-          period: const Duration(seconds: 3),
+          period: const Duration(milliseconds: 2500),
           painter: (t) => _SnakeEatPainter(t),
           canvasSize: const Size(180, 150),
         ),
       ),
       GameHowToPlayStep(
-        text: "Don't bite yourself or hit the walls!",
+        text: "Don't hit the walls — game over!",
         demo: AnimatedDemo(
-          period: const Duration(seconds: 3),
+          period: const Duration(milliseconds: 2800),
           painter: (t) => _SnakeDangerPainter(t),
           canvasSize: const Size(180, 150),
         ),
@@ -53,9 +53,11 @@ void _drawGrid(Canvas canvas, Size size) {
   }
 }
 
-void _drawSnakeSegments(
-    Canvas canvas, List<Offset> centers, double segR) {
-  if (centers.length < 2) {
+/// Draws the snake as a smooth pill/tube along [centers].
+/// All centers must lie in a straight line for a straight snake.
+void _drawSnakeSegments(Canvas canvas, List<Offset> centers, double segR) {
+  if (centers.isEmpty) return;
+  if (centers.length == 1) {
     canvas.drawCircle(centers.first, segR, Paint()..color = _kSnakeDark);
     return;
   }
@@ -73,43 +75,43 @@ void _drawSnakeSegments(
     ..strokeJoin = StrokeJoin.round
     ..strokeWidth = segR * 1.3;
 
-  final n = centers.length;
-  for (int i = 0; i < n - 1; i++) {
-    final from = i == 0 ? centers[0] : Offset.lerp(centers[i - 1], centers[i], 0.5)!;
-    final to = i == n - 2 ? centers.last : Offset.lerp(centers[i], centers[i + 1], 0.5)!;
-    final ctl = centers[i];
-    final path = Path()
-      ..moveTo(from.dx, from.dy)
-      ..quadraticBezierTo(ctl.dx, ctl.dy, to.dx, to.dy);
-    canvas.drawPath(path, outer);
-    canvas.drawPath(path, inner);
+  // Draw as a single polyline so straight segments look perfectly straight.
+  final path = Path()..moveTo(centers.last.dx, centers.last.dy);
+  for (int i = centers.length - 2; i >= 0; i--) {
+    path.lineTo(centers[i].dx, centers[i].dy);
   }
+  canvas.drawPath(path, outer);
+  canvas.drawPath(path, inner);
 
   // Head
   final head = centers.first;
   canvas.drawCircle(head, segR * 0.95, Paint()..color = _kSnakeDark);
   canvas.drawCircle(head, segR * 0.68, Paint()..color = _kSnakeGreen);
-  // Eyes
+  // Eyes (offset upward from head centre for horizontal snake)
+  _drawEyes(canvas, head, segR, horizontal: true);
+}
+
+void _drawEyes(Canvas canvas, Offset head, double segR, {bool horizontal = true}) {
   final eyePaint = Paint()..color = Colors.white;
   final pupilPaint = Paint()..color = const Color(0xFF1B3A2A);
-  canvas.drawCircle(Offset(head.dx - segR * 0.3, head.dy - segR * 0.3),
-      segR * 0.22, eyePaint);
-  canvas.drawCircle(Offset(head.dx + segR * 0.3, head.dy - segR * 0.3),
-      segR * 0.22, eyePaint);
-  canvas.drawCircle(Offset(head.dx - segR * 0.3, head.dy - segR * 0.3),
-      segR * 0.11, pupilPaint);
-  canvas.drawCircle(Offset(head.dx + segR * 0.3, head.dy - segR * 0.3),
-      segR * 0.11, pupilPaint);
+  final dy = horizontal ? -segR * 0.30 : 0.0;
+  final dx = horizontal ? 0.0 : -segR * 0.30;
+  canvas.drawCircle(Offset(head.dx - segR * 0.30 + dx, head.dy + dy - segR * 0.0), segR * 0.24, eyePaint);
+  canvas.drawCircle(Offset(head.dx + segR * 0.30 + dx, head.dy + dy + segR * 0.0), segR * 0.24, eyePaint);
+  canvas.drawCircle(Offset(head.dx - segR * 0.30 + dx, head.dy + dy - segR * 0.0), segR * 0.12, pupilPaint);
+  canvas.drawCircle(Offset(head.dx + segR * 0.30 + dx, head.dy + dy + segR * 0.0), segR * 0.12, pupilPaint);
 }
 
 void _drawApple(Canvas canvas, Offset center, double r) {
+  // Glow
   canvas.drawCircle(
-    center, r * 1.1,
+    center, r * 1.2,
     Paint()
       ..color = _kFoodColor.withValues(alpha: 0.18)
       ..maskFilter = MaskFilter.blur(BlurStyle.normal, r * 0.6),
   );
   canvas.drawCircle(center, r, Paint()..color = _kFoodColor);
+  // Highlight
   canvas.drawCircle(
     Offset(center.dx - r * 0.28, center.dy - r * 0.28),
     r * 0.28,
@@ -134,54 +136,55 @@ class _SnakeSteerPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    canvas.drawRect(
-      Rect.fromLTWH(0, 0, size.width, size.height),
-      Paint()..color = const Color(0xFF0D2B1E),
-    );
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height),
+        Paint()..color = const Color(0xFF0D2B1E));
     _drawGrid(canvas, size);
 
     final cx = size.width / 2;
     final cy = size.height / 2;
     const segR = 9.0;
 
-    // Short snake wiggling in centre
-    final wiggle = math.sin(t * 2 * math.pi) * 4;
+    // Short snake — 4 segments in a straight horizontal line with a tiny head bob
+    final bob = math.sin(t * 2 * math.pi) * 2;
     final segments = [
-      Offset(cx, cy),
-      Offset(cx - segR * 2 + wiggle, cy),
-      Offset(cx - segR * 4, cy - wiggle * 0.5),
-      Offset(cx - segR * 6 + wiggle * 0.5, cy),
+      Offset(cx, cy + bob),
+      Offset(cx - segR * 2, cy + bob),
+      Offset(cx - segR * 4, cy + bob),
+      Offset(cx - segR * 6, cy + bob),
     ];
     _drawSnakeSegments(canvas, segments, segR);
 
-    // Cycling arrow directions: 0=left 1=up 2=right 3=down
+    // Arrow cycles ← ↑ → ↓ one at a time with fade in/out
     final arrowIdx = (t * 4).floor() % 4;
     final arrowPhase = (t * 4) % 1.0;
-    final arrowFade = arrowPhase < 0.7
-        ? (arrowPhase / 0.35).clamp(0.0, 1.0)
-        : ((1.0 - arrowPhase) / 0.3).clamp(0.0, 1.0);
+    final arrowAlpha = arrowPhase < 0.15
+        ? arrowPhase / 0.15
+        : arrowPhase > 0.75
+            ? (1 - (arrowPhase - 0.75) / 0.25).clamp(0.0, 1.0)
+            : 1.0;
 
-    const arrowOffset = 46.0;
+    const arrowOffset = 48.0;
     const arrowLabels = ['←', '↑', '→', '↓'];
-    final arrowPositions = [
-      Offset(cx - arrowOffset, cy),
-      Offset(cx, cy - arrowOffset),
-      Offset(cx + arrowOffset, cy),
-      Offset(cx, cy + arrowOffset),
+    const arrowPositions = [
+      Offset(-arrowOffset, 0),
+      Offset(0, -arrowOffset),
+      Offset(arrowOffset, 0),
+      Offset(0, arrowOffset),
     ];
 
-    final labelStyle = TextStyle(
-      color: _kSnakeGreen.withValues(alpha: arrowFade * 0.9),
-      fontSize: 22,
-      fontWeight: FontWeight.w900,
-    );
-
+    final aPos = Offset(cx, cy) + arrowPositions[arrowIdx];
     final tp = TextPainter(
-      text: TextSpan(text: arrowLabels[arrowIdx], style: labelStyle),
+      text: TextSpan(
+        text: arrowLabels[arrowIdx],
+        style: TextStyle(
+          color: _kSnakeGreen.withValues(alpha: arrowAlpha * 0.95),
+          fontSize: 26,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
       textDirection: TextDirection.ltr,
     )..layout();
-    final pos = arrowPositions[arrowIdx];
-    tp.paint(canvas, Offset(pos.dx - tp.width / 2, pos.dy - tp.height / 2));
+    tp.paint(canvas, Offset(aPos.dx - tp.width / 2, aPos.dy - tp.height / 2));
   }
 
   @override
@@ -196,54 +199,106 @@ class _SnakeEatPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    canvas.drawRect(
-      Rect.fromLTWH(0, 0, size.width, size.height),
-      Paint()..color = const Color(0xFF0D2B1E),
-    );
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height),
+        Paint()..color = const Color(0xFF0D2B1E));
     _drawGrid(canvas, size);
 
     const segR = 9.0;
-    final cy = size.height * 0.5;
+    final cy = size.height * 0.50;
+    final appleX = size.width * 0.76;
 
-    // Apple position (fixed right side)
-    final appleX = size.width * 0.72;
-    final appleOffset = Offset(appleX, cy);
+    // Phase 0–0.55: snake moves right toward apple
+    // Phase 0.55–0.75: eat pop + score
+    // Phase 0.75–1.0: snake shown longer, fades
+    final phase = t;
 
-    // Snake head moves from left toward apple
-    final headX = size.width * 0.12 + t * (appleX - size.width * 0.12 - segR);
-    final ate = headX >= appleX - segR * 1.2;
+    if (phase < 0.55) {
+      // Snake moves from left toward apple
+      final headX = size.width * 0.12 + (phase / 0.55) * (appleX - size.width * 0.12 - segR * 1.2);
+      final bodyCount = 3;
+      final centers = List.generate(
+        bodyCount,
+        (i) => Offset(headX - i * segR * 2, cy),
+      );
+      _drawSnakeSegments(canvas, centers, segR);
+      _drawApple(canvas, Offset(appleX, cy), segR * 0.9);
+    } else if (phase < 0.75) {
+      // Eat animation: apple pops, score +1
+      final popT = (phase - 0.55) / 0.20;
+      final headX = appleX - segR * 0.8;
+      final bodyCount = 3;
+      final centers = List.generate(
+        bodyCount,
+        (i) => Offset(headX - i * segR * 2, cy),
+      );
+      _drawSnakeSegments(canvas, centers, segR);
 
-    // After eating, apple pops (scale 0 → 1.3 → 0 → reappear at new pos)
-    if (!ate) {
-      _drawApple(canvas, appleOffset, segR * 0.85);
-    } else {
-      // Pop animation after eating
-      final popT = ((headX - (appleX - segR * 1.2)) / (segR * 2)).clamp(0.0, 1.0);
-      final popScale = popT < 0.5
-          ? (1.0 + popT * 0.6)
-          : (1.6 - (popT - 0.5) * 3.2).clamp(0.0, 1.6);
+      // Apple pop (scale then vanish)
+      final popScale = math.sin(popT * math.pi);
       if (popScale > 0) {
-        _drawApple(canvas, appleOffset, segR * 0.85 * popScale);
+        _drawApple(canvas, Offset(appleX, cy), segR * 0.9 * popScale);
       }
+
+      // Particle burst
+      if (popT > 0.1) {
+        for (int i = 0; i < 6; i++) {
+          final angle = i * math.pi / 3;
+          final dist = popT * segR * 2.5;
+          canvas.drawCircle(
+            Offset(appleX + math.cos(angle) * dist, cy + math.sin(angle) * dist),
+            3.5 * (1 - popT).clamp(0.0, 1.0),
+            Paint()..color = _kFoodColor.withValues(alpha: (1 - popT).clamp(0.0, 1.0)),
+          );
+        }
+      }
+
+      // +1 score
+      final scoreAlpha = math.sin(popT * math.pi).clamp(0.0, 1.0);
+      final scoreRise = popT * 14;
+      final tp = TextPainter(
+        text: TextSpan(
+          text: '+1',
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: scoreAlpha),
+            fontSize: 14,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      tp.paint(canvas, Offset(appleX - tp.width / 2, cy - 20 - scoreRise));
+    } else {
+      // Show grown snake + new apple spawning
+      final fadeT = (phase - 0.75) / 0.25;
+      final alpha = (1 - fadeT * 0.5).clamp(0.0, 1.0);
+      final headX = appleX;
+      final bodyCount = 5; // grown by 2
+      final centers = List.generate(
+        bodyCount,
+        (i) => Offset(headX - i * segR * 2, cy),
+      );
+      // Draw with opacity fade
+      canvas.saveLayer(null, Paint()..color = Colors.white.withValues(alpha: alpha));
+      _drawSnakeSegments(canvas, centers, segR);
+      canvas.restore();
+
+      // New apple appears further right
+      final newAppleX = math.min(size.width * 0.92, appleX + segR * 4);
+      final newAppleAlpha = (fadeT * 2).clamp(0.0, 1.0);
+      canvas.saveLayer(null, Paint()..color = Colors.white.withValues(alpha: newAppleAlpha));
+      _drawApple(canvas, Offset(newAppleX, cy), segR * 0.9);
+      canvas.restore();
     }
-
-    // Body grows with 3 + extra segments when ate
-    final baseSegments = 3;
-    final extraSegments = ate ? 1 : 0;
-    final totalSegments = baseSegments + extraSegments;
-
-    final centers = <Offset>[
-      for (int i = 0; i < totalSegments; i++)
-        Offset(headX - i * segR * 2, cy),
-    ];
-    _drawSnakeSegments(canvas, centers, segR);
   }
 
   @override
   bool shouldRepaint(covariant _SnakeEatPainter old) => old.t != t;
 }
 
-// ── Step 3: Snake near wall with danger flash ───────────────────────────────
+// ── Step 3: Snake hits the right wall — straight line, clear crash ──────────
+//
+// The snake is a perfectly straight horizontal line of segments moving right.
+// When the head reaches the right wall it stops, flashes red, and shows GAME OVER.
 
 class _SnakeDangerPainter extends CustomPainter {
   final double t;
@@ -251,62 +306,84 @@ class _SnakeDangerPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    canvas.drawRect(
-      Rect.fromLTWH(0, 0, size.width, size.height),
-      Paint()..color = const Color(0xFF0D2B1E),
-    );
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height),
+        Paint()..color = const Color(0xFF0D2B1E));
     _drawGrid(canvas, size);
 
     const segR = 9.0;
-    const padding = 4.0;
+    const segSpacing = segR * 2.2; // gap between segment centres
+    const numSegs = 5;
+    const wallPad = 4.0;
+    final wallX = size.width - wallPad;
+    final cy = size.height * 0.50;
 
-    // Snake coiled on left, head moving right toward wall
-    final headX = size.width * 0.30 + t * (size.width * 0.62);
-    final headY = size.height * 0.45;
+    // Head travels from left into the wall; clamp at wallX - segR
+    final startX = size.width * 0.28;
+    final rawHeadX = startX + t * (wallX - startX);
+    final impactX = wallX - segR * 1.05; // where head stops
+    final crashed = rawHeadX >= impactX;
+    final headX = crashed ? impactX : rawHeadX;
 
-    final centers = [
-      Offset(headX, headY),
-      Offset(headX - segR * 2, headY),
-      Offset(headX - segR * 4, headY),
-      Offset(headX - segR * 4, headY + segR * 2),
-      Offset(headX - segR * 2, headY + segR * 2),
-    ];
+    // All body segments behind the head in a perfectly straight horizontal line
+    final centers = List.generate(
+      numSegs,
+      (i) => Offset(headX - i * segSpacing, cy),
+    );
     _drawSnakeSegments(canvas, centers, segR);
 
-    // Wall highlight (right edge)
-    final wallPaint = Paint()
-      ..color = Colors.red.withValues(alpha: 0.55)
-      ..strokeWidth = 4;
+    // Right wall — red line
     canvas.drawLine(
-      Offset(size.width - padding, 0),
-      Offset(size.width - padding, size.height),
-      wallPaint,
+      Offset(wallX, 0),
+      Offset(wallX, size.height),
+      Paint()
+        ..color = Colors.red.withValues(alpha: 0.70)
+        ..strokeWidth = 3.5,
     );
 
-    // Flash when reaching wall
-    if (t > 0.78) {
-      final flashT = ((t - 0.78) / 0.22).clamp(0.0, 1.0);
-      final alpha = math.sin(flashT * math.pi) * 0.55;
+    // Crash effects
+    if (crashed) {
+      final crashT = ((rawHeadX - impactX) / (wallX - startX) * (1 / (1 - (impactX - startX) / (wallX - startX)))).clamp(0.0, 1.0);
+      // Actually compute crashT based on t directly:
+      final tImpact = (impactX - startX) / (wallX - startX);
+      final localT = ((t - tImpact) / (1 - tImpact)).clamp(0.0, 1.0);
+
+      // Screen flash
+      final flashAlpha = math.sin(localT * math.pi) * 0.60;
       canvas.drawRect(
         Rect.fromLTWH(0, 0, size.width, size.height),
-        Paint()..color = Colors.red.withValues(alpha: alpha),
+        Paint()..color = Colors.red.withValues(alpha: flashAlpha),
       );
-    }
 
-    // Warning sign near wall
-    final warnAlpha = (math.sin(t * 2 * math.pi * 2) * 0.5 + 0.5) * 0.9;
-    final tp = TextPainter(
-      text: TextSpan(
-        text: '⚠',
-        style: TextStyle(
-          fontSize: 22,
-          color: Colors.orange.withValues(alpha: warnAlpha),
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    tp.paint(canvas,
-        Offset(size.width - tp.width - 10, size.height * 0.10));
+      // X mark at impact point
+      if (localT > 0.05) {
+        final xAlpha = math.sin(localT * math.pi).clamp(0.0, 1.0);
+        final xPaint = Paint()
+          ..color = Colors.white.withValues(alpha: xAlpha)
+          ..strokeWidth = 5
+          ..strokeCap = StrokeCap.round;
+        const xSz = 12.0;
+        canvas.drawLine(Offset(headX - xSz, cy - xSz), Offset(headX + xSz, cy + xSz), xPaint);
+        canvas.drawLine(Offset(headX + xSz, cy - xSz), Offset(headX - xSz, cy + xSz), xPaint);
+      }
+
+      // GAME OVER label
+      if (localT > 0.35) {
+        final textAlpha = ((localT - 0.35) / 0.35).clamp(0.0, 1.0);
+        final tp = TextPainter(
+          text: TextSpan(
+            text: 'GAME OVER',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: textAlpha),
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.5,
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        tp.paint(canvas, Offset(size.width / 2 - tp.width / 2, size.height * 0.72));
+      }
+    }
   }
 
   @override

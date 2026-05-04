@@ -19,7 +19,7 @@ List<GameHowToPlayStep> flappyTapSteps() => [
       GameHowToPlayStep(
         text: 'Fly through the gap between the pipes',
         demo: AnimatedDemo(
-          period: const Duration(seconds: 3),
+          period: const Duration(milliseconds: 2800),
           painter: (t) => _FlappyGapPainter(t),
           canvasSize: const Size(180, 150),
         ),
@@ -27,7 +27,7 @@ List<GameHowToPlayStep> flappyTapSteps() => [
       GameHowToPlayStep(
         text: "Don't touch the pipes or the ground!",
         demo: AnimatedDemo(
-          period: const Duration(seconds: 3),
+          period: const Duration(milliseconds: 2800),
           painter: (t) => _FlappyDangerPainter(t),
           canvasSize: const Size(180, 150),
         ),
@@ -87,17 +87,11 @@ void _drawBird(Canvas canvas, double cx, double cy, double wingPhase,
     Paint()..color = const Color(0xFFE6B800),
   );
   // Eye white
-  canvas.drawCircle(
-    Offset(sr * 0.5, -sr * 0.25), sr * 0.32, Paint()..color = Colors.white,
-  );
+  canvas.drawCircle(Offset(sr * 0.5, -sr * 0.25), sr * 0.32, Paint()..color = Colors.white);
   // Pupil
-  canvas.drawCircle(
-    Offset(sr * 0.55, -sr * 0.22), sr * 0.16, Paint()..color = const Color(0xFF1A1A2E),
-  );
+  canvas.drawCircle(Offset(sr * 0.55, -sr * 0.22), sr * 0.16, Paint()..color = const Color(0xFF1A1A2E));
   // Eye shine
-  canvas.drawCircle(
-    Offset(sr * 0.60, -sr * 0.30), sr * 0.07, Paint()..color = Colors.white,
-  );
+  canvas.drawCircle(Offset(sr * 0.60, -sr * 0.30), sr * 0.07, Paint()..color = Colors.white);
   // Beak
   final beak = Path()
     ..moveTo(sr * 0.7, 0)
@@ -115,6 +109,7 @@ void _drawPipePair(Canvas canvas, double pipeX, double gapCenterY,
   final gapBottom = gapCenterY + gapHeight / 2;
   const capExtra = 5.0;
   const capH = 14.0;
+  final groundTop = size.height - 20;
 
   final bodyRect = Rect.fromLTRB(pipeX, 0, pipeX + pipeW, size.height);
   final bodyPaint = Paint()
@@ -125,7 +120,7 @@ void _drawPipePair(Canvas canvas, double pipeX, double gapCenterY,
       end: Alignment.centerRight,
     ).createShader(bodyRect);
 
-  // Top pipe
+  // Top pipe body
   if (gapTop > 0) {
     canvas.drawRRect(
       RRect.fromRectAndCorners(
@@ -135,6 +130,7 @@ void _drawPipePair(Canvas canvas, double pipeX, double gapCenterY,
       ),
       bodyPaint,
     );
+    // Top pipe cap
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromLTRB(pipeX - capExtra, gapTop - capH, pipeX + pipeW + capExtra, gapTop),
@@ -144,16 +140,17 @@ void _drawPipePair(Canvas canvas, double pipeX, double gapCenterY,
     );
   }
 
-  // Bottom pipe
-  if (gapBottom < size.height - 20) {
+  // Bottom pipe body
+  if (gapBottom < groundTop) {
     canvas.drawRRect(
       RRect.fromRectAndCorners(
-        Rect.fromLTRB(pipeX, gapBottom, pipeX + pipeW, size.height - 20),
+        Rect.fromLTRB(pipeX, gapBottom, pipeX + pipeW, groundTop),
         topLeft: const Radius.circular(3),
         topRight: const Radius.circular(3),
       ),
       bodyPaint,
     );
+    // Bottom pipe cap
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromLTRB(pipeX - capExtra, gapBottom, pipeX + pipeW + capExtra, gapBottom + capH),
@@ -175,8 +172,8 @@ class _FlappyBobPainter extends CustomPainter {
     _drawSky(canvas, size);
     _drawGround(canvas, size);
 
-    final cx = size.width * 0.38;
-    final baseY = size.height * 0.45;
+    final cx = size.width * 0.40;
+    final baseY = size.height * 0.42;
     final bobY = baseY + math.sin(t * 2 * math.pi) * 10;
     final wingPhase = t * 2 * math.pi * 2;
 
@@ -215,40 +212,70 @@ class _FlappyBobPainter extends CustomPainter {
   bool shouldRepaint(covariant _FlappyBobPainter old) => old.t != t;
 }
 
-// ── Step 2: Bird flying through gap ────────────────────────────────────────
+// ── Step 2: Bird flying cleanly through the pipe gap ───────────────────────
+//
+// Key constraint: bird must be at gapCenterY exactly when birdX == pipeX.
+// We place the pipe at the t=0.50 x-position so the sine arc peak aligns.
 
 class _FlappyGapPainter extends CustomPainter {
   final double t;
   const _FlappyGapPainter(this.t);
 
+  static const _gapH = 58.0;
+  static const _pipeW = 34.0;
+
   @override
   void paint(Canvas canvas, Size size) {
     _drawSky(canvas, size);
 
-    const pipeW = 32.0;
-    const gapH = 54.0;
-    final gapCenterY = size.height * 0.42;
-    final pipeX = size.width * 0.62;
+    // Pipe is centred horizontally (at x = 0.50 * width).
+    // Bird travels from left edge (x≈10) to right edge (x≈170).
+    // At t=0.50 the bird's x == pipe centre — the sine arc also peaks there.
+    final pipeX = size.width * 0.50 - _pipeW / 2;
+    final gapCenterY = size.height * 0.40;
 
-    _drawPipePair(canvas, pipeX, gapCenterY, gapH, size, pipeW);
+    _drawPipePair(canvas, pipeX, gapCenterY, _gapH, size, _pipeW);
     _drawGround(canvas, size);
 
-    // Bird moves from left edge to just past pipe then resets
-    final birdX = size.width * 0.08 + t * (size.width * 0.72);
+    // Bird x: left edge → right edge
+    final startX = size.width * 0.06;
+    final birdX = startX + t * (size.width * 0.88);
+
+    // Bird y: starts below gap, rises to gapCenterY at t=0.5, then descends.
+    // sin(t * π) peaks at t=0.5 → birdY = gapCenterY at pipe centre.
+    final startY = size.height * 0.68;
+    final birdY = startY - (startY - gapCenterY) * math.sin(t * math.pi);
+
     final wingPhase = t * 2 * math.pi * 3;
-
-    // Slight arc through gap
-    final birdY = size.height * 0.55 +
-        math.sin(t * math.pi) * -(gapCenterY - size.height * 0.55 + 5);
-
     _drawBird(canvas, birdX, birdY, wingPhase);
+
+    // Green tick when bird has passed through the gap (t 0.55 → 0.80)
+    if (t > 0.55 && t < 0.85) {
+      final fadeT = (t - 0.55) / 0.30;
+      final alpha = math.sin(fadeT * math.pi).clamp(0.0, 1.0);
+      final tp = TextPainter(
+        text: TextSpan(
+          text: '✓',
+          style: TextStyle(
+            color: const Color(0xFF4CAF50).withValues(alpha: alpha),
+            fontSize: 22,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      tp.paint(
+        canvas,
+        Offset(pipeX + _pipeW + 6, gapCenterY - tp.height / 2),
+      );
+    }
   }
 
   @override
   bool shouldRepaint(covariant _FlappyGapPainter old) => old.t != t;
 }
 
-// ── Step 3: Bird hitting pipe — danger flash ────────────────────────────────
+// ── Step 3: Bird flying into pipe — danger flash + game over ────────────────
 
 class _FlappyDangerPainter extends CustomPainter {
   final double t;
@@ -258,49 +285,61 @@ class _FlappyDangerPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     _drawSky(canvas, size);
 
-    const pipeW = 32.0;
-    const gapH = 50.0;
-    final pipeX = size.width * 0.6;
-    final gapCenterY = size.height * 0.30; // gap is high — bird will miss it
+    const pipeW = 34.0;
+    const gapH = 52.0;
+    // Gap is deliberately HIGH so the bird (flying mid-height) misses it.
+    final pipeX = size.width * 0.62;
+    final gapCenterY = size.height * 0.18; // gap near top — bird will hit body
 
     _drawPipePair(canvas, pipeX, gapCenterY, gapH, size, pipeW);
     _drawGround(canvas, size);
 
-    // Bird moves toward pipe then resets
-    final birdX = size.width * 0.08 + t * (pipeX - size.width * 0.08 + 10);
-    final birdY = size.height * 0.52; // stays mid-height, hits pipe body
+    // Bird moves from left toward the pipe, stops at impact (t > 0.72).
+    final rawX = size.width * 0.08 + t * (pipeX - size.width * 0.08 + pipeW * 0.5);
+    final birdX = t < 0.72 ? rawX : (pipeX - 14.0); // clamp at pipe face
+    final birdY = size.height * 0.48; // stays mid-height — hits pipe body
     final wingPhase = t * 2 * math.pi * 2;
 
     _drawBird(canvas, birdX, birdY, wingPhase);
 
-    // Red flash when bird reaches pipe (t > 0.75)
+    // Impact effects after t=0.72
     if (t > 0.72) {
       final flashT = ((t - 0.72) / 0.28).clamp(0.0, 1.0);
-      // Peak at 0.5, fade by 1.0
-      final alpha = math.sin(flashT * math.pi) * 0.60;
+      // Screen flash
+      final flashAlpha = math.sin(flashT * math.pi) * 0.55;
       canvas.drawRect(
         Rect.fromLTWH(0, 0, size.width, size.height),
-        Paint()..color = Colors.red.withValues(alpha: alpha),
+        Paint()..color = Colors.red.withValues(alpha: flashAlpha),
       );
 
-      // X mark
-      if (flashT > 0.2) {
-        final xAlpha = ((flashT - 0.2) / 0.8).clamp(0.0, 1.0);
+      // X mark over the bird
+      if (flashT > 0.15) {
+        final xAlpha = ((flashT - 0.15) / 0.45).clamp(0.0, 1.0);
         final xPaint = Paint()
-          ..color = Colors.white.withValues(alpha: xAlpha)
-          ..strokeWidth = 4
+          ..color = Colors.white.withValues(alpha: xAlpha * 0.95)
+          ..strokeWidth = 4.5
           ..strokeCap = StrokeCap.round;
-        const xSize = 14.0;
-        canvas.drawLine(
-          Offset(birdX - xSize, birdY - xSize),
-          Offset(birdX + xSize, birdY + xSize),
-          xPaint,
-        );
-        canvas.drawLine(
-          Offset(birdX + xSize, birdY - xSize),
-          Offset(birdX - xSize, birdY + xSize),
-          xPaint,
-        );
+        const xSize = 13.0;
+        canvas.drawLine(Offset(birdX - xSize, birdY - xSize), Offset(birdX + xSize, birdY + xSize), xPaint);
+        canvas.drawLine(Offset(birdX + xSize, birdY - xSize), Offset(birdX - xSize, birdY + xSize), xPaint);
+      }
+
+      // "GAME OVER" text
+      if (flashT > 0.40) {
+        final textAlpha = ((flashT - 0.40) / 0.40).clamp(0.0, 1.0);
+        final tp = TextPainter(
+          text: TextSpan(
+            text: 'GAME OVER',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: textAlpha),
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.5,
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        tp.paint(canvas, Offset(size.width / 2 - tp.width / 2, size.height * 0.72));
       }
     }
   }
