@@ -137,70 +137,120 @@ void _drawTile(Canvas canvas, int col, int row, int value, Offset origin,
   }
 }
 
-// ── Step 1: Full 4×4 board, tiles slide in swipe direction ──────────────────
+// ── Step 1: ONE tile slides to the wall; all others stay put ────────────────
 //
-// Board: [[2,0,4,0],[0,8,0,0],[0,0,4,0],[2,0,0,8]]
-// Animation cycles ← ↑ → ↓; tiles visually shift a few pixels in that direction.
+// Static tiles sit already at the edges (nowhere to go).
+// The "2" at col 1 slides right to col 3, pauses, then slides left to col 0.
+// This mirrors real gameplay: only a tile that has empty space ahead moves.
+//
+// Timeline (one period):
+//   0.00–0.12  board at rest, → arrow fades in
+//   0.12–0.45  "2" slides right col 1 → col 3
+//   0.45–0.58  settled; ← arrow fades in
+//   0.58–0.85  "2" slides left col 3 → col 0
+//   0.85–1.00  settled, fade out
 
 class _MergeSwipePainter extends CustomPainter {
   final double t;
   const _MergeSwipePainter(this.t);
 
-  // [col, row, value]
-  static const _tiles = [
-    [0, 0, 2], [2, 0, 4],
-    [1, 1, 8],
-    [2, 2, 4],
-    [0, 3, 2], [3, 3, 8],
+  // Tiles that don't move (already against a wall or blocked)
+  static const _staticTiles = [
+    [3, 0, 4],   // right wall, row 0
+    [0, 2, 8],   // left wall, row 2
+    [3, 3, 16],  // right wall, row 3
   ];
+
+  static const _movingRow = 1;
+  static const _movingValue = 2;
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Warm background
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height),
         Paint()..color = const Color(0xFFFAF0E6));
-
     final origin = _drawBoardBg(canvas, size);
 
-    // Cycle: right→down→left→up
-    final dirIdx = (t * 4).floor() % 4;
-    final phase = (t * 4) % 1.0; // 0→1 within current direction
+    const step = _kCellSize + _kGap; // pixels per column
 
-    // Slide amount: ease in/out arc so tiles bounce then settle
-    const maxSlide = 6.0;
-    final slideAmt = math.sin(phase * math.pi) * maxSlide;
-    final dirVecs = [
-      Offset(slideAmt, 0),   // right
-      Offset(0, slideAmt),   // down
-      Offset(-slideAmt, 0),  // left
-      Offset(0, -slideAmt),  // up
-    ];
-    final slideVec = dirVecs[dirIdx];
+    double movingCol;
+    String arrowLabel = '';
+    double arrowAlpha = 0;
 
-    for (final tile in _tiles) {
-      _drawTile(canvas, tile[0], tile[1], tile[2], origin, pixelOffset: slideVec);
+    if (t < 0.12) {
+      movingCol = 1;
+      arrowLabel = '→';
+      arrowAlpha = (t / 0.12).clamp(0.0, 1.0) * 0.85;
+    } else if (t < 0.45) {
+      // Slide right: col 1 → col 3
+      final slideT = Curves.easeInOut.transform((t - 0.12) / 0.33);
+      movingCol = 1 + slideT * 2;
+      arrowLabel = '→';
+      arrowAlpha = (1 - slideT) * 0.85;
+    } else if (t < 0.58) {
+      movingCol = 3;
+      arrowLabel = '←';
+      arrowAlpha = ((t - 0.45) / 0.13).clamp(0.0, 1.0) * 0.85;
+    } else if (t < 0.85) {
+      // Slide left: col 3 → col 0
+      final slideT = Curves.easeInOut.transform((t - 0.58) / 0.27);
+      movingCol = 3 - slideT * 3;
+      arrowLabel = '←';
+      arrowAlpha = (1 - slideT) * 0.85;
+    } else {
+      movingCol = 0;
+      arrowAlpha = 0;
     }
 
-    // Swipe arrow label
-    const arrows = ['→', '↓', '←', '↑'];
-    final arrowAlpha = (math.sin(phase * math.pi)).clamp(0.0, 1.0);
-    final tp = TextPainter(
+    // Draw static tiles
+    for (final tile in _staticTiles) {
+      _drawTile(canvas, tile[0], tile[1], tile[2], origin);
+    }
+
+    // Draw moving tile at its continuous x position
+    final movingX = origin.dx + movingCol * step;
+    final movingY = origin.dy + _movingRow * step;
+    final rect = Rect.fromLTWH(movingX, movingY, _kCellSize, _kCellSize);
+    final style = _styleFor(_movingValue);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect, const Radius.circular(4)),
+      Paint()..color = style.bg,
+    );
+    final numTp = TextPainter(
       text: TextSpan(
-        text: arrows[dirIdx],
+        text: '$_movingValue',
         style: TextStyle(
-          color: _kBoardBg.withValues(alpha: arrowAlpha),
-          fontSize: 22,
+          color: style.fg,
+          fontSize: _kCellSize * 0.50,
           fontWeight: FontWeight.w900,
+          height: 1,
         ),
       ),
       textDirection: TextDirection.ltr,
     )..layout();
-    // Place arrow to the right of the board
-    final boardRight = origin.dx + _kBoardSize + 10;
-    tp.paint(canvas, Offset(
-      math.min(boardRight, size.width - tp.width - 4),
-      size.height / 2 - tp.height / 2,
+    numTp.paint(canvas, Offset(
+      rect.center.dx - numTp.width / 2,
+      rect.center.dy - numTp.height / 2,
     ));
+
+    // Swipe arrow outside the board
+    if (arrowAlpha > 0) {
+      final arrTp = TextPainter(
+        text: TextSpan(
+          text: arrowLabel,
+          style: TextStyle(
+            color: _kBoardBg.withValues(alpha: arrowAlpha),
+            fontSize: 24,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      final boardRight = origin.dx + _kBoardSize + 8;
+      arrTp.paint(canvas, Offset(
+        math.min(boardRight, size.width - arrTp.width - 2),
+        size.height / 2 - arrTp.height / 2,
+      ));
+    }
   }
 
   @override
