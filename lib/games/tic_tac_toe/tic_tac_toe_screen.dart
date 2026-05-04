@@ -15,6 +15,7 @@ import '../shared/game_control_buttons.dart';
 import '../shared/game_hud_bar.dart';
 import '../shared/spinning_slider.dart';
 import 'tic_tac_toe_stats.dart';
+import 'tic_tac_toe_tutorial.dart';
 
 /// Test-only override for the very first starter pick of a session.
 /// `'X'` or `'O'` to force; `null` to use the regular random pick.
@@ -229,6 +230,7 @@ class _TicTacToeScreenState extends State<TicTacToeScreen>
       title: game.name,
       howToPlay: game.howToPlay,
       accent: _kAiColor,
+      steps: ticTacToeSteps(),
     );
   }
 

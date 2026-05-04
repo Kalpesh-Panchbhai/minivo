@@ -1,19 +1,34 @@
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 
+// ── Data model for animated tutorial steps ─────────────────────────────────
+
+/// A single tutorial step with an optional animated demo widget.
+///
+/// Pass a list of these to [showHowToPlaySheet] via the [steps] parameter.
+/// When [steps] is provided the sheet renders the animated [demo] instead of
+/// the generic icon art.
+class GameHowToPlayStep {
+  final String text;
+  final Widget demo;
+
+  const GameHowToPlayStep({required this.text, required this.demo});
+}
+
+// ── Public API ──────────────────────────────────────────────────────────────
+
 /// Opens a full-screen, game-style "How to Play" tutorial overlay.
 ///
-/// The overlay shows one step per page in a swipeable card, a page-dot
-/// indicator and a big primary CTA at the bottom — designed to feel like an
-/// in-game tutorial, not a typical app modal sheet.
-///
-/// Steps are derived from [howToPlay] by splitting on newlines; any leading
-/// bullet/number prefix is stripped automatically.
+/// Pass [steps] to show animated gameplay demonstrations for each step.
+/// If [steps] is omitted (or null), the sheet falls back to parsing
+/// [howToPlay] (a newline-separated string) and showing generic icons —
+/// preserving backward compatibility.
 Future<void> showHowToPlaySheet(
   BuildContext context, {
   required String title,
-  required String howToPlay,
+  String howToPlay = '',
   required Color accent,
+  List<GameHowToPlayStep>? steps,
 }) {
   return showGeneralDialog<void>(
     context: context,
@@ -25,6 +40,7 @@ Future<void> showHowToPlaySheet(
       title: title,
       howToPlay: howToPlay,
       accent: accent,
+      steps: steps,
     ),
     transitionBuilder: (_, anim, _, child) {
       final curved = CurvedAnimation(parent: anim, curve: Curves.easeOutBack);
@@ -44,12 +60,14 @@ class HowToPlaySheet extends StatefulWidget {
   final String title;
   final String howToPlay;
   final Color accent;
+  final List<GameHowToPlayStep>? steps;
 
   const HowToPlaySheet({
     super.key,
     required this.title,
-    required this.howToPlay,
+    this.howToPlay = '',
     required this.accent,
+    this.steps,
   });
 
   @override
@@ -102,12 +120,21 @@ class _HowToPlaySheetState extends State<HowToPlaySheet> {
 
   @override
   Widget build(BuildContext context) {
-    final steps = _parseSteps(widget.howToPlay);
-    if (steps.isEmpty) {
-      // Defensive: never render an empty tutorial.
+    // Prefer animated steps; fall back to string-parsed steps.
+    final hasAnimatedSteps =
+        widget.steps != null && widget.steps!.isNotEmpty;
+
+    final stepCount = hasAnimatedSteps
+        ? widget.steps!.length
+        : _parseSteps(widget.howToPlay).length;
+
+    if (stepCount == 0) {
       return const SizedBox.shrink();
     }
-    final isLast = _page >= steps.length - 1;
+
+    final parsedTexts =
+        hasAnimatedSteps ? <String>[] : _parseSteps(widget.howToPlay);
+    final isLast = _page >= stepCount - 1;
 
     return Material(
       type: MaterialType.transparency,
@@ -149,21 +176,33 @@ class _HowToPlaySheetState extends State<HowToPlaySheet> {
                       child: PageView.builder(
                         controller: _pageCtrl,
                         onPageChanged: (i) => setState(() => _page = i),
-                        itemCount: steps.length,
+                        itemCount: stepCount,
                         itemBuilder: (context, i) {
-                          return _StepPage(
-                            index: i + 1,
-                            total: steps.length,
-                            text: steps[i],
-                            icon: _stepIcons[i % _stepIcons.length],
-                            accent: widget.accent,
-                          );
+                          if (hasAnimatedSteps) {
+                            final step = widget.steps![i];
+                            return _StepPage(
+                              index: i + 1,
+                              total: stepCount,
+                              text: step.text,
+                              icon: _stepIcons[i % _stepIcons.length],
+                              accent: widget.accent,
+                              demo: step.demo,
+                            );
+                          } else {
+                            return _StepPage(
+                              index: i + 1,
+                              total: stepCount,
+                              text: parsedTexts[i],
+                              icon: _stepIcons[i % _stepIcons.length],
+                              accent: widget.accent,
+                            );
+                          }
                         },
                       ),
                     ),
                     const SizedBox(height: 4),
                     _PageDots(
-                      count: steps.length,
+                      count: stepCount,
                       active: _page,
                       accent: widget.accent,
                     ),
@@ -173,7 +212,7 @@ class _HowToPlaySheetState extends State<HowToPlaySheet> {
                       child: _PrimaryButton(
                         label: isLast ? "Got it! Let's play" : 'Next',
                         accent: widget.accent,
-                        onTap: () => _next(steps.length),
+                        onTap: () => _next(stepCount),
                       ),
                     ),
                   ],
@@ -293,12 +332,15 @@ class _StepPage extends StatelessWidget {
   final String text;
   final IconData icon;
   final Color accent;
+  final Widget? demo;
+
   const _StepPage({
     required this.index,
     required this.total,
     required this.text,
     required this.icon,
     required this.accent,
+    this.demo,
   });
 
   @override
@@ -308,32 +350,52 @@ class _StepPage extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Big circular icon with concentric ring — the "hero art" of the page.
-          Container(
-            width: 140,
-            height: 140,
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.10),
-              shape: BoxShape.circle,
-            ),
-            alignment: Alignment.center,
-            child: Container(
-              width: 96,
-              height: 96,
+          // Hero art: animated demo or generic icon.
+          if (demo != null)
+            Container(
+              width: 180,
+              height: 160,
               decoration: BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
+                color: accent.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: accent.withValues(alpha: 0.30),
-                    blurRadius: 18,
-                    offset: const Offset(0, 8),
+                    color: accent.withValues(alpha: 0.18),
+                    blurRadius: 12,
+                    offset: const Offset(0, 6),
                   ),
                 ],
               ),
-              child: Icon(icon, color: accent, size: 44),
+              clipBehavior: Clip.antiAlias,
+              alignment: Alignment.center,
+              child: demo,
+            )
+          else
+            Container(
+              width: 140,
+              height: 140,
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.10),
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: Container(
+                width: 96,
+                height: 96,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: accent.withValues(alpha: 0.30),
+                      blurRadius: 18,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Icon(icon, color: accent, size: 44),
+              ),
             ),
-          ),
           const SizedBox(height: 20),
           // STEP X / Y eyebrow.
           Text(

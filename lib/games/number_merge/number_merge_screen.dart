@@ -17,6 +17,7 @@ import '../shared/game_hud_bar.dart';
 import '../shared/generic_game_result_screen.dart' as game_result;
 import '../shared/spinning_slider.dart';
 import 'number_merge_stats.dart';
+import 'number_merge_tutorial.dart';
 
 // ── Picker palette (warm cream / lavender, mirrors TicTacToe's tonal feel) ──
 const Color _kBgTop    = Color(0xFFFFF9F5);
@@ -164,6 +165,7 @@ class _NumberMergeScreenState extends State<NumberMergeScreen> {
       title: info.name,
       howToPlay: info.howToPlay,
       accent: _kGolden,
+      steps: numberMergeSteps(),
     );
   }
 

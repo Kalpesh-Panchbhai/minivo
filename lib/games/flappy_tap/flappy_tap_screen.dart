@@ -18,6 +18,7 @@ import '../shared/game_hud_bar.dart';
 import '../shared/generic_game_result_screen.dart' as game_result;
 import '../shared/spinning_slider.dart';
 import 'flappy_tap_stats.dart';
+import 'flappy_tap_tutorial.dart';
 
 // ── Picker palette ─────────────────────────────────────────────────────────
 const Color _kBgTop    = Color(0xFFE8F8FF);
@@ -236,6 +237,7 @@ class _FlappyTapScreenState extends State<FlappyTapScreen>
       title: info.name,
       howToPlay: info.howToPlay,
       accent: _kFlappyAccent,
+      steps: flappyTapSteps(),
     );
   }
 

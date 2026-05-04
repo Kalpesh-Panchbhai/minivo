@@ -18,6 +18,7 @@ import '../shared/game_hud_bar.dart';
 import '../shared/generic_game_result_screen.dart' as game_result;
 import '../shared/spinning_slider.dart';
 import 'snake_classic_stats.dart';
+import 'snake_classic_tutorial.dart';
 
 // ── Picker palette ─────────────────────────────────────────────────────────
 const Color _kBgTop    = Color(0xFFEAFBF5);
@@ -201,6 +202,7 @@ class _SnakeClassicScreenState extends State<SnakeClassicScreen>
       title: info.name,
       howToPlay: info.howToPlay,
       accent: _kSnakeGreen,
+      steps: snakeClassicSteps(),
     );
   }
 
