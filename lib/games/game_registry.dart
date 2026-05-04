@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import '../core/models/game_info.dart';
+import 'color_tap/color_tap_logo.dart';
+import 'color_tap/color_tap_screen.dart';
 import 'flappy_tap/flappy_tap_logo.dart';
 import 'flappy_tap/flappy_tap_screen.dart';
+import 'memory_match/memory_match_logo.dart';
+import 'memory_match/memory_match_screen.dart';
 import 'number_merge/number_merge_logo.dart';
 import 'number_merge/number_merge_screen.dart';
 import 'block_fit/block_fit_screen.dart';
@@ -16,7 +20,9 @@ class GameRegistry {
   GameRegistry._();
 
   static final Map<String, GameWidgetBuilder> _builders = {
+    'color_tap': () => const ColorTapScreen(),
     'flappy_tap': () => const FlappyTapScreen(),
+    'memory_match': () => const MemoryMatchScreen(),
     'number_merge': () => const NumberMergeScreen(),
     'block_fit': () => const BlockFitScreen(),
     'snake_classic': () => const SnakeClassicScreen(),
@@ -34,6 +40,8 @@ class GameRegistry {
   static bool hasGame(String gameId) => _builders.containsKey(gameId);
 
   static const Set<String> _customOverlayGames = {
+    'color_tap',
+    'memory_match',
     'tic_tac_toe',
     'number_merge',
     'snake_classic',
@@ -96,15 +104,22 @@ class GameRegistry {
       isFeatured: true,
     ),
     const GameInfo(
-      id: 'color_switch',
+      id: 'color_tap',
       name: 'Color Tap',
-      description: 'Tap through matching colored gates. Test your reflexes!',
-      howToPlay: 'Tap to move the ball upward. Pass through gates that match your ball color. The color changes as you collect switches.',
+      description: 'Match the color circle to the target. Tap fast, skip smart — 3 lives!',
+      howToPlay:
+          'Choose your difficulty (Easy, Medium, Hard) — more colors and faster rounds at higher levels.\n'
+          'A large colored circle appears in the center. The "TARGET" color is shown at the top.\n'
+          'TAP the circle if its color matches the target to score points.\n'
+          'Tap the SKIP button if the colors do NOT match to safely advance.\n'
+          'Wrong action (tap a non-match, or skip a match, or let the timer run out) costs one life.\n'
+          'You have 3 lives — game ends when all lives are lost.',
       category: GameCategory.arcade,
       icon: Icons.circle_rounded,
-      color: Color(0xFFFF922B),
+      color: Color(0xFFFF6B35),
       bgColor: Color(0xFFFFF4EC),
       playCount: 7600,
+      customLogo: buildColorTapLogo,
     ),
     const GameInfo(
       id: 'stack_tower',
@@ -120,13 +135,21 @@ class GameRegistry {
     const GameInfo(
       id: 'memory_match',
       name: 'Memory Match',
-      description: 'Flip cards and find matching pairs. Train your memory!',
-      howToPlay: 'Tap cards to flip them over. Find all matching pairs by remembering card positions. Fewer flips = higher score.',
+      description: 'Flip cards and find matching emoji pairs. Train your memory!',
+      howToPlay:
+          'Choose your difficulty (Easy = 4×3, Medium = 4×4, Hard = 6×4).\n'
+          'All cards start face-down. Tap any card to flip it over and reveal the emoji.\n'
+          'Tap a second card — if the emojis match, both cards stay face-up and you score points.\n'
+          'If they don\'t match, both cards flip back face-down after a short delay.\n'
+          'First-attempt matches score +20 pts; later matches score +10 pts.\n'
+          'Match all pairs to win a +50 completion bonus!\n'
+          'Remember the positions — the fewer wrong flips, the higher your score.',
       category: GameCategory.puzzle,
       icon: Icons.flip_rounded,
       color: Color(0xFF339AF0),
       bgColor: Color(0xFFEBF5FF),
       playCount: 5400,
+      customLogo: buildMemoryMatchLogo,
     ),
     const GameInfo(
       id: 'snake_classic',
