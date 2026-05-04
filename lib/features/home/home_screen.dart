@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
-import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_strings.dart';
 import '../../core/models/game_info.dart';
 import '../../core/services/score_service.dart';
@@ -9,6 +8,10 @@ import '../../core/widgets/category_chip.dart';
 import '../../core/widgets/mosaic_game_tile.dart';
 import '../../games/game_registry.dart';
 import '../../routing/app_router.dart';
+
+const _bgColor = Color(0xFFF4F4F8);
+const _headingColor = Color(0xFF1A1A2E);
+const _accentColor = Color(0xFF6C63FF);
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -44,123 +47,179 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
   Widget build(BuildContext context) {
     final recentIds = ScoreService().getRecentlyPlayed();
     final favoriteIds = ScoreService().getFavorites();
-    final trendingIds = GameRegistry.trending
-        .take(6)
-        .map((g) => g.id)
-        .toList();
+    final trendingGames = GameRegistry.trending.toList();
+    final trendingIds = trendingGames.take(6).map((g) => g.id).toList();
 
     return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: [
+      backgroundColor: _bgColor,
+      body: CustomScrollView(
+        physics: const BouncingScrollPhysics(),
+        slivers: [
+          SliverToBoxAdapter(child: _buildHeader(context)),
+
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 16),
+              child: SizedBox(
+                height: 42,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: GameCategory.values.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  itemBuilder: (context, index) {
+                    final cat = GameCategory.values[index];
+                    return CategoryChip(
+                      category: cat,
+                      onTap: () => context.push('/category/${cat.name}'),
+                    )
+                        .animate(delay: (index * 40).ms)
+                        .fadeIn(duration: 250.ms)
+                        .slideX(begin: 0.2);
+                  },
+                ),
+              ),
+            ),
+          ),
+
+          if (recentIds.isNotEmpty)
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: AppColors.primary,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(
-                        Icons.videogame_asset_rounded,
-                        color: Colors.white,
-                        size: 22,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        AppStrings.appName,
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleLarge
-                            ?.copyWith(fontWeight: FontWeight.w700),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    _buildIconButton(
-                      Icons.search_rounded,
-                      () => context.push('/search'),
-                    ),
-                  ],
-                ),
-              ).animate().fadeIn(duration: 300.ms),
-            ),
-
-            SliverToBoxAdapter(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    height: 42,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: GameCategory.values.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 6),
-                      itemBuilder: (context, index) {
-                        final cat = GameCategory.values[index];
-                        return CategoryChip(
-                          category: cat,
-                          onTap: () => context.push('/category/${cat.name}'),
-                        );
-                      },
-                    ),
-                  ),
-                ],
+                padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+                child: _buildRecentlyPlayedRow(recentIds),
               ),
             ),
 
-            if (recentIds.isNotEmpty)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                  child: _buildRecentlyPlayedRow(recentIds),
-                ),
-              ),
-
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                child: Text(
-                  AppStrings.trending,
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w700),
-                ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
+              child: _SectionHeader(
+                title: AppStrings.trending,
+                accentColor: _accentColor,
               ),
             ),
+          ),
 
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: _buildMasonryGrid(
-                  recentIds: recentIds,
-                  favoriteIds: favoriteIds,
-                  trendingIds: trendingIds,
-                  onGameTap: (id) => context.push('/game/$id'),
-                ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: _buildMasonryGrid(
+                recentIds: recentIds,
+                favoriteIds: favoriteIds,
+                trendingIds: trendingIds,
+                onGameTap: (id) => context.push('/game/$id'),
               ),
             ),
+          ),
 
-            const SliverToBoxAdapter(child: SizedBox(height: 100)),
-          ],
-        ),
+          const SliverToBoxAdapter(child: SizedBox(height: 100)),
+        ],
       ),
     );
   }
 
+  Widget _buildHeader(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF1A1A2E), Color(0xFF16213E)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(28),
+          bottomRight: Radius.circular(28),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x33000000),
+            blurRadius: 16,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 22),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF6C63FF), Color(0xFF4ECDC4)],
+                  ),
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x556C63FF),
+                      blurRadius: 12,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.videogame_asset_rounded,
+                  color: Colors.white,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'MINIVO',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                    Text(
+                      'Play • Explore • Win',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.55),
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              GestureDetector(
+                onTap: () => context.push('/search'),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.20),
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.search_rounded,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ).animate().fadeIn(duration: 300.ms);
+  }
+
   Widget _buildRecentlyPlayedRow(List<String> recentIds) {
     final games = recentIds
-        .take(5)
+        .take(8)
         .map((id) => GameRegistry.getById(id))
         .where((g) => g != null)
         .cast<GameInfo>()
@@ -170,40 +229,43 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          AppStrings.recentlyPlayed,
-          style: Theme.of(context)
-              .textTheme
-              .titleMedium
-              ?.copyWith(fontWeight: FontWeight.w700),
+        _SectionHeader(
+          title: AppStrings.recentlyPlayed,
+          accentColor: const Color(0xFF4ECDC4),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         SizedBox(
-          height: 60,
+          height: 78,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: games.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
             itemBuilder: (context, index) {
               final game = games[index];
               return GestureDetector(
                 onTap: () => context.push('/game/${game.id}'),
                 child: Container(
-                  width: 60,
+                  width: 72,
+                  height: 72,
                   decoration: BoxDecoration(
                     color: game.bgColor,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: game.color.withValues(alpha: 0.2),
-                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: game.color.withValues(alpha: 0.25),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
                   clipBehavior: Clip.antiAlias,
                   child: game.hasBrandedLogo
-                      ? game.buildBrandedLogo(size: 60)
-                      : Center(
-                          child: game.buildIcon(size: 28),
-                        ),
-                ),
+                      ? game.buildBrandedLogo(size: 72)
+                      : Center(child: game.buildIcon(size: 32)),
+                )
+                    .animate(delay: (index * 60).ms)
+                    .fadeIn(duration: 300.ms)
+                    .slideX(begin: 0.3),
               );
             },
           ),
@@ -226,28 +288,75 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
         final spacing = 12.0;
         final cellSize = (screenWidth - (columns - 1) * spacing) / columns;
 
-        final tiles = <_GridTile>[];
         final allGameIds = GameRegistry.allGames.map((g) => g.id).toList();
+
+        // Pick at most 2 "big" slots: prefer branded+trending games, spread them
+        // out so they don't cluster on the same side (poki-style).
+        final bigCandidateIds = allGameIds
+            .where((id) {
+              final g = GameRegistry.getById(id);
+              return g != null && g.hasBrandedLogo && trendingIds.contains(id);
+            })
+            .take(2)
+            .toSet();
+
+        // Separate into big and small tiles, maintaining order.
+        final bigTiles = <_GridTile>[];
+        final smallTiles = <_GridTile>[];
 
         for (final gameId in allGameIds) {
           final game = GameRegistry.getById(gameId);
           if (game == null) continue;
-
-          final isRecent = recentIds.contains(gameId);
-          final isTrending = trendingIds.contains(gameId);
           final isFavorite = favoriteIds.contains(gameId);
+          final isBig = bigCandidateIds.contains(gameId);
 
-          final isBig = isRecent && isTrending;
-          final colSpan = isBig ? 2 : 1;
-          final rowSpan = isBig ? 2 : 1;
-
-          tiles.add(_GridTile(
+          final tile = _GridTile(
             game: game,
             isFavorite: isFavorite,
-            colSpan: colSpan,
-            rowSpan: rowSpan,
+            colSpan: isBig ? 2 : 1,
+            rowSpan: isBig ? 2 : 1,
             onTap: () => onGameTap(gameId),
-          ));
+          );
+
+          if (isBig) {
+            bigTiles.add(tile);
+          } else {
+            smallTiles.add(tile);
+          }
+        }
+
+        // Interleave big tiles at positions 0 and ~4 so they appear on
+        // alternating sides of the grid (left then right), like poki.com.
+        // Pattern for 3-col: big@0 fills cols 0-1; 1 small fills col 2 rows 0-1;
+        // then 3 smalls fill row 2; then big@4 lands naturally at col 1.
+        final tiles = <_GridTile>[];
+        final smallIter = smallTiles.iterator;
+
+        void addSmalls(int count) {
+          for (int i = 0; i < count; i++) {
+            if (smallIter.moveNext()) tiles.add(smallIter.current);
+          }
+        }
+
+        if (bigTiles.isNotEmpty) {
+          tiles.add(bigTiles[0]);
+          // For 3-col grid: big1 occupies cols 0-1, rows 0-1.
+          // Fill col 2 rows 0-1 with 2 smalls, then row 2 col 0 with 1 small.
+          // That leaves cols 1-2 of row 2 free for big2 (right-side placement).
+          addSmalls(columns - 1); // fills the free strip beside big1
+
+          if (bigTiles.length > 1) {
+            // 1 small at col 0 of the new row pushes big2 to cols 1-2 (right side)
+            addSmalls(1);
+            tiles.add(bigTiles[1]);
+            // fill strip after big2
+            addSmalls(columns - 2);
+          }
+        }
+
+        // Append remaining small tiles
+        while (smallIter.moveNext()) {
+          tiles.add(smallIter.current);
         }
 
         return _MasonryGridLayout(
@@ -259,19 +368,36 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
       },
     );
   }
+}
 
-  Widget _buildIconButton(IconData icon, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: AppColors.surfaceVariant,
-          borderRadius: BorderRadius.circular(12),
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  final Color accentColor;
+
+  const _SectionHeader({required this.title, required this.accentColor});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 4,
+          height: 20,
+          decoration: BoxDecoration(
+            color: accentColor,
+            borderRadius: BorderRadius.circular(2),
+          ),
         ),
-        child: Icon(icon, color: AppColors.textPrimary, size: 20),
-      ),
+        const SizedBox(width: 10),
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            color: _headingColor,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -317,23 +443,30 @@ class _MasonryGridLayout extends StatelessWidget {
       height: totalHeight,
       child: Stack(
         clipBehavior: Clip.none,
-        children: placements.map((p) {
-          final w = cellSize * p.colSpan + (p.colSpan - 1) * spacing;
-          final h = cellSize * p.rowSpan + (p.rowSpan - 1) * spacing;
-          final x = p.col * (cellSize + spacing);
-          final y = p.row * (cellSize + spacing);
+        children: [
+          for (int i = 0; i < placements.length; i++)
+            () {
+              final p = placements[i];
+              final w = cellSize * p.colSpan + (p.colSpan - 1) * spacing;
+              final h = cellSize * p.rowSpan + (p.rowSpan - 1) * spacing;
+              final x = p.col * (cellSize + spacing);
+              final y = p.row * (cellSize + spacing);
 
-          return Positioned(
-            left: x,
-            top: y,
-            width: w,
-            height: h,
-            child: _FavoritableGameTile(
-              tile: p.tile,
-              onTap: p.tile.onTap,
-            ),
-          );
-        }).toList(),
+              return Positioned(
+                left: x,
+                top: y,
+                width: w,
+                height: h,
+                child: _FavoritableGameTile(
+                  tile: p.tile,
+                  onTap: p.tile.onTap,
+                )
+                    .animate(delay: (i * 35).ms)
+                    .fadeIn(duration: 320.ms)
+                    .slideY(begin: 0.15),
+              );
+            }(),
+        ],
       ),
     );
   }
@@ -403,7 +536,7 @@ class _TilePlacement {
   int get colSpan => tile.colSpan;
 }
 
-class _FavoritableGameTile extends StatelessWidget {
+class _FavoritableGameTile extends StatefulWidget {
   final _GridTile tile;
   final VoidCallback onTap;
 
@@ -412,45 +545,84 @@ class _FavoritableGameTile extends StatelessWidget {
     required this.onTap,
   });
 
+  @override
+  State<_FavoritableGameTile> createState() => _FavoritableGameTileState();
+}
+
+class _FavoritableGameTileState extends State<_FavoritableGameTile> {
+  bool _pressed = false;
+
   TileSize get _tileSize {
-    return tile.colSpan == 2 ? TileSize.medium : TileSize.small;
+    return widget.tile.colSpan == 2 ? TileSize.medium : TileSize.small;
   }
 
   @override
   Widget build(BuildContext context) {
+    final game = widget.tile.game;
+    final radius = widget.tile.colSpan == 2 ? 20.0 : 16.0;
     return GestureDetector(
-      onTap: onTap,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          MosaicGameTile(
-            game: tile.game,
-            tileSize: _tileSize,
-            onTap: onTap,
-          ),
-          if (tile.isFavorite)
-            Positioned(
-              top: -6,
-              right: -6,
-              child: Container(
-                width: 24,
-                height: 24,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE85D75),
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: AppColors.background,
-                    width: 2,
+      onTap: widget.onTap,
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTapCancel: () => setState(() => _pressed = false),
+      child: AnimatedScale(
+        scale: _pressed ? 0.96 : 1.0,
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOut,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(radius),
+                boxShadow: [
+                  BoxShadow(
+                    color: game.color.withValues(alpha: 0.22),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
                   ),
-                ),
-                child: const Icon(
-                  Icons.favorite_rounded,
-                  size: 10,
-                  color: Colors.white,
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(radius),
+                child: MosaicGameTile(
+                  game: game,
+                  tileSize: _tileSize,
+                  onTap: widget.onTap,
                 ),
               ),
             ),
-        ],
+            if (widget.tile.isFavorite)
+              Positioned(
+                top: -6,
+                right: -6,
+                child: Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE85D75),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: _bgColor,
+                      width: 2,
+                    ),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x33000000),
+                        blurRadius: 4,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.favorite_rounded,
+                    size: 10,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

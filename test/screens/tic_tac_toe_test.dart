@@ -31,10 +31,11 @@ Future<void> _startGame(WidgetTester tester) async {
 }
 
 // During play, the widget tree contains:
-//   [0]  GamePauseButton's GestureDetector (top-right HUD)
-//   [1..9]  the nine board cell GestureDetectors
-// so cell N is at index N+1.
-Finder _cell(int index) => find.byType(GestureDetector).at(index + 1);
+//   [0]  GameBackButton's GestureDetector (top-left HUD)
+//   [1]  GameRestartButton's GestureDetector (top-right HUD)
+//   [2..10]  the nine board cell GestureDetectors
+// so cell N is at index N+2.
+Finder _cell(int index) => find.byType(GestureDetector).at(index + 2);
 
 void main() {
   group('Tic Tac Toe — Gameplay', () {
@@ -177,9 +178,10 @@ void main() {
       await tester.tap(find.byIcon(Icons.refresh_rounded));
       await tester.pump(const Duration(milliseconds: 200));
       await tester.tap(find.text('Restart').last);
-      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 800));
 
-      expect(find.text('Play vs. AI'), findsOneWidget);
+      // Restart stays in the same mode — mode picker is hidden.
+      expect(find.text('Play vs. AI'), findsNothing);
       expectNoOverflow(_pixel6, 'restart');
       await tester.pump(const Duration(seconds: 1));
       cleanUp(tester);

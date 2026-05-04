@@ -59,7 +59,6 @@ class _SnakeLogoPainter extends CustomPainter {
   static double _lerp(double a, double b, double t) => a + (b - a) * t;
 
   static const _textColor = Color(0xFFFFFFFF);
-  static const _fontSize = 16.0;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -140,12 +139,12 @@ class _SnakeLogoPainter extends CustomPainter {
 
     // Game name at bottom
     final textPainter = TextPainter(
-      text: const TextSpan(
+      text: TextSpan(
         text: 'SNAKE',
         style: TextStyle(
           color: _textColor,
           fontWeight: FontWeight.w900,
-          fontSize: _fontSize,
+          fontSize: size.width * 0.18,
           letterSpacing: 0.5,
         ),
       ),
@@ -154,7 +153,10 @@ class _SnakeLogoPainter extends CustomPainter {
     textPainter.layout();
     textPainter.paint(
       canvas,
-      Offset((size.width - textPainter.width) / 2, size.height - cs * 0.7),
+      Offset(
+        (size.width - textPainter.width) / 2,
+        size.height - textPainter.height - size.height * 0.03,
+      ),
     );
   }
 

@@ -118,7 +118,7 @@ class _SnakeClassicScreenState extends State<SnakeClassicScreen>
   List<math.Point<int>> _prevSnake = const [];
   _Dir _dir = _Dir.right;
   _Dir? _pendingDir;
-  math.Point<int> _food = const math.Point(0, 0);
+  List<math.Point<int>> _foods = const [];
 
   int _score = 0;
   int _bestScore = 0;
@@ -220,7 +220,7 @@ class _SnakeClassicScreenState extends State<SnakeClassicScreen>
       _prevSnake = List<math.Point<int>>.from(initial);
       _dir = _Dir.right;
       _pendingDir = null;
-      _food = _spawnFood(initial);
+      _foods = _spawnFoods(initial, []);
       _score = 0;
       _bestScore = _bestFor(diff);
       _isNewBestScore = false;
@@ -261,8 +261,11 @@ class _SnakeClassicScreenState extends State<SnakeClassicScreen>
 
   // ── Food spawning ────────────────────────────────────────────────────────
 
-  math.Point<int> _spawnFood(List<math.Point<int>> snake) {
-    final occupied = snake.toSet();
+  List<math.Point<int>> _spawnFoods(
+    List<math.Point<int>> snake,
+    List<math.Point<int>> existingFoods,
+  ) {
+    final occupied = {...snake.toSet(), ...existingFoods.toSet()};
     final empties = <math.Point<int>>[];
     for (int x = 0; x < _kBoardN; x++) {
       for (int y = 0; y < _kBoardN; y++) {
@@ -270,8 +273,13 @@ class _SnakeClassicScreenState extends State<SnakeClassicScreen>
         if (!occupied.contains(p)) empties.add(p);
       }
     }
-    if (empties.isEmpty) return const math.Point(0, 0);
-    return empties[_rng.nextInt(empties.length)];
+    final result = List<math.Point<int>>.from(existingFoods);
+    while (result.length < 3 && empties.isNotEmpty) {
+      final idx = _rng.nextInt(empties.length);
+      result.add(empties[idx]);
+      empties.removeAt(idx);
+    }
+    return result;
   }
 
   // ── Tick / collision logic ───────────────────────────────────────────────
@@ -298,7 +306,8 @@ class _SnakeClassicScreenState extends State<SnakeClassicScreen>
 
     // Self collision. The tail vacates this tick unless we grow,
     // so the last segment is excluded only when not eating.
-    final ate = next == _food;
+    final ateIdx = _foods.indexWhere((f) => f == next);
+    final ate = ateIdx >= 0;
     final lastIndex = ate ? _snake.length : _snake.length - 1;
     for (int i = 0; i < lastIndex; i++) {
       if (_snake[i] == next) {
@@ -310,7 +319,7 @@ class _SnakeClassicScreenState extends State<SnakeClassicScreen>
     final newSnake = <math.Point<int>>[next, ..._snake];
     if (!ate) newSnake.removeLast();
 
-    final eatenPos = _food;
+    final eatenPos = ate ? _foods[ateIdx] : null;
     final nowMs = DateTime.now().millisecondsSinceEpoch;
 
     setState(() {
@@ -328,13 +337,16 @@ class _SnakeClassicScreenState extends State<SnakeClassicScreen>
           kSnakeClassicGameId, newScore, subKey: diff.subKey,
         );
         AudioService().playScore();
-        _food = _spawnFood(newSnake);
+        // Remove eaten apple and spawn a replacement to keep count at 3.
+        final remaining = List<math.Point<int>>.from(_foods)
+          ..removeAt(ateIdx);
+        _foods = _spawnFoods(newSnake, remaining);
 
         // Spawn an eat-effect for the apple that was just consumed and
         // remember the moment for the head-pulse animation. Prune any
         // expired effects while we're here so the list stays bounded.
         _eatEffects.add(_EatEffect(
-          cellPos: eatenPos,
+          cellPos: eatenPos!,
           points: diff.pointsPerFood,
           color: diff.color,
           startTimeMs: nowMs,
@@ -552,7 +564,7 @@ class _SnakeClassicScreenState extends State<SnakeClassicScreen>
                     painter: _SnakePainter(
                       snake: _snake,
                       prevSnake: _prevSnake,
-                      food: _food,
+                      foods: _foods,
                       dir: _dir,
                       t: _tickCtrl.value,
                       eatEffects: _eatEffects,
@@ -1115,7 +1127,7 @@ class _EatEffect {
 class _SnakePainter extends CustomPainter {
   final List<math.Point<int>> snake;
   final List<math.Point<int>> prevSnake;
-  final math.Point<int> food;
+  final List<math.Point<int>> foods;
   final _Dir dir;
   final double t;
   final List<_EatEffect> eatEffects;
@@ -1125,7 +1137,7 @@ class _SnakePainter extends CustomPainter {
   _SnakePainter({
     required this.snake,
     required this.prevSnake,
-    required this.food,
+    required this.foods,
     required this.dir,
     required this.t,
     required this.eatEffects,
@@ -1270,28 +1282,30 @@ class _SnakePainter extends CustomPainter {
   // ── Food ─────────────────────────────────────────────────────────────────
 
   void _drawFood(Canvas canvas, double cs) {
-    final cx = (food.x + 0.5) * cs;
-    final cy = (food.y + 0.5) * cs;
-    canvas.drawCircle(
-      Offset(cx, cy), cs * 0.50,
-      Paint()
-        ..color = _kFoodColor.withValues(alpha: 0.18)
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, cs * 0.30),
-    );
-    canvas.drawCircle(
-      Offset(cx, cy), cs * 0.34, Paint()..color = _kFoodColor,
-    );
-    canvas.drawCircle(
-      Offset(cx - cs * 0.10, cy - cs * 0.10), cs * 0.10,
-      Paint()..color = _kFoodGlow.withValues(alpha: 0.85),
-    );
-    canvas.drawOval(
-      Rect.fromCenter(
-        center: Offset(cx + cs * 0.08, cy - cs * 0.32),
-        width: cs * 0.20, height: cs * 0.10,
-      ),
-      Paint()..color = const Color(0xFF22C55E),
-    );
+    for (final food in foods) {
+      final cx = (food.x + 0.5) * cs;
+      final cy = (food.y + 0.5) * cs;
+      canvas.drawCircle(
+        Offset(cx, cy), cs * 0.50,
+        Paint()
+          ..color = _kFoodColor.withValues(alpha: 0.18)
+          ..maskFilter = MaskFilter.blur(BlurStyle.normal, cs * 0.30),
+      );
+      canvas.drawCircle(
+        Offset(cx, cy), cs * 0.34, Paint()..color = _kFoodColor,
+      );
+      canvas.drawCircle(
+        Offset(cx - cs * 0.10, cy - cs * 0.10), cs * 0.10,
+        Paint()..color = _kFoodGlow.withValues(alpha: 0.85),
+      );
+      canvas.drawOval(
+        Rect.fromCenter(
+          center: Offset(cx + cs * 0.08, cy - cs * 0.32),
+          width: cs * 0.20, height: cs * 0.10,
+        ),
+        Paint()..color = const Color(0xFF22C55E),
+      );
+    }
   }
 
   // ── Eat effects (apple flash + floating score popup) ────────────────────
@@ -1394,7 +1408,7 @@ class _SnakePainter extends CustomPainter {
   bool shouldRepaint(covariant _SnakePainter old) =>
       old.snake != snake ||
       old.prevSnake != prevSnake ||
-      old.food != food ||
+      old.foods != foods ||
       old.dir != dir ||
       old.t != t ||
       old.eatEffects != eatEffects ||

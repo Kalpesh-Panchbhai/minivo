@@ -1,3 +1,4 @@
+import 'flappy_tap/flappy_tap_stats.dart';
 import 'number_merge/number_merge_stats.dart';
 import 'snake_classic/snake_classic_stats.dart';
 import 'tic_tac_toe/tic_tac_toe_stats.dart';
@@ -11,4 +12,5 @@ void registerAllGameStats() {
   registerTicTacToeStats();
   registerNumberMergeStats();
   registerSnakeClassicStats();
+  registerFlappyTapStats();
 }

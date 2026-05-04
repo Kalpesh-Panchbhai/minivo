@@ -49,7 +49,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 2200));
       await tester.pumpAndSettle();
       // Home shows the app title.
-      expect(find.text('Minivo'), findsOneWidget);
+      expect(find.text('MINIVO'), findsOneWidget);
     });
 
     testWidgets('home -> search via app bar icon', (tester) async {
@@ -61,7 +61,7 @@ void main() {
       await tester.tap(find.byIcon(Icons.search_rounded));
       await tester.pumpAndSettle();
       // Once on the search screen, the Home title is no longer present.
-      expect(find.text('Minivo'), findsNothing);
+      expect(find.text('MINIVO'), findsNothing);
     });
 
     testWidgets('/game/tic_tac_toe redirects to /play/tic_tac_toe',
@@ -88,9 +88,8 @@ void main() {
       // never returns — pump the redirect + a couple of frames manually.
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
-      // /game/:id now skips the detail surface — single-mode games drop
-      // straight onto the GameWrapper "Tap to Start" overlay.
-      expect(find.text('Tap to Start'), findsOneWidget);
+      // FlappyTap uses a difficulty picker — the play screen shows the picker UI.
+      expect(find.text('Flappy Tap'), findsOneWidget);
     });
   });
 }

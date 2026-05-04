@@ -21,7 +21,7 @@ void main() {
 
       testWidgets('app bar elements visible', (tester) async {
         await pumpScreen(tester, device, const HomeScreen());
-        expect(find.text('Minivo'), findsOneWidget);
+        expect(find.text('MINIVO'), findsOneWidget);
         expect(find.byIcon(Icons.search_rounded), findsOneWidget);
         expectNoOverflow(device, 'HomeScreen');
         cleanUp(tester);
