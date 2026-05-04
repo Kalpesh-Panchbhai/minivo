@@ -11,7 +11,7 @@ List<GameHowToPlayStep> numberMergeSteps() => [
       GameHowToPlayStep(
         text: 'Swipe to slide all tiles in one direction',
         demo: AnimatedDemo(
-          period: const Duration(milliseconds: 2800),
+          period: const Duration(seconds: 4),
           painter: (t) => _MergeSwipePainter(t),
           canvasSize: const Size(180, 150),
         ),
@@ -137,31 +137,40 @@ void _drawTile(Canvas canvas, int col, int row, int value, Offset origin,
   }
 }
 
-// ── Step 1: ONE tile slides to the wall; all others stay put ────────────────
+// ── Step 1: ONE tile slides to the wall per swipe; cycles all 4 directions ──
 //
-// Static tiles sit already at the edges (nowhere to go).
-// The "2" at col 1 slides right to col 3, pauses, then slides left to col 0.
-// This mirrors real gameplay: only a tile that has empty space ahead moves.
+// Static tiles sit at the edges (nowhere to go). Each quarter-period shows a
+// fresh tile with empty space ahead, sliding in the swiped direction.
 //
-// Timeline (one period):
-//   0.00–0.12  board at rest, → arrow fades in
-//   0.12–0.45  "2" slides right col 1 → col 3
-//   0.45–0.58  settled; ← arrow fades in
-//   0.58–0.85  "2" slides left col 3 → col 0
-//   0.85–1.00  settled, fade out
+// Directions & moving tile:
+//   → (col 1,row 1) → (col 3, row 1)   2 columns right
+//   ↓ (col 2,row 0) → (col 2, row 3)   3 rows down
+//   ← (col 2,row 2) → (col 0, row 2)   2 columns left
+//   ↑ (col 1,row 3) → (col 1, row 0)   3 rows up
+//
+// Each quarter: 12% fade-in/rest, 58% slide, 20% settle, 10% fade-out.
+
+// Helper: each direction's config [startCol, startRow, endCol, endRow, arrowChar]
+typedef _Dir = ({int sc, int sr, int ec, int er, String arrow});
+
+const _kDirs = <_Dir>[
+  (sc: 1, sr: 1, ec: 3, er: 1, arrow: '→'),
+  (sc: 2, sr: 0, ec: 2, er: 3, arrow: '↓'),
+  (sc: 2, sr: 2, ec: 0, er: 2, arrow: '←'),
+  (sc: 1, sr: 3, ec: 1, er: 0, arrow: '↑'),
+];
 
 class _MergeSwipePainter extends CustomPainter {
   final double t;
   const _MergeSwipePainter(this.t);
 
-  // Tiles that don't move (already against a wall or blocked)
+  // Tiles that never move (already at a wall, blocked in every direction shown)
   static const _staticTiles = [
     [3, 0, 4],   // right wall, row 0
-    [0, 2, 8],   // left wall, row 2
-    [3, 3, 16],  // right wall, row 3
+    [0, 3, 8],   // left wall, row 3
+    [3, 1, 16],  // right wall, row 1
   ];
 
-  static const _movingRow = 1;
   static const _movingValue = 2;
 
   @override
@@ -170,34 +179,39 @@ class _MergeSwipePainter extends CustomPainter {
         Paint()..color = const Color(0xFFFAF0E6));
     final origin = _drawBoardBg(canvas, size);
 
-    const step = _kCellSize + _kGap; // pixels per column
+    const step = _kCellSize + _kGap;
 
-    double movingCol;
-    String arrowLabel = '';
-    double arrowAlpha = 0;
+    // Which of the 4 directions are we in, and how far through it?
+    final dirIdx = (t * 4).floor() % 4;
+    final phase = (t * 4) % 1.0; // 0→1 within current direction
+    final dir = _kDirs[dirIdx];
 
-    if (t < 0.12) {
-      movingCol = 1;
-      arrowLabel = '→';
-      arrowAlpha = (t / 0.12).clamp(0.0, 1.0) * 0.85;
-    } else if (t < 0.45) {
-      // Slide right: col 1 → col 3
-      final slideT = Curves.easeInOut.transform((t - 0.12) / 0.33);
-      movingCol = 1 + slideT * 2;
-      arrowLabel = '→';
-      arrowAlpha = (1 - slideT) * 0.85;
-    } else if (t < 0.58) {
-      movingCol = 3;
-      arrowLabel = '←';
-      arrowAlpha = ((t - 0.45) / 0.13).clamp(0.0, 1.0) * 0.85;
-    } else if (t < 0.85) {
-      // Slide left: col 3 → col 0
-      final slideT = Curves.easeInOut.transform((t - 0.58) / 0.27);
-      movingCol = 3 - slideT * 3;
-      arrowLabel = '←';
-      arrowAlpha = (1 - slideT) * 0.85;
+    double movingCol, movingRow, tileAlpha, arrowAlpha;
+
+    if (phase < 0.12) {
+      // Fade in at start position
+      movingCol = dir.sc.toDouble();
+      movingRow = dir.sr.toDouble();
+      tileAlpha = (phase / 0.12).clamp(0.0, 1.0);
+      arrowAlpha = tileAlpha * 0.85;
+    } else if (phase < 0.70) {
+      // Slide from start → end
+      final slideT = Curves.easeInOut.transform((phase - 0.12) / 0.58);
+      movingCol = dir.sc + (dir.ec - dir.sc) * slideT;
+      movingRow = dir.sr + (dir.er - dir.sr) * slideT;
+      tileAlpha = 1.0;
+      arrowAlpha = (1 - slideT).clamp(0.0, 1.0) * 0.85;
+    } else if (phase < 0.90) {
+      // Settled at end position
+      movingCol = dir.ec.toDouble();
+      movingRow = dir.er.toDouble();
+      tileAlpha = 1.0;
+      arrowAlpha = 0;
     } else {
-      movingCol = 0;
+      // Fade out
+      movingCol = dir.ec.toDouble();
+      movingRow = dir.er.toDouble();
+      tileAlpha = (1 - (phase - 0.90) / 0.10).clamp(0.0, 1.0);
       arrowAlpha = 0;
     }
 
@@ -206,37 +220,39 @@ class _MergeSwipePainter extends CustomPainter {
       _drawTile(canvas, tile[0], tile[1], tile[2], origin);
     }
 
-    // Draw moving tile at its continuous x position
+    // Draw moving tile at its continuous position
     final movingX = origin.dx + movingCol * step;
-    final movingY = origin.dy + _movingRow * step;
+    final movingY = origin.dy + movingRow * step;
     final rect = Rect.fromLTWH(movingX, movingY, _kCellSize, _kCellSize);
     final style = _styleFor(_movingValue);
     canvas.drawRRect(
       RRect.fromRectAndRadius(rect, const Radius.circular(4)),
-      Paint()..color = style.bg,
+      Paint()..color = style.bg.withValues(alpha: tileAlpha),
     );
-    final numTp = TextPainter(
-      text: TextSpan(
-        text: '$_movingValue',
-        style: TextStyle(
-          color: style.fg,
-          fontSize: _kCellSize * 0.50,
-          fontWeight: FontWeight.w900,
-          height: 1,
+    if (tileAlpha > 0) {
+      final numTp = TextPainter(
+        text: TextSpan(
+          text: '$_movingValue',
+          style: TextStyle(
+            color: style.fg.withValues(alpha: tileAlpha),
+            fontSize: _kCellSize * 0.50,
+            fontWeight: FontWeight.w900,
+            height: 1,
+          ),
         ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    numTp.paint(canvas, Offset(
-      rect.center.dx - numTp.width / 2,
-      rect.center.dy - numTp.height / 2,
-    ));
+        textDirection: TextDirection.ltr,
+      )..layout();
+      numTp.paint(canvas, Offset(
+        rect.center.dx - numTp.width / 2,
+        rect.center.dy - numTp.height / 2,
+      ));
+    }
 
     // Swipe arrow outside the board
     if (arrowAlpha > 0) {
       final arrTp = TextPainter(
         text: TextSpan(
-          text: arrowLabel,
+          text: dir.arrow,
           style: TextStyle(
             color: _kBoardBg.withValues(alpha: arrowAlpha),
             fontSize: 24,
@@ -245,11 +261,24 @@ class _MergeSwipePainter extends CustomPainter {
         ),
         textDirection: TextDirection.ltr,
       )..layout();
-      final boardRight = origin.dx + _kBoardSize + 8;
-      arrTp.paint(canvas, Offset(
-        math.min(boardRight, size.width - arrTp.width - 2),
-        size.height / 2 - arrTp.height / 2,
-      ));
+      // Place arrow on the side the tile slides toward
+      final Offset arrPos;
+      if (dir.arrow == '→') {
+        final bx = origin.dx + _kBoardSize + 6;
+        arrPos = Offset(math.min(bx, size.width - arrTp.width - 2),
+            size.height / 2 - arrTp.height / 2);
+      } else if (dir.arrow == '←') {
+        arrPos = Offset(math.max(2, origin.dx - arrTp.width - 6),
+            size.height / 2 - arrTp.height / 2);
+      } else if (dir.arrow == '↓') {
+        arrPos = Offset(size.width / 2 - arrTp.width / 2,
+            math.min(origin.dy + _kBoardSize + 4, size.height - arrTp.height - 2));
+      } else {
+        // ↑
+        arrPos = Offset(size.width / 2 - arrTp.width / 2,
+            math.max(2, origin.dy - arrTp.height - 4));
+      }
+      arrTp.paint(canvas, arrPos);
     }
   }
 
