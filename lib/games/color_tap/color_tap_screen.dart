@@ -21,8 +21,8 @@ import 'color_tap_stats.dart';
 import 'color_tap_tutorial.dart';
 
 // ── Palette ────────────────────────────────────────────────────────────────
-const Color _kBgTop    = Color(0xFFFFF4EC);
-const Color _kBgBot    = Color(0xFFFFE8D5);
+const Color _kBgTop    = Color(0xFFFFDEC0);
+const Color _kBgBot    = Color(0xFFFFC898);
 const Color _kAccent   = Color(0xFFFF6B35);
 const Color _kAccentLt = Color(0xFFFF922B);
 const Color _kCardBg   = Colors.white;
@@ -104,7 +104,7 @@ class _ColorTapScreenState extends State<ColorTapScreen>
   Color _circleColor = _kRed;
   Color _targetColor = _kRed;
   String _targetColorName = 'RED';
-  bool _isMatch = false; // whether circle == target for this round
+  bool _isMatch = false;
 
   // Timer
   late AnimationController _timerCtrl;
@@ -120,19 +120,39 @@ class _ColorTapScreenState extends State<ColorTapScreen>
   bool _shakeWrong = false;
   Timer? _shakeTimer;
 
+  // Combo tracking (visual only)
+  int _comboCount = 0;
+  bool _showCombo = false;
+  Timer? _comboTimer;
+
+  // Score popup
+  bool _showScorePopup = false;
+  int _lastPointsEarned = 0;
+  Timer? _scorePopupTimer;
+
+  // Background hue shift animation
+  late AnimationController _bgHueCtrl;
+
   @override
   void initState() {
     super.initState();
     _isFavorite = ScoreService().isFavorite(kColorTapGameId);
     _timerCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 3));
+    _bgHueCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 18),
+    )..repeat();
   }
 
   @override
   void dispose() {
     _timerCtrl.dispose();
+    _bgHueCtrl.dispose();
     _roundTimer?.cancel();
     _feedbackTimer?.cancel();
     _shakeTimer?.cancel();
+    _comboTimer?.cancel();
+    _scorePopupTimer?.cancel();
     super.dispose();
   }
 
@@ -162,6 +182,8 @@ class _ColorTapScreenState extends State<ColorTapScreen>
     _roundTimer?.cancel();
     _feedbackTimer?.cancel();
     _shakeTimer?.cancel();
+    _comboTimer?.cancel();
+    _scorePopupTimer?.cancel();
     _timerCtrl.dispose();
     _timerCtrl = AnimationController(
       vsync: this,
@@ -180,6 +202,9 @@ class _ColorTapScreenState extends State<ColorTapScreen>
       _showWrong = false;
       _showSkip = false;
       _shakeWrong = false;
+      _comboCount = 0;
+      _showCombo = false;
+      _showScorePopup = false;
     });
 
     ScoreService().incrementGamePlayCount(kColorTapGameId);
@@ -229,7 +254,6 @@ class _ColorTapScreenState extends State<ColorTapScreen>
 
     _roundTimer = Timer(Duration(milliseconds: diff.timeMs), () {
       if (!mounted || _gameOver) return;
-      // Time ran out without action
       _onWrongAction(diff);
     });
   }
@@ -268,9 +292,22 @@ class _ColorTapScreenState extends State<ColorTapScreen>
       _isNewBest = true;
       ScoreService().saveScore(kColorTapGameId, newScore, subKey: diff.subKey);
     }
+    final newCombo = _comboCount + 1;
     setState(() {
       _score = newScore;
       _showCorrect = true;
+      _comboCount = newCombo;
+      _showCombo = newCombo >= 3;
+      _showScorePopup = true;
+      _lastPointsEarned = diff.points;
+    });
+    _comboTimer?.cancel();
+    _comboTimer = Timer(const Duration(milliseconds: 1200), () {
+      if (mounted) setState(() => _showCombo = false);
+    });
+    _scorePopupTimer?.cancel();
+    _scorePopupTimer = Timer(const Duration(milliseconds: 700), () {
+      if (mounted) setState(() => _showScorePopup = false);
     });
     GameWrapper.of(context).updateScore(_score);
     _feedbackTimer?.cancel();
@@ -281,7 +318,16 @@ class _ColorTapScreenState extends State<ColorTapScreen>
 
   void _onCorrectSkip(_Difficulty diff) {
     AudioService().playScore();
-    setState(() => _showSkip = true);
+    final newCombo = _comboCount + 1;
+    setState(() {
+      _showSkip = true;
+      _comboCount = newCombo;
+      _showCombo = newCombo >= 3;
+    });
+    _comboTimer?.cancel();
+    _comboTimer = Timer(const Duration(milliseconds: 1000), () {
+      if (mounted) setState(() => _showCombo = false);
+    });
     _feedbackTimer?.cancel();
     _feedbackTimer = Timer(const Duration(milliseconds: 400), () {
       if (mounted && !_gameOver) _nextRound(diff);
@@ -295,6 +341,8 @@ class _ColorTapScreenState extends State<ColorTapScreen>
       _lives = newLives;
       _showWrong = true;
       _shakeWrong = true;
+      _comboCount = 0;
+      _showCombo = false;
     });
     _shakeTimer?.cancel();
     _shakeTimer = Timer(const Duration(milliseconds: 350), () {
@@ -333,6 +381,8 @@ class _ColorTapScreenState extends State<ColorTapScreen>
       _gameOver = false;
       _score = 0;
       _lives = 3;
+      _comboCount = 0;
+      _showCombo = false;
     });
   }
 
@@ -384,14 +434,27 @@ class _ColorTapScreenState extends State<ColorTapScreen>
 
   Widget _buildGame() {
     final diff = _activeDifficulty!;
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [_kBgTop, _kBgBot],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
-      ),
+    return AnimatedBuilder(
+      animation: _bgHueCtrl,
+      builder: (_, child) {
+        // Slowly shift bg gradient hue for ambience
+        final hueShift = math.sin(_bgHueCtrl.value * 2 * math.pi) * 0.5;
+        final topColor = Color.lerp(
+          _kBgTop,
+          const Color(0xFFFFF0E8),
+          (hueShift + 1) / 2,
+        )!;
+        return Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [topColor, _kBgBot],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
+          ),
+          child: child,
+        );
+      },
       child: Stack(
         children: [
           Positioned.fill(
@@ -444,13 +507,13 @@ class _ColorTapScreenState extends State<ColorTapScreen>
                     },
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 // Target label
                 _TargetLabel(colorName: _targetColorName, color: _targetColor),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 // Timer bar
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  padding: const EdgeInsets.symmetric(horizontal: 28),
                   child: AnimatedBuilder(
                     animation: _timerCtrl,
                     builder: (_, _) => _TimerBar(
@@ -459,27 +522,46 @@ class _ColorTapScreenState extends State<ColorTapScreen>
                     ),
                   ),
                 ),
-                const SizedBox(height: 20),
-                // Main circle
+                const SizedBox(height: 16),
+                // Main circle + overlays
                 Expanded(
-                  child: Center(
-                    child: _GameCircle(
-                      color: _circleColor,
-                      showCorrect: _showCorrect,
-                      showWrong: _showWrong,
-                      showSkip: _showSkip,
-                      shakeWrong: _shakeWrong,
-                      onTap: _onTap,
-                    ),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    clipBehavior: Clip.none,
+                    children: [
+                      Center(
+                        child: _GameCircle(
+                          color: _circleColor,
+                          showCorrect: _showCorrect,
+                          showWrong: _showWrong,
+                          showSkip: _showSkip,
+                          shakeWrong: _shakeWrong,
+                          onTap: _onTap,
+                        ),
+                      ),
+                      // Score popup floating up on correct tap
+                      if (_showScorePopup)
+                        Positioned(
+                          top: 12,
+                          child: _ScorePopup(points: _lastPointsEarned),
+                        ),
+                      // Combo badge
+                      if (_showCombo)
+                        Positioned(
+                          top: 8,
+                          right: 24,
+                          child: _ComboBadge(count: _comboCount),
+                        ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
                 // Skip button
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 48),
+                  padding: const EdgeInsets.symmetric(horizontal: 40),
                   child: _SkipButton(onTap: _onSkip, accentColor: _kAccent),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
               ],
             ),
           ),
@@ -989,10 +1071,21 @@ class _ScorePill extends StatelessWidget {
             final active = i < lives;
             return Padding(
               padding: const EdgeInsets.symmetric(horizontal: 1.5),
-              child: Icon(
-                active ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                color: active ? _kRed : _kRed.withValues(alpha: 0.25),
-                size: 14,
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                transitionBuilder: (child, anim) => ScaleTransition(
+                  scale: CurvedAnimation(
+                    parent: anim,
+                    curve: Curves.easeOutBack,
+                  ),
+                  child: FadeTransition(opacity: anim, child: child),
+                ),
+                child: Icon(
+                  active ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                  key: ValueKey('heart_${i}_$active'),
+                  color: active ? _kRed : _kRed.withValues(alpha: 0.25),
+                  size: 14,
+                ),
               ),
             );
           }),
@@ -1010,38 +1103,66 @@ class _TargetLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 200),
-      transitionBuilder: (child, anim) => FadeTransition(
-        opacity: anim,
-        child: ScaleTransition(scale: anim, child: child),
-      ),
+      duration: const Duration(milliseconds: 260),
+      transitionBuilder: (child, anim) {
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0, -0.3),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
+          child: FadeTransition(opacity: anim, child: child),
+        );
+      },
       child: Container(
         key: ValueKey(colorName),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 9),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.15),
+          gradient: LinearGradient(
+            colors: [
+              color.withValues(alpha: 0.15),
+              color.withValues(alpha: 0.08),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
           borderRadius: BorderRadius.circular(99),
-          border: Border.all(color: color.withValues(alpha: 0.40), width: 1.5),
+          border: Border.all(color: color.withValues(alpha: 0.45), width: 1.8),
+          boxShadow: [
+            BoxShadow(
+              color: color.withValues(alpha: 0.20),
+              blurRadius: 12,
+              spreadRadius: 0,
+              offset: const Offset(0, 3),
+            ),
+          ],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Animated color swatch dot
             Container(
-              width: 12,
-              height: 12,
+              width: 14,
+              height: 14,
               decoration: BoxDecoration(
                 color: color,
                 shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.50),
+                    blurRadius: 6,
+                    spreadRadius: 1,
+                  ),
+                ],
               ),
             ),
             const SizedBox(width: 8),
             Text(
-              'TARGET: $colorName',
+              'TAP IF: $colorName',
               style: TextStyle(
                 color: color,
                 fontSize: 14,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1.2,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.4,
               ),
             ),
           ],
@@ -1058,37 +1179,82 @@ class _TimerBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final barColor = progress > 0.5
+    final isCritical = progress < 0.20;
+    final isLow = progress < 0.35;
+    final barColor = progress > 0.50
         ? color
         : progress > 0.25
-            ? _kYellow
-            : _kRed;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(6),
-      child: Stack(
-        children: [
-          Container(
-            height: 8,
-            color: Colors.black12,
-          ),
-          FractionallySizedBox(
-            widthFactor: progress.clamp(0.0, 1.0),
-            child: Container(
-              height: 8,
+            ? Color.lerp(color, _kYellow, (0.50 - progress) / 0.25)!
+            : Color.lerp(_kYellow, _kRed, (0.25 - progress) / 0.25)!;
+
+    final glowColor = isCritical ? _kRed : (isLow ? _kYellow : color);
+
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: isCritical
+            ? [
+                BoxShadow(
+                  color: _kRed.withValues(alpha: 0.35),
+                  blurRadius: 8,
+                  spreadRadius: 1,
+                ),
+              ]
+            : null,
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Stack(
+          children: [
+            // Track
+            Container(
+              height: 10,
               decoration: BoxDecoration(
-                color: barColor,
-                borderRadius: BorderRadius.circular(6),
-                boxShadow: [
-                  BoxShadow(
-                    color: barColor.withValues(alpha: 0.40),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
+                color: Colors.black.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(8),
               ),
             ),
-          ),
-        ],
+            // Fill bar with gradient
+            FractionallySizedBox(
+              widthFactor: progress.clamp(0.0, 1.0),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 80),
+                height: 10,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Color.lerp(barColor, Colors.white, 0.35)!,
+                      barColor,
+                    ],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: glowColor.withValues(alpha: isLow ? 0.60 : 0.35),
+                      blurRadius: isLow ? 10 : 6,
+                      spreadRadius: isLow ? 1 : 0,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // Shine stripe on top of fill
+            FractionallySizedBox(
+              widthFactor: progress.clamp(0.0, 1.0),
+              child: Container(
+                height: 4,
+                margin: const EdgeInsets.only(top: 1, left: 2, right: 2),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.28),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1116,10 +1282,17 @@ class _GameCircle extends StatefulWidget {
 }
 
 class _GameCircleState extends State<_GameCircle>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   bool _pressed = false;
   late AnimationController _shakeCtrl;
   late Animation<double> _shakeAnim;
+  late AnimationController _pulseCtrl;
+  late Animation<double> _pulseAnim;
+
+  // Ripple on tap
+  bool _showRipple = false;
+  late AnimationController _rippleCtrl;
+  late Animation<double> _rippleAnim;
 
   @override
   void initState() {
@@ -1131,6 +1304,22 @@ class _GameCircleState extends State<_GameCircle>
     _shakeAnim = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(parent: _shakeCtrl, curve: Curves.elasticOut),
     );
+
+    _pulseCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    )..repeat(reverse: true);
+    _pulseAnim = Tween<double>(begin: 0.96, end: 1.04).animate(
+      CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut),
+    );
+
+    _rippleCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+    _rippleAnim = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(parent: _rippleCtrl, curve: Curves.easeOut),
+    );
   }
 
   @override
@@ -1139,12 +1328,29 @@ class _GameCircleState extends State<_GameCircle>
     if (widget.shakeWrong && !oldWidget.shakeWrong) {
       _shakeCtrl.forward(from: 0);
     }
+    if ((widget.showCorrect && !oldWidget.showCorrect) ||
+        (widget.showSkip && !oldWidget.showSkip) ||
+        (widget.showWrong && !oldWidget.showWrong)) {
+      _showRipple = true;
+      _rippleCtrl.forward(from: 0).then((_) {
+        if (mounted) setState(() => _showRipple = false);
+      });
+    }
   }
 
   @override
   void dispose() {
     _shakeCtrl.dispose();
+    _pulseCtrl.dispose();
+    _rippleCtrl.dispose();
     super.dispose();
+  }
+
+  Color get _feedbackColor {
+    if (widget.showCorrect) return _kGreen;
+    if (widget.showWrong) return _kRed;
+    if (widget.showSkip) return _kAccent;
+    return widget.color;
   }
 
   @override
@@ -1171,90 +1377,170 @@ class _GameCircleState extends State<_GameCircle>
             },
             onTapCancel: () => setState(() => _pressed = false),
             child: AnimatedScale(
-              scale: _pressed ? 0.93 : 1.0,
-              duration: const Duration(milliseconds: 100),
+              scale: _pressed ? 0.91 : 1.0,
+              duration: const Duration(milliseconds: 90),
               child: SizedBox(
                 width: size,
                 height: size,
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
-                    // Glow
-                    Container(
+                    // Outer pulse ring
+                    AnimatedBuilder(
+                      animation: _pulseAnim,
+                      builder: (_, _) => Transform.scale(
+                        scale: _pulseAnim.value,
+                        child: Container(
+                          width: size,
+                          height: size,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.transparent,
+                            border: Border.all(
+                              color: widget.color.withValues(alpha: 0.22),
+                              width: 3,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    // Glow layer
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 220),
                       width: size,
                       height: size,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: widget.color.withValues(alpha: 0.20),
                         boxShadow: [
                           BoxShadow(
-                            color: widget.color.withValues(alpha: 0.35),
-                            blurRadius: 32,
-                            spreadRadius: 4,
+                            color: widget.color.withValues(
+                              alpha: widget.showCorrect || widget.showWrong ? 0.55 : 0.35,
+                            ),
+                            blurRadius: widget.showCorrect ? 48 : 28,
+                            spreadRadius: widget.showCorrect ? 8 : 2,
                           ),
                         ],
                       ),
                     ),
-                    // Main circle
+                    // Main circle — rich gradient
                     AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
-                      width: size * 0.88,
-                      height: size * 0.88,
+                      width: size * 0.86,
+                      height: size * 0.86,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         gradient: RadialGradient(
                           colors: [
-                            Color.lerp(widget.color, Colors.white, 0.30)!,
-                            widget.color,
+                            Color.lerp(
+                                widget.showCorrect
+                                    ? _kGreen
+                                    : widget.showWrong
+                                        ? _kRed
+                                        : widget.color,
+                                Colors.white,
+                                0.38)!,
+                            widget.showCorrect
+                                ? _kGreen
+                                : widget.showWrong
+                                    ? _kRed
+                                    : widget.color,
+                            Color.lerp(
+                                widget.showCorrect
+                                    ? _kGreen
+                                    : widget.showWrong
+                                        ? _kRed
+                                        : widget.color,
+                                Colors.black,
+                                0.20)!,
                           ],
-                          center: const Alignment(-0.3, -0.3),
+                          stops: const [0.0, 0.58, 1.0],
+                          center: const Alignment(-0.35, -0.35),
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: widget.color.withValues(alpha: 0.45),
-                            blurRadius: 20,
-                            offset: const Offset(0, 8),
+                            color: (widget.showWrong ? _kRed : widget.color)
+                                .withValues(alpha: 0.50),
+                            blurRadius: 22,
+                            offset: const Offset(0, 10),
                           ),
                         ],
                       ),
                     ),
-                    // Feedback overlay
+                    // Gloss shine on the circle
+                    Positioned(
+                      top: size * 0.09,
+                      left: size * 0.20,
+                      child: Container(
+                        width: size * 0.25,
+                        height: size * 0.12,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.30),
+                          borderRadius: BorderRadius.circular(100),
+                        ),
+                      ),
+                    ),
+                    // Ripple effect on tap
+                    if (_showRipple)
+                      AnimatedBuilder(
+                        animation: _rippleAnim,
+                        builder: (_, _) {
+                          final rAlpha = (1 - _rippleAnim.value) * 0.50;
+                          return Container(
+                            width: size * 0.86 * (0.80 + _rippleAnim.value * 0.60),
+                            height: size * 0.86 * (0.80 + _rippleAnim.value * 0.60),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: _feedbackColor.withValues(alpha: rAlpha),
+                                width: 3,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    // Feedback icons
                     if (widget.showCorrect)
                       Icon(Icons.check_rounded, color: Colors.white, size: size * 0.35)
                           .animate()
                           .scale(
-                            begin: const Offset(0.4, 0.4),
+                            begin: const Offset(0.3, 0.3),
                             end: const Offset(1.0, 1.0),
-                            duration: 200.ms,
+                            duration: 180.ms,
                             curve: Curves.easeOutBack,
                           ),
                     if (widget.showWrong)
                       Icon(Icons.close_rounded, color: Colors.white, size: size * 0.35)
                           .animate()
                           .scale(
-                            begin: const Offset(0.4, 0.4),
+                            begin: const Offset(0.3, 0.3),
                             end: const Offset(1.0, 1.0),
-                            duration: 200.ms,
+                            duration: 180.ms,
                             curve: Curves.easeOutBack,
                           ),
                     if (widget.showSkip)
                       Icon(Icons.skip_next_rounded, color: Colors.white, size: size * 0.32)
                           .animate()
                           .scale(
-                            begin: const Offset(0.4, 0.4),
+                            begin: const Offset(0.3, 0.3),
                             end: const Offset(1.0, 1.0),
-                            duration: 200.ms,
+                            duration: 180.ms,
                             curve: Curves.easeOutBack,
                           ),
-                    // Tap hint text when no feedback
+                    // Tap hint text when idle
                     if (!widget.showCorrect && !widget.showWrong && !widget.showSkip)
                       Text(
                         'TAP',
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.70),
+                          color: Colors.white.withValues(alpha: 0.75),
                           fontSize: size * 0.14,
                           fontWeight: FontWeight.w900,
-                          letterSpacing: 2,
+                          letterSpacing: 3,
+                          shadows: [
+                            Shadow(
+                              color: Colors.black.withValues(alpha: 0.25),
+                              blurRadius: 4,
+                            ),
+                          ],
                         ),
                       ),
                   ],
@@ -1277,57 +1563,216 @@ class _SkipButton extends StatefulWidget {
   State<_SkipButton> createState() => _SkipButtonState();
 }
 
-class _SkipButtonState extends State<_SkipButton> {
+class _SkipButtonState extends State<_SkipButton>
+    with SingleTickerProviderStateMixin {
   bool _pressed = false;
+  late AnimationController _rippleCtrl;
+  late Animation<double> _rippleAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _rippleCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _rippleAnim = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(parent: _rippleCtrl, curve: Curves.easeOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _rippleCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
+      onTapDown: (_) {
+        setState(() => _pressed = true);
+        _rippleCtrl.forward(from: 0);
+      },
       onTapUp: (_) {
         setState(() => _pressed = false);
         widget.onTap();
       },
       onTapCancel: () => setState(() => _pressed = false),
       child: AnimatedScale(
-        scale: _pressed ? 0.96 : 1.0,
-        duration: const Duration(milliseconds: 100),
+        scale: _pressed ? 0.95 : 1.0,
+        duration: const Duration(milliseconds: 90),
         child: Container(
-          height: 52,
+          height: 54,
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
+            gradient: LinearGradient(
+              colors: [
+                Colors.white,
+                widget.accentColor.withValues(alpha: 0.06),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(18),
             border: Border.all(
-              color: widget.accentColor.withValues(alpha: 0.35),
-              width: 1.5,
+              color: widget.accentColor.withValues(alpha: 0.40),
+              width: 1.8,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.06),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
+                color: widget.accentColor.withValues(alpha: 0.14),
+                blurRadius: 14,
+                offset: const Offset(0, 5),
+              ),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.skip_next_rounded, color: widget.accentColor, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                'SKIP',
-                style: TextStyle(
-                  color: widget.accentColor,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.4,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(18),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // Ripple overlay
+                AnimatedBuilder(
+                  animation: _rippleAnim,
+                  builder: (_, _) {
+                    return Positioned.fill(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: widget.accentColor.withValues(
+                              alpha: (1 - _rippleAnim.value) * 0.12),
+                        ),
+                      ),
+                    );
+                  },
                 ),
-              ),
-            ],
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.skip_next_rounded,
+                      color: widget.accentColor,
+                      size: 22,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'SKIP',
+                      style: TextStyle(
+                        color: widget.accentColor,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 2.0,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// SCORE POPUP
+// ════════════════════════════════════════════════════════════════
+
+class _ScorePopup extends StatelessWidget {
+  final int points;
+  const _ScorePopup({required this.points});
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: Text(
+        '+$points',
+        style: const TextStyle(
+          color: _kGreen,
+          fontSize: 28,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 0.5,
+          shadows: [
+            Shadow(
+              color: Color(0x4422C55E),
+              blurRadius: 8,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+      )
+          .animate()
+          .fadeIn(duration: 100.ms)
+          .slideY(begin: 0, end: -1.0, duration: 600.ms, curve: Curves.easeOut)
+          .fadeOut(delay: 250.ms, duration: 350.ms),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// COMBO BADGE
+// ════════════════════════════════════════════════════════════════
+
+class _ComboBadge extends StatelessWidget {
+  final int count;
+  const _ComboBadge({required this.count});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(99),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFFFD700).withValues(alpha: 0.50),
+            blurRadius: 10,
+            spreadRadius: 1,
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.local_fire_department_rounded,
+              color: Colors.white, size: 14),
+          const SizedBox(width: 4),
+          Text(
+            '${count}x COMBO',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.8,
+              shadows: [
+                Shadow(
+                  color: Color(0x55000000),
+                  blurRadius: 2,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    )
+        .animate()
+        .scale(
+          begin: const Offset(0.5, 0.5),
+          end: const Offset(1.0, 1.0),
+          duration: 200.ms,
+          curve: Curves.easeOutBack,
+        )
+        .fadeIn(duration: 150.ms);
   }
 }
 
@@ -1339,12 +1784,14 @@ class _ColorTapBgPainter extends AnimatedBgPainter {
   const _ColorTapBgPainter(super.t);
 
   static const List<(Color, double, double, double, double)> _circles = [
-    (_kRed,    0.10, 0.12, 52.0, 0.0),
-    (_kBlue,   0.85, 0.20, 38.0, 0.9),
-    (_kGreen,  0.15, 0.72, 44.0, 1.8),
-    (_kYellow, 0.82, 0.78, 34.0, 2.7),
-    (_kPurple, 0.48, 0.08, 30.0, 3.6),
-    (_kOrange, 0.06, 0.45, 26.0, 4.5),
+    (_kRed,    0.10, 0.12, 80.0, 0.0),
+    (_kBlue,   0.85, 0.20, 65.0, 0.9),
+    (_kGreen,  0.15, 0.72, 72.0, 1.8),
+    (_kYellow, 0.82, 0.78, 58.0, 2.7),
+    (_kPurple, 0.48, 0.08, 55.0, 3.6),
+    (_kOrange, 0.06, 0.45, 50.0, 4.5),
+    (_kRed,    0.70, 0.50, 42.0, 5.4),
+    (_kBlue,   0.35, 0.90, 48.0, 0.3),
   ];
 
   @override
@@ -1352,7 +1799,7 @@ class _ColorTapBgPainter extends AnimatedBgPainter {
     final phase = t * 2 * math.pi;
     for (final (color, xRel, yRel, r, p) in _circles) {
       final yBob = math.sin(phase + p) * 8;
-      final alpha = 0.04 + (math.sin(phase * 0.9 + p) + 1) / 2 * 0.05;
+      final alpha = 0.12 + (math.sin(phase * 0.9 + p) + 1) / 2 * 0.12;
       final cx = size.width * xRel;
       final cy = size.height * yRel + yBob;
       canvas.drawCircle(

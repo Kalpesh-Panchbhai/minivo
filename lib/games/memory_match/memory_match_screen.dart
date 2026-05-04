@@ -21,8 +21,8 @@ import 'memory_match_stats.dart';
 import 'memory_match_tutorial.dart';
 
 // ── Palette ────────────────────────────────────────────────────────────────
-const Color _kBgTop    = Color(0xFFEBF5FF);
-const Color _kBgBot    = Color(0xFFD5EAFF);
+const Color _kBgTop    = Color(0xFFD0E8FF);
+const Color _kBgBot    = Color(0xFFADD3FF);
 const Color _kAccent   = Color(0xFF339AF0);
 const Color _kAccentDk = Color(0xFF1971C2);
 const Color _kCardBg   = Colors.white;
@@ -33,10 +33,51 @@ const Color _kEasyColor   = Color(0xFF22C55E);
 const Color _kMediumColor = Color(0xFFF59E0B);
 const Color _kHardColor   = Color(0xFFEF4444);
 
-// ── Emoji sets ─────────────────────────────────────────────────────────────
-const _kEmojis6  = ['🐶', '🐱', '🦊', '🐸', '🦁', '🐻'];
-const _kEmojis8  = ['🐶', '🐱', '🦊', '🐸', '🦁', '🐻', '🐼', '🐧'];
-const _kEmojis12 = ['🐶', '🐱', '🦊', '🐸', '🦁', '🐻', '🐼', '🐧', '🦋', '🌸', '🍎', '🎸'];
+// ── Emoji categories (random category picked each game) ────────────────────
+const _kEmojiCategories = <String, List<String>>{
+  'Animals': [
+    '🐶','🐱','🦊','🐸','🦁','🐻','🐼','🐧','🐨','🐯',
+    '🦄','🐮','🐷','🐙','🦀','🦋','🐝','🦚','🦜','🦩',
+  ],
+  'Fruits': [
+    '🍎','🍊','🍋','🍇','🍓','🍒','🍑','🥭','🍍','🥝',
+    '🍌','🍉','🍈','🫐','🍏','🍐','🥥','🍅','🥑','🍆',
+  ],
+  'Plants & Nature': [
+    '🌸','🌺','🌻','🌹','🌷','🌴','🌵','🌿','🍁','🍄',
+    '🌾','🎋','🎍','🪷','🌼','🌱','🪴','🍃','🪻','🌲',
+  ],
+  'Space & Weather': [
+    '🌙','⭐','🌟','☀️','🌈','⚡','❄️','🌊','🔥','🌪️',
+    '🪐','🌍','🌕','☁️','🌠','🌌','🌀','⛄','🌋','🏔️',
+  ],
+  'Food & Drinks': [
+    '🍕','🍔','🌮','🍣','🍜','🍩','🍦','🧁','🎂','🍫',
+    '🍿','🧃','🍵','☕','🧋','🥤','🍺','🧇','🥞','🍟',
+  ],
+  'Sports & Activities': [
+    '⚽','🏀','🎾','🏈','⚾','🎱','🏓','🏊','🚴','🧗',
+    '🎯','🏹','🎮','🎲','♟️','🎸','🎺','🎻','🥊','🤿',
+  ],
+  'Travel & Places': [
+    '✈️','🚀','🚂','🚢','🏝️','🏕️','🗼','🗽','🏯','⛩️',
+    '🎡','🎢','🎠','🏟️','🌉','🗿','🕌','🛸','🚁','🏖️',
+  ],
+};
+
+List<String> _pickEmojiPool(math.Random rng) {
+  final keys = _kEmojiCategories.keys.toList();
+  final category = keys[rng.nextInt(keys.length)];
+  return List<String>.from(_kEmojiCategories[category]!);
+}
+
+// ── Pair colors (matched-card border tint per emoji) ───────────────────────
+const _kPairColors = [
+  Color(0xFF4DABF7), Color(0xFFFF8787), Color(0xFFFF922B),
+  Color(0xFF51CF66), Color(0xFFCC5DE8), Color(0xFFFFD43B),
+  Color(0xFF20C997), Color(0xFFF06595), Color(0xFFA9E34B),
+  Color(0xFF74C0FC), Color(0xFFFF6B6B), Color(0xFF9775FA),
+];
 
 // ── Difficulty ─────────────────────────────────────────────────────────────
 enum _Difficulty { easy, medium, hard }
@@ -49,7 +90,6 @@ extension _DifficultyX on _Difficulty {
   int    get rows    => [3, 4, 4][index];
   int    get pairCount => (cols * rows) ~/ 2;
   int    get flipBackMs => [1000, 700, 500][index];
-  List<String> get emojis => [_kEmojis6, _kEmojis8, _kEmojis12][index];
   String get hint => [
         '4×3 grid • 6 pairs to find.',
         '4×4 grid • 8 pairs, faster flip-back.',
@@ -66,12 +106,15 @@ extension _DifficultyX on _Difficulty {
 class _Card {
   final int id;
   final String emoji;
+  final int pairColorIdx;
   bool faceUp;
   bool matched;
+  bool mismatch; // transient red-flash state
 
-  _Card({required this.id, required this.emoji})
+  _Card({required this.id, required this.emoji, required this.pairColorIdx})
       : faceUp = false,
-        matched = false;
+        matched = false,
+        mismatch = false;
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -94,22 +137,34 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen>
 
   // Game state
   List<_Card> _cards = [];
-  int _flippedCount = 0;        // how many cards currently face-up (pending match)
-  int? _firstFlipIdx;           // index of first flipped card
-  bool _lockInput = false;      // true while animating flip-back
+  int _flippedCount = 0;
+  int? _firstFlipIdx;
+  bool _lockInput = false;
   int _score = 0;
   int _bestScore = 0;
   bool _isNewBest = false;
   int _matchesFound = 0;
+  int _flipCount = 0;          // total flips used
+  int _consecutiveMatches = 0; // best combo tracker
+  int _bestCombo = 0;
   bool _gameOver = false;
+  bool _showMismatchOverlay = false;
 
-  // Track first-flip pairs for bonus scoring
-  final Set<String> _pairEverFlipped = {}; // emoji strings already attempted
 
   // Flip animation controllers — one per card
   List<AnimationController> _flipCtrl = [];
 
+  // Bounce-in controllers — one per card (entry animation)
+  List<AnimationController> _bounceCtrl = [];
+
+  // Match pop controllers — one per card
+  List<AnimationController> _matchCtrl = [];
+
+  // Win celebration controller
+  late AnimationController _celebrationCtrl;
+
   Timer? _flipBackTimer;
+  Timer? _mismatchOverlayTimer;
 
   final _rng = math.Random();
 
@@ -117,14 +172,20 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen>
   void initState() {
     super.initState();
     _isFavorite = ScoreService().isFavorite(kMemoryMatchGameId);
+    _celebrationCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2400),
+    );
   }
 
   @override
   void dispose() {
     _flipBackTimer?.cancel();
-    for (final c in _flipCtrl) {
-      c.dispose();
-    }
+    _mismatchOverlayTimer?.cancel();
+    for (final c in _flipCtrl) { c.dispose(); }
+    for (final c in _bounceCtrl) { c.dispose(); }
+    for (final c in _matchCtrl) { c.dispose(); }
+    _celebrationCtrl.dispose();
     super.dispose();
   }
 
@@ -152,23 +213,48 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen>
 
   void _startGame(_Difficulty diff) {
     _flipBackTimer?.cancel();
+    _mismatchOverlayTimer?.cancel();
     for (final c in _flipCtrl) { c.dispose(); }
+    for (final c in _bounceCtrl) { c.dispose(); }
+    for (final c in _matchCtrl) { c.dispose(); }
+    _celebrationCtrl.reset();
 
-    // Build card list — each emoji appears twice, shuffled
-    final emojis = diff.emojis.take(diff.pairCount).toList();
+    final pool = _pickEmojiPool(_rng)..shuffle(_rng);
+    final emojis = pool.take(diff.pairCount).toList();
     final cardEmojis = [...emojis, ...emojis];
     cardEmojis.shuffle(_rng);
 
     final cards = List.generate(
       cardEmojis.length,
-      (i) => _Card(id: i, emoji: cardEmojis[i]),
+      (i) {
+        final emoji = cardEmojis[i];
+        final colorIdx = emojis.indexOf(emoji) % _kPairColors.length;
+        return _Card(id: i, emoji: emoji, pairColorIdx: colorIdx);
+      },
     );
 
     final controllers = List.generate(
       cards.length,
       (_) => AnimationController(
         vsync: this,
-        duration: const Duration(milliseconds: 300),
+        duration: const Duration(milliseconds: 320),
+      ),
+    );
+
+    // Bounce-in controllers with staggered delays
+    final bounceControllers = List.generate(
+      cards.length,
+      (_) => AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 420),
+      ),
+    );
+
+    final matchControllers = List.generate(
+      cards.length,
+      (_) => AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 500),
       ),
     );
 
@@ -177,6 +263,8 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen>
       _pickerDifficulty = diff;
       _cards = cards;
       _flipCtrl = controllers;
+      _bounceCtrl = bounceControllers;
+      _matchCtrl = matchControllers;
       _flippedCount = 0;
       _firstFlipIdx = null;
       _lockInput = false;
@@ -184,11 +272,23 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen>
       _bestScore = _bestFor(diff);
       _isNewBest = false;
       _matchesFound = 0;
+      _flipCount = 0;
+      _consecutiveMatches = 0;
+      _bestCombo = 0;
       _gameOver = false;
-      _pairEverFlipped.clear();
+      _showMismatchOverlay = false;
     });
 
     ScoreService().incrementGamePlayCount(kMemoryMatchGameId);
+
+    // Stagger bounce-in animations
+    for (int i = 0; i < bounceControllers.length; i++) {
+      final delay = Duration(milliseconds: (i * 40).clamp(0, 600));
+      Future.delayed(delay, () {
+        if (mounted) bounceControllers[i].forward();
+      });
+    }
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         GameWrapper.of(context).startGame();
@@ -205,17 +305,18 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen>
 
     AudioService().playTap();
 
-    // Flip the card
-    setState(() => card.faceUp = true);
+    setState(() {
+      card.faceUp = true;
+      _flipCount++;
+    });
     _flipCtrl[index].forward(from: 0);
 
     if (_flippedCount == 0) {
-      // First card of pair
       _firstFlipIdx = index;
       _flippedCount = 1;
     } else {
-      // Second card — check match
       final firstIdx = _firstFlipIdx!;
+      final secondIdx = index;
       _flippedCount = 0;
       _firstFlipIdx = null;
       _lockInput = true;
@@ -226,43 +327,72 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen>
       if (first.emoji == second.emoji) {
         // Match!
         AudioService().playScore();
-        // Calculate score: first attempt = +20, repeat attempt = +10
-        final isFirstAttempt = !_pairEverFlipped.contains(first.emoji);
-        final pts = isFirstAttempt ? 20 : 10;
-        _pairEverFlipped.add(first.emoji);
-
-        final newScore = _score + pts;
         final newMatches = _matchesFound + 1;
         final totalPairs = diff.pairCount;
+        final newCombo = _consecutiveMatches + 1;
+        final newBestCombo = newCombo > _bestCombo ? newCombo : _bestCombo;
 
-        // All pairs matched? Bonus
-        final completionBonus = (newMatches == totalPairs) ? 50 : 0;
-        final finalScore = newScore + completionBonus;
-
-        if (finalScore > _bestScore) {
-          _bestScore = finalScore;
-          _isNewBest = true;
-          ScoreService().saveScore(kMemoryMatchGameId, finalScore, subKey: diff.subKey);
-        }
+        // Flip-efficiency score: calculated at completion
+        // Show running +200 per match; final score adjusted at end
+        final runningScore = newMatches * 200;
 
         setState(() {
           first.matched = true;
           second.matched = true;
-          _score = finalScore;
+          _score = runningScore;
           _matchesFound = newMatches;
+          _consecutiveMatches = newCombo;
+          _bestCombo = newBestCombo;
           _lockInput = false;
         });
+
+        // Fire match pop on both cards
+        _matchCtrl[firstIdx].forward(from: 0);
+        _matchCtrl[secondIdx].forward(from: 0);
+
         GameWrapper.of(context).updateScore(_score);
 
         if (newMatches == totalPairs) {
-          // Game complete
-          Future.delayed(const Duration(milliseconds: 400), () {
-            if (mounted) _endGame();
+          // Apply flip-efficiency penalty now that game is complete
+          final minFlips = totalPairs * 2;
+          final extraFlips = (_flipCount - minFlips).clamp(0, 9999);
+          final penalty = extraFlips * 10;
+          final floor = totalPairs * 50;
+          final finalScore = (runningScore - penalty).clamp(floor, 99999);
+
+          if (finalScore > _bestScore) {
+            _bestScore = finalScore;
+            _isNewBest = true;
+            ScoreService().saveScore(kMemoryMatchGameId, finalScore, subKey: diff.subKey);
+          }
+          setState(() => _score = finalScore);
+          GameWrapper.of(context).updateScore(finalScore);
+
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted) {
+              _celebrationCtrl.forward();
+              Future.delayed(const Duration(milliseconds: 800), () {
+                if (mounted) _endGame();
+              });
+            }
           });
         }
       } else {
-        // No match — flip back after delay
-        _pairEverFlipped.add(first.emoji);
+        // Mismatch — flash red, show dim overlay, then flip back
+        _consecutiveMatches = 0;
+
+        setState(() {
+          first.mismatch = true;
+          second.mismatch = true;
+          _showMismatchOverlay = true;
+        });
+
+        _mismatchOverlayTimer?.cancel();
+        _mismatchOverlayTimer = Timer(const Duration(milliseconds: 200), () {
+          if (!mounted) return;
+          setState(() => _showMismatchOverlay = false);
+        });
+
         _flipBackTimer?.cancel();
         _flipBackTimer = Timer(Duration(milliseconds: diff.flipBackMs), () {
           if (!mounted) return;
@@ -270,7 +400,9 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen>
           _flipCtrl[index].reverse();
           setState(() {
             first.faceUp = false;
+            first.mismatch = false;
             second.faceUp = false;
+            second.mismatch = false;
             _lockInput = false;
           });
         });
@@ -289,12 +421,16 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen>
 
   void _backToPicker() {
     _flipBackTimer?.cancel();
+    _mismatchOverlayTimer?.cancel();
     GameWrapper.of(context).restartGame();
     setState(() {
       _activeDifficulty = null;
       _gameOver = false;
       _score = 0;
       _matchesFound = 0;
+      _flipCount = 0;
+      _consecutiveMatches = 0;
+      _bestCombo = 0;
     });
   }
 
@@ -346,54 +482,88 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen>
 
   Widget _buildGame() {
     final diff = _activeDifficulty!;
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [_kBgTop, _kBgBot],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
-      ),
-      child: SafeArea(
-        child: Column(
-          children: [
-            const SizedBox(height: 4),
-            GameHudBar(
-              leading: GameBackButton(
-                onTap: _backToPicker,
-                iconColor: const Color(0xFF0B3D78),
-              ),
-              centerContent: _ScorePill(
-                difficulty: diff,
-                score: _score,
-                best: _bestScore,
-                matches: _matchesFound,
-                totalPairs: diff.pairCount,
-              ),
-              trailing: GameRestartButton(
-                gameName: 'Memory Match',
-                accentColor: _kAccent,
-                onRestart: _newGame,
-                iconColor: const Color(0xFF0B3D78),
-              ),
+    return Stack(
+      children: [
+        Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [_kBgTop, _kBgBot],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
             ),
-            const SizedBox(height: 12),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: _CardGrid(
-                  cards: _cards,
-                  flipControllers: _flipCtrl,
-                  cols: diff.cols,
-                  rows: diff.rows,
-                  onCardTap: _onCardTap,
+          ),
+          child: SafeArea(
+            child: Column(
+              children: [
+                const SizedBox(height: 4),
+                GameHudBar(
+                  leading: GameBackButton(
+                    onTap: _backToPicker,
+                    iconColor: const Color(0xFF0B3D78),
+                  ),
+                  centerContent: _ScorePill(
+                    difficulty: diff,
+                    score: _score,
+                    best: _bestScore,
+                    matches: _matchesFound,
+                    totalPairs: diff.pairCount,
+                    flipCount: _flipCount,
+                  ),
+                  trailing: GameRestartButton(
+                    gameName: 'Memory Match',
+                    accentColor: _kAccent,
+                    onRestart: _newGame,
+                    iconColor: const Color(0xFF0B3D78),
+                  ),
                 ),
-              ),
+                // Progress bar
+                _ProgressBar(
+                  matched: _matchesFound,
+                  total: diff.pairCount,
+                  color: diff.color,
+                ),
+                // Best combo indicator
+                if (_bestCombo >= 2) _ComboIndicator(combo: _bestCombo),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: _CardGrid(
+                      cards: _cards,
+                      flipControllers: _flipCtrl,
+                      bounceControllers: _bounceCtrl,
+                      matchControllers: _matchCtrl,
+                      cols: diff.cols,
+                      rows: diff.rows,
+                      onCardTap: _onCardTap,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
             ),
-            const SizedBox(height: 12),
-          ],
+          ),
         ),
-      ),
+        // Mismatch dim overlay
+        if (_showMismatchOverlay)
+          Positioned.fill(
+            child: AnimatedOpacity(
+              opacity: _showMismatchOverlay ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 80),
+              child: Container(color: Colors.red.withValues(alpha: 0.08)),
+            ),
+          ),
+        // Win celebration
+        AnimatedBuilder(
+          animation: _celebrationCtrl,
+          builder: (context2, child2) {
+            if (_celebrationCtrl.value == 0) return const SizedBox.shrink();
+            return Positioned.fill(
+              child: _WinCelebrationOverlay(progress: _celebrationCtrl.value),
+            );
+          },
+        ),
+      ],
     );
   }
 
@@ -442,14 +612,267 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen>
             color: const Color(0xFF8B7BA7),
           ),
           game_result.StatItem(
-            label: 'PAIRS',
-            value: _matchesFound,
+            label: 'FLIPS',
+            value: _flipCount,
             color: _kAccentDk,
           ),
         ],
       ),
     );
   }
+}
+
+// ════════════════════════════════════════════════════════════════
+// PROGRESS BAR
+// ════════════════════════════════════════════════════════════════
+
+class _ProgressBar extends StatelessWidget {
+  final int matched;
+  final int total;
+  final Color color;
+
+  const _ProgressBar({
+    required this.matched,
+    required this.total,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = total == 0 ? 0.0 : matched / total;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 2),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '$matched / $total pairs',
+                style: TextStyle(
+                  color: _kAccentDk.withValues(alpha: 0.75),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.3,
+                ),
+              ),
+              Text(
+                '${(progress * 100).round()}%',
+                style: TextStyle(
+                  color: color.withValues(alpha: 0.85),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 3),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: Stack(
+              children: [
+                Container(
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: _kAccent.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                AnimatedFractionallySizedBox(
+                  duration: const Duration(milliseconds: 400),
+                  curve: Curves.easeOutCubic,
+                  widthFactor: progress,
+                  child: Container(
+                    height: 5,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [color, Color.lerp(color, Colors.white, 0.30)!],
+                      ),
+                      borderRadius: BorderRadius.circular(4),
+                      boxShadow: [
+                        BoxShadow(
+                          color: color.withValues(alpha: 0.45),
+                          blurRadius: 4,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// COMBO INDICATOR
+// ════════════════════════════════════════════════════════════════
+
+class _ComboIndicator extends StatelessWidget {
+  final int combo;
+  const _ComboIndicator({required this.combo});
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 300),
+      transitionBuilder: (child, anim) => FadeTransition(
+        opacity: anim,
+        child: ScaleTransition(
+          scale: CurvedAnimation(parent: anim, curve: Curves.easeOutBack),
+          child: child,
+        ),
+      ),
+      child: Container(
+        key: ValueKey(combo),
+        margin: const EdgeInsets.only(top: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFF922B).withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(99),
+          border: Border.all(
+            color: const Color(0xFFFF922B).withValues(alpha: 0.40),
+            width: 1.0,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('🔥', style: TextStyle(fontSize: 11)),
+            const SizedBox(width: 4),
+            Text(
+              'Best combo: $combo',
+              style: const TextStyle(
+                color: Color(0xFFB45309),
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.2,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// WIN CELEBRATION OVERLAY
+// ════════════════════════════════════════════════════════════════
+
+class _WinCelebrationOverlay extends StatelessWidget {
+  final double progress;
+  const _WinCelebrationOverlay({required this.progress});
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: CustomPaint(
+        painter: _ConfettiPainter(progress),
+      ),
+    );
+  }
+}
+
+class _ConfettiPainter extends CustomPainter {
+  final double t;
+  static final _rng = math.Random(42);
+  static final _particles = List.generate(60, (i) {
+    return _ConfettiParticle(
+      x: _rng.nextDouble(),
+      startY: -0.05 - _rng.nextDouble() * 0.3,
+      speedY: 0.35 + _rng.nextDouble() * 0.45,
+      speedX: (_rng.nextDouble() - 0.5) * 0.18,
+      size: 5 + _rng.nextDouble() * 8,
+      color: _ConfettiPainter._randomColor(_rng),
+      rotation: _rng.nextDouble() * math.pi * 2,
+      rotSpeed: (_rng.nextDouble() - 0.5) * 8,
+      delay: _rng.nextDouble() * 0.4,
+      shape: _rng.nextInt(3),
+    );
+  });
+
+  static Color _randomColor(math.Random rng) {
+    final colors = [
+      const Color(0xFFFFD43B), const Color(0xFF74C0FC), const Color(0xFF51CF66),
+      const Color(0xFFFF6B6B), const Color(0xFFCC5DE8), const Color(0xFFFF922B),
+      const Color(0xFFA9E34B), const Color(0xFFF06595),
+    ];
+    return colors[rng.nextInt(colors.length)];
+  }
+
+  const _ConfettiPainter(this.t);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (final p in _particles) {
+      final pt = ((t - p.delay) / (1.0 - p.delay)).clamp(0.0, 1.0);
+      if (pt <= 0) continue;
+
+      final x = (p.x + p.speedX * pt) * size.width;
+      final y = (p.startY + p.speedY * pt) * size.height;
+      final alpha = (1.0 - math.max(0.0, pt - 0.7) / 0.3).clamp(0.0, 1.0);
+
+      final paint = Paint()..color = p.color.withValues(alpha: alpha.toDouble());
+
+      canvas.save();
+      canvas.translate(x, y);
+      canvas.rotate(p.rotation + p.rotSpeed * pt);
+
+      switch (p.shape) {
+        case 0:
+          canvas.drawRect(
+            Rect.fromCenter(center: Offset.zero, width: p.size, height: p.size * 0.6),
+            paint,
+          );
+        case 1:
+          canvas.drawCircle(Offset.zero, p.size * 0.45, paint);
+        default:
+          final path = Path()
+            ..moveTo(0, -p.size * 0.5)
+            ..lineTo(p.size * 0.5, p.size * 0.5)
+            ..lineTo(-p.size * 0.5, p.size * 0.5)
+            ..close();
+          canvas.drawPath(path, paint);
+      }
+
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(_ConfettiPainter old) => old.t != t;
+}
+
+class _ConfettiParticle {
+  final double x;
+  final double startY;
+  final double speedY;
+  final double speedX;
+  final double size;
+  final Color color;
+  final double rotation;
+  final double rotSpeed;
+  final double delay;
+  final int shape;
+
+  const _ConfettiParticle({
+    required this.x,
+    required this.startY,
+    required this.speedY,
+    required this.speedX,
+    required this.size,
+    required this.color,
+    required this.rotation,
+    required this.rotSpeed,
+    required this.delay,
+    required this.shape,
+  });
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -562,6 +985,7 @@ class _PickerSection extends StatelessWidget {
   }
 }
 
+// ════════════════════════════════════════════════════════════════
 class _DifficultyLabel extends StatelessWidget {
   final _Difficulty difficulty;
   const _DifficultyLabel({required this.difficulty});
@@ -767,6 +1191,7 @@ class _ScorePill extends StatelessWidget {
   final int best;
   final int matches;
   final int totalPairs;
+  final int flipCount;
 
   const _ScorePill({
     required this.difficulty,
@@ -774,6 +1199,7 @@ class _ScorePill extends StatelessWidget {
     required this.best,
     required this.matches,
     required this.totalPairs,
+    required this.flipCount,
   });
 
   @override
@@ -837,7 +1263,7 @@ class _ScorePill extends StatelessWidget {
               const SizedBox(width: 10),
               Container(width: 1, height: 28, color: const Color(0xFFB8D8FF)),
               const SizedBox(width: 10),
-              _pairsCol(matches, totalPairs),
+              _flipCol(flipCount),
             ],
           ),
         ),
@@ -880,12 +1306,12 @@ class _ScorePill extends StatelessWidget {
     );
   }
 
-  Widget _pairsCol(int found, int total) {
+  Widget _flipCol(int flips) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         const Text(
-          'PAIRS',
+          'FLIPS',
           style: TextStyle(
             color: Color(0xFF1A4C80),
             fontSize: 10,
@@ -901,8 +1327,8 @@ class _ScorePill extends StatelessWidget {
             child: FadeTransition(opacity: anim, child: child),
           ),
           child: Text(
-            '$found/$total',
-            key: ValueKey<int>(found),
+            '$flips',
+            key: ValueKey<int>(flips),
             style: const TextStyle(
               color: _kAccentDk,
               fontSize: 18,
@@ -923,6 +1349,8 @@ class _ScorePill extends StatelessWidget {
 class _CardGrid extends StatelessWidget {
   final List<_Card> cards;
   final List<AnimationController> flipControllers;
+  final List<AnimationController> bounceControllers;
+  final List<AnimationController> matchControllers;
   final int cols;
   final int rows;
   final ValueChanged<int> onCardTap;
@@ -930,6 +1358,8 @@ class _CardGrid extends StatelessWidget {
   const _CardGrid({
     required this.cards,
     required this.flipControllers,
+    required this.bounceControllers,
+    required this.matchControllers,
     required this.cols,
     required this.rows,
     required this.onCardTap,
@@ -960,6 +1390,8 @@ class _CardGrid extends StatelessWidget {
               child: _FlipCard(
                 card: cards[i],
                 controller: flipControllers[i],
+                bounceController: bounceControllers[i],
+                matchController: matchControllers[i],
                 onTap: () => onCardTap(i),
               ),
             );
@@ -973,37 +1405,85 @@ class _CardGrid extends StatelessWidget {
 class _FlipCard extends StatelessWidget {
   final _Card card;
   final AnimationController controller;
+  final AnimationController bounceController;
+  final AnimationController matchController;  // NEW
   final VoidCallback onTap;
 
   const _FlipCard({
     required this.card,
     required this.controller,
+    required this.bounceController,
+    required this.matchController,  // NEW
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedBuilder(
-        animation: controller,
-        builder: (_, _) {
-          // 3D flip: scaleX goes 1→0→1, with color swap at midpoint
-          final anim = controller.value;
-          final scaleX = (anim < 0.5)
-              ? 1.0 - anim * 2
-              : (anim - 0.5) * 2;
-          final showFront = anim >= 0.5 || card.faceUp;
+    return AnimatedBuilder(
+      animation: Listenable.merge([bounceController, matchController]),
+      builder: (_, child) {
+        final bounceAnim = CurvedAnimation(
+          parent: bounceController,
+          curve: Curves.easeOutBack,
+        );
+        final bounceScale = bounceController.status == AnimationStatus.completed
+            ? 1.0
+            : Tween<double>(begin: 0.0, end: 1.0).evaluate(bounceAnim);
 
-          return Transform(
-            alignment: Alignment.center,
-            transform: Matrix4.diagonal3Values(scaleX, 1.0, 1.0),
-            child: _CardFace(
-              card: card,
-              faceUp: showFront,
-            ),
-          );
-        },
+        // Pop burst: 1.0 → 1.18 → 1.0 over match animation
+        final matchAnim = CurvedAnimation(parent: matchController, curve: Curves.easeOut);
+        final matchScale = matchController.isAnimating || matchController.isCompleted
+            ? TweenSequence<double>([
+                TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.18), weight: 40),
+                TweenSequenceItem(tween: Tween(begin: 1.18, end: 1.0), weight: 60),
+              ]).evaluate(matchAnim)
+            : 1.0;
+
+        return Transform.scale(
+          scale: bounceScale * matchScale,
+          child: Stack(
+            clipBehavior: Clip.none,
+            fit: StackFit.expand,
+            children: [
+              child!,
+              // Sparkle overlay during match pop
+              if (card.matched && matchController.isAnimating)
+                Positioned.fill(
+                  child: AnimatedBuilder(
+                    animation: matchController,
+                    builder: (context2, child2) => CustomPaint(
+                      painter: _SparkleOverlayPainter(
+                        progress: matchController.value,
+                        color: _kPairColors[card.pairColorIdx % _kPairColors.length],
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedBuilder(
+          animation: controller,
+          builder: (ctx, child3) {
+            final anim = controller.value;
+            final scaleX = (anim < 0.5)
+                ? 1.0 - anim * 2
+                : (anim - 0.5) * 2;
+            final showFront = anim >= 0.5 || card.faceUp;
+
+            return Transform(
+              alignment: Alignment.center,
+              transform: Matrix4.diagonal3Values(scaleX, 1.0, 1.0),
+              child: _CardFace(
+                card: card,
+                faceUp: showFront,
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -1018,42 +1498,51 @@ class _CardFace extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isMatched = card.matched;
+    final isMismatch = card.mismatch;
+    final pairColor = _kPairColors[card.pairColorIdx % _kPairColors.length];
+    final glowColor = isMatched
+        ? const Color(0xFF22C55E)
+        : isMismatch
+            ? const Color(0xFFEF4444)
+            : null;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       decoration: BoxDecoration(
-        color: faceUp ? Colors.white : _kAccent,
+        color: faceUp ? const Color(0xFFFAFDFF) : null,
         borderRadius: BorderRadius.circular(10),
         boxShadow: [
-          if (isMatched)
+          if (glowColor != null)
             BoxShadow(
-              color: const Color(0xFF22C55E).withValues(alpha: 0.45),
-              blurRadius: 12,
-              spreadRadius: 2,
+              color: glowColor.withValues(alpha: isMatched ? 0.55 : 0.45),
+              blurRadius: isMatched ? 14 : 10,
+              spreadRadius: isMatched ? 2 : 1,
             )
           else
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.10),
+              color: Colors.black.withValues(alpha: 0.13),
               blurRadius: 6,
               offset: const Offset(0, 3),
             ),
         ],
         border: isMatched
-            ? Border.all(color: const Color(0xFF22C55E), width: 2)
-            : faceUp
-                ? Border.all(color: _kAccent.withValues(alpha: 0.30), width: 1.5)
-                : null,
+            ? Border.all(color: const Color(0xFF22C55E), width: 2.5)
+            : isMismatch
+                ? Border.all(color: const Color(0xFFEF4444), width: 2.0)
+                : faceUp
+                    ? Border.all(color: pairColor.withValues(alpha: 0.55), width: 2.0)
+                    : null,
         gradient: faceUp
             ? null
             : const LinearGradient(
-                colors: [_kAccent, _kAccentDk],
+                colors: [Color(0xFF4C3F91), Color(0xFF3949AB), Color(0xFF1A237E)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(10),
-        child: faceUp ? _FaceSide(card: card) : _BackSide(),
+        child: faceUp ? _FaceSide(card: card) : const _BackSide(),
       ),
     );
   }
@@ -1065,21 +1554,42 @@ class _FaceSide extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: FittedBox(
-        child: Padding(
-          padding: const EdgeInsets.all(4),
-          child: Text(
-            card.emoji,
-            style: const TextStyle(fontSize: 32),
+    final isMatched = card.matched;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // Inner glow for matched
+        if (isMatched)
+          Container(
+            decoration: BoxDecoration(
+              gradient: RadialGradient(
+                colors: [
+                  const Color(0xFF22C55E).withValues(alpha: 0.15),
+                  Colors.transparent,
+                ],
+              ),
+            ),
+          ),
+        Center(
+          child: FittedBox(
+            child: Padding(
+              padding: const EdgeInsets.all(4),
+              child: isMatched
+                  ? Text(card.emoji, style: const TextStyle(fontSize: 32))
+                      .animate(onPlay: (c) => c.repeat(reverse: true))
+                      .scaleXY(begin: 1.0, end: 1.08, duration: 700.ms, curve: Curves.easeInOut)
+                  : Text(card.emoji, style: const TextStyle(fontSize: 32)),
+            ),
           ),
         ),
-      ),
+      ],
     );
   }
 }
 
 class _BackSide extends StatelessWidget {
+  const _BackSide();
+
   @override
   Widget build(BuildContext context) {
     return CustomPaint(painter: _CardBackPainter());
@@ -1089,8 +1599,9 @@ class _BackSide extends StatelessWidget {
 class _CardBackPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
+    // Subtle dot grid
     final dotPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.22);
+      ..color = Colors.white.withValues(alpha: 0.20);
     const cols = 3;
     const rows = 4;
     final rr = math.min(size.width, size.height) * 0.06;
@@ -1101,10 +1612,78 @@ class _CardBackPainter extends CustomPainter {
         canvas.drawCircle(Offset(dx, dy), rr, dotPaint);
       }
     }
+
+    // Subtle diagonal cross pattern
+    final linePaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.08)
+      ..strokeWidth = 1.0
+      ..style = PaintingStyle.stroke;
+    const spacing = 12.0;
+    var offset = -size.height;
+    while (offset < size.width + size.height) {
+      canvas.drawLine(
+        Offset(offset, 0),
+        Offset(offset + size.height, size.height),
+        linePaint,
+      );
+      offset += spacing;
+    }
+
+    // Top-left highlight edge for 3D feel
+    final highlightPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.18)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+    final rRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(0, 0, size.width, size.height),
+      Radius.circular(size.width * 0.1),
+    );
+    canvas.drawRRect(rRect, highlightPaint);
   }
 
   @override
   bool shouldRepaint(_CardBackPainter old) => false;
+}
+
+class _SparkleOverlayPainter extends CustomPainter {
+  final double progress; // 0.0 → 1.0
+  final Color color;
+
+  const _SparkleOverlayPainter({required this.progress, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (progress <= 0 || progress >= 1.0) return;
+    final cx = size.width / 2;
+    final cy = size.height / 2;
+    final maxR = size.width * 0.9;
+    final paint = Paint()..style = PaintingStyle.fill;
+
+    // 8 sparkle dots radiating outward
+    for (int i = 0; i < 8; i++) {
+      final angle = (i / 8) * 2 * math.pi + progress * 0.5;
+      final dist = maxR * progress;
+      final dx = cx + math.cos(angle) * dist;
+      final dy = cy + math.sin(angle) * dist;
+      final radius = (1.0 - progress) * size.width * 0.09;
+      paint.color = color.withValues(alpha: (1.0 - progress) * 0.85);
+      canvas.drawCircle(Offset(dx, dy), radius.clamp(0, 20), paint);
+    }
+
+    // 4 small star dots at 45° offset
+    for (int i = 0; i < 4; i++) {
+      final angle = (i / 4 + 0.125) * 2 * math.pi;
+      final dist = maxR * 0.55 * progress;
+      final dx = cx + math.cos(angle) * dist;
+      final dy = cy + math.sin(angle) * dist;
+      final radius = (1.0 - progress) * size.width * 0.06;
+      paint.color = Colors.white.withValues(alpha: (1.0 - progress) * 0.75);
+      canvas.drawCircle(Offset(dx, dy), radius.clamp(0, 12), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_SparkleOverlayPainter old) => old.progress != progress;
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -1119,18 +1698,22 @@ class _MemoryBgPainter extends AnimatedBgPainter {
     final phase = t * 2 * math.pi;
 
     final items = [
-      (0.08, 0.10, 36.0, 48.0, 0.0, false),
-      (0.87, 0.15, 28.0, 38.0, 1.1, true),
-      (0.12, 0.70, 32.0, 43.0, 2.2, false),
-      (0.85, 0.72, 26.0, 35.0, 3.3, true),
-      (0.50, 0.05, 24.0, 32.0, 4.4, false),
-      (0.04, 0.40, 20.0, 27.0, 5.5, true),
+      (0.08, 0.10, 56.0, 72.0, 0.0, false),
+      (0.87, 0.15, 46.0, 60.0, 1.1, true),
+      (0.12, 0.70, 52.0, 68.0, 2.2, false),
+      (0.85, 0.72, 42.0, 55.0, 3.3, true),
+      (0.50, 0.05, 40.0, 52.0, 4.4, false),
+      (0.04, 0.42, 36.0, 47.0, 5.5, true),
+      (0.72, 0.42, 44.0, 58.0, 0.7, false),
+      (0.30, 0.88, 48.0, 63.0, 2.9, true),
+      (0.92, 0.55, 34.0, 44.0, 4.1, false),
+      (0.55, 0.60, 38.0, 50.0, 1.6, true),
     ];
 
     for (final (xRel, yRel, cw, ch, p, faceUp) in items) {
-      final yBob = math.sin(phase + p) * 6;
-      final rot = math.sin(phase * 0.6 + p) * 0.08;
-      final alpha = 0.04 + (math.sin(phase * 0.8 + p) + 1) / 2 * 0.04;
+      final yBob = math.sin(phase + p) * 8;
+      final rot = math.sin(phase * 0.6 + p) * 0.10;
+      final alpha = 0.14 + (math.sin(phase * 0.8 + p) + 1) / 2 * 0.10;
 
       final cx = size.width * xRel;
       final cy = size.height * yRel + yBob;
@@ -1143,9 +1726,19 @@ class _MemoryBgPainter extends AnimatedBgPainter {
       final rr = RRect.fromRectAndRadius(rect, Radius.circular(cw * 0.15));
 
       if (faceUp) {
+        // White card face with subtle border
         canvas.drawRRect(rr, Paint()..color = Colors.white.withValues(alpha: alpha));
+        canvas.drawRRect(rr, Paint()
+          ..color = Colors.white.withValues(alpha: alpha * 0.6)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5);
       } else {
-        canvas.drawRRect(rr, Paint()..color = _kAccent.withValues(alpha: alpha));
+        // Blue card back with dot pattern hint
+        canvas.drawRRect(rr, Paint()..color = _kAccentDk.withValues(alpha: alpha));
+        canvas.drawRRect(rr, Paint()
+          ..color = Colors.white.withValues(alpha: alpha * 0.4)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.2);
       }
 
       canvas.restore();

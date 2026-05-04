@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
@@ -7,9 +9,9 @@ import '../../core/services/score_service.dart';
 import '../../core/widgets/category_chip.dart';
 import '../../core/widgets/mosaic_game_tile.dart';
 import '../../games/game_registry.dart';
+import '../../games/shared/animated_background.dart';
 import '../../routing/app_router.dart';
 
-const _bgColor = Color(0xFFF4F4F8);
 const _headingColor = Color(0xFF1A1A2E);
 const _accentColor = Color(0xFF6C63FF);
 
@@ -51,68 +53,78 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
     final trendingIds = trendingGames.take(6).map((g) => g.id).toList();
 
     return Scaffold(
-      backgroundColor: _bgColor,
-      body: CustomScrollView(
-        physics: const BouncingScrollPhysics(),
-        slivers: [
-          SliverToBoxAdapter(child: _buildHeader(context)),
+      backgroundColor: Colors.transparent,
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: AnimatedBackground(
+              factory: (t) => _HomeBgPainter(t),
+              period: const Duration(seconds: 18),
+            ),
+          ),
+          CustomScrollView(
+            physics: const BouncingScrollPhysics(),
+            slivers: [
+              SliverToBoxAdapter(child: _buildHeader(context)),
 
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.only(top: 16),
-              child: SizedBox(
-                height: 42,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: GameCategory.values.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 8),
-                  itemBuilder: (context, index) {
-                    final cat = GameCategory.values[index];
-                    return CategoryChip(
-                      category: cat,
-                      onTap: () => context.push('/category/${cat.name}'),
-                    )
-                        .animate(delay: (index * 40).ms)
-                        .fadeIn(duration: 250.ms)
-                        .slideX(begin: 0.2);
-                  },
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 16),
+                  child: SizedBox(
+                    height: 42,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: GameCategory.values.length,
+                      separatorBuilder: (_, _) => const SizedBox(width: 8),
+                      itemBuilder: (context, index) {
+                        final cat = GameCategory.values[index];
+                        return CategoryChip(
+                          category: cat,
+                          onTap: () => context.push('/category/${cat.name}'),
+                        )
+                            .animate(delay: (index * 40).ms)
+                            .fadeIn(duration: 250.ms)
+                            .slideX(begin: 0.2);
+                      },
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
 
-          if (recentIds.isNotEmpty)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
-                child: _buildRecentlyPlayedRow(recentIds),
+              if (recentIds.isNotEmpty)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+                    child: _buildRecentlyPlayedRow(recentIds),
+                  ),
+                ),
+
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
+                  child: _SectionHeader(
+                    title: AppStrings.trending,
+                    accentColor: _accentColor,
+                  ),
+                ),
               ),
-            ),
 
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
-              child: _SectionHeader(
-                title: AppStrings.trending,
-                accentColor: _accentColor,
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: _buildMasonryGrid(
+                    recentIds: recentIds,
+                    favoriteIds: favoriteIds,
+                    trendingIds: trendingIds,
+                    onGameTap: (id) => context.push('/game/$id'),
+                  ),
+                ),
               ),
-            ),
-          ),
 
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: _buildMasonryGrid(
-                recentIds: recentIds,
-                favoriteIds: favoriteIds,
-                trendingIds: trendingIds,
-                onGameTap: (id) => context.push('/game/$id'),
-              ),
-            ),
+              const SliverToBoxAdapter(child: SizedBox(height: 100)),
+            ],
           ),
-
-          const SliverToBoxAdapter(child: SizedBox(height: 100)),
         ],
       ),
     );
@@ -239,7 +251,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: games.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            separatorBuilder: (_, _) => const SizedBox(width: 12),
             itemBuilder: (context, index) {
               final game = games[index];
               return GestureDetector(
@@ -603,7 +615,7 @@ class _FavoritableGameTileState extends State<_FavoritableGameTile> {
                     color: const Color(0xFFE85D75),
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: _bgColor,
+                      color: Colors.white,
                       width: 2,
                     ),
                     boxShadow: const [
@@ -626,4 +638,170 @@ class _FavoritableGameTileState extends State<_FavoritableGameTile> {
       ),
     );
   }
+}
+
+// ── Animated home screen background ────────────────────────────────────────
+
+class _HomeBgPainter extends AnimatedBgPainter {
+  const _HomeBgPainter(super.t);
+
+  @override
+  void paintAt(Canvas canvas, Size size, double t) {
+    final w = size.width;
+    final h = size.height;
+    final phase = t * 2 * math.pi;
+
+    // Base gradient — deep navy to soft indigo/lavender
+    final bgPaint = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Color(0xFFF0EEFF), // soft lavender
+          Color(0xFFEBF5FF), // cool blue-white
+          Color(0xFFF5F0FF), // pale violet
+        ],
+        stops: [0.0, 0.5, 1.0],
+      ).createShader(Rect.fromLTWH(0, 0, w, h));
+    canvas.drawRect(Rect.fromLTWH(0, 0, w, h), bgPaint);
+
+    // Floating game-themed elements
+    // Each entry: (xRel, yRel, radius, phase_offset, color, shape)
+    // shape: 0=circle, 1=X-mark, 2=O-ring, 3=snake-segment, 4=star, 5=card
+    final elements = [
+      // Large ambient blobs (circles, very low alpha)
+      (0.15, 0.08, 70.0, 0.0, const Color(0xFF6C4EF3), 0),
+      (0.85, 0.15, 55.0, 1.2, const Color(0xFF4ECDC4), 0),
+      (0.10, 0.55, 60.0, 2.4, const Color(0xFFFF6B35), 0),
+      (0.88, 0.60, 50.0, 3.6, const Color(0xFF339AF0), 0),
+      (0.50, 0.90, 65.0, 4.8, const Color(0xFF20C997), 0),
+      (0.30, 0.35, 45.0, 0.6, const Color(0xFFBE4BDB), 0),
+      (0.75, 0.80, 48.0, 1.8, const Color(0xFFFF6B6B), 0),
+      // X marks (tic-tac-toe)
+      (0.80, 0.05, 18.0, 0.3, const Color(0xFFE85D75), 1),
+      (0.05, 0.80, 14.0, 2.1, const Color(0xFFE85D75), 1),
+      (0.55, 0.18, 12.0, 3.9, const Color(0xFFE85D75), 1),
+      // O rings (tic-tac-toe)
+      (0.90, 0.35, 16.0, 1.5, const Color(0xFF5BC0DE), 2),
+      (0.20, 0.92, 13.0, 3.3, const Color(0xFF5BC0DE), 2),
+      // Snake segments
+      (0.65, 0.42, 10.0, 0.9, const Color(0xFF20C997), 3),
+      (0.35, 0.68, 9.0, 2.7, const Color(0xFF20C997), 3),
+      (0.72, 0.72, 11.0, 4.5, const Color(0xFF20C997), 3),
+      // Stars
+      (0.45, 0.04, 11.0, 1.1, const Color(0xFFFFD43B), 4),
+      (0.92, 0.88, 10.0, 2.9, const Color(0xFFFFD43B), 4),
+      (0.12, 0.20, 9.0, 4.7, const Color(0xFFFFD43B), 4),
+      // Cards (memory match)
+      (0.25, 0.12, 14.0, 0.4, const Color(0xFF339AF0), 5),
+      (0.78, 0.48, 12.0, 2.2, const Color(0xFF339AF0), 5),
+      (0.48, 0.78, 13.0, 4.0, const Color(0xFF339AF0), 5),
+    ];
+
+    for (final (xRel, yRel, r, phOff, color, shape) in elements) {
+      final bob = math.sin(phase + phOff) * (r * 0.15);
+      final cx = w * xRel;
+      final cy = h * yRel + bob;
+      final pulse = 0.9 + math.sin(phase * 0.7 + phOff) * 0.1;
+      final effectiveR = r * pulse;
+
+      canvas.save();
+      canvas.translate(cx, cy);
+
+      switch (shape) {
+        case 0: // ambient circle blob
+          final alpha = 0.07 + (math.sin(phase * 0.5 + phOff) + 1) / 2 * 0.06;
+          canvas.drawCircle(
+            Offset.zero,
+            effectiveR,
+            Paint()
+              ..color = color.withValues(alpha: alpha)
+              ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 20),
+          );
+
+        case 1: // X mark
+          final alpha = 0.15 + (math.sin(phase * 0.8 + phOff) + 1) / 2 * 0.10;
+          final rot = math.sin(phase * 0.4 + phOff) * 0.15;
+          canvas.rotate(rot);
+          final paint = Paint()
+            ..color = color.withValues(alpha: alpha)
+            ..strokeWidth = effectiveR * 0.35
+            ..strokeCap = StrokeCap.round
+            ..style = PaintingStyle.stroke;
+          final pad = effectiveR * 0.5;
+          canvas.drawLine(Offset(-pad, -pad), Offset(pad, pad), paint);
+          canvas.drawLine(Offset(pad, -pad), Offset(-pad, pad), paint);
+
+        case 2: // O ring
+          final alpha = 0.14 + (math.sin(phase * 0.9 + phOff) + 1) / 2 * 0.09;
+          canvas.drawCircle(
+            Offset.zero,
+            effectiveR * 0.55,
+            Paint()
+              ..color = color.withValues(alpha: alpha)
+              ..strokeWidth = effectiveR * 0.28
+              ..style = PaintingStyle.stroke,
+          );
+
+        case 3: // snake segment (rounded rect)
+          final alpha = 0.16 + (math.sin(phase * 0.6 + phOff) + 1) / 2 * 0.10;
+          final rot = math.sin(phase * 0.5 + phOff) * 0.2;
+          canvas.rotate(rot);
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(
+              Rect.fromCenter(
+                  center: Offset.zero,
+                  width: effectiveR * 1.8,
+                  height: effectiveR * 1.8),
+              Radius.circular(effectiveR * 0.4),
+            ),
+            Paint()..color = color.withValues(alpha: alpha),
+          );
+
+        case 4: // star (5-pointed using path)
+          final alpha = 0.18 + (math.sin(phase * 1.1 + phOff) + 1) / 2 * 0.12;
+          final rot = phase * 0.3 + phOff;
+          canvas.rotate(rot);
+          final path = _starPath(effectiveR);
+          canvas.drawPath(path, Paint()..color = color.withValues(alpha: alpha));
+
+        case 5: // memory card (rounded rect portrait)
+          final alpha = 0.13 + (math.sin(phase * 0.7 + phOff) + 1) / 2 * 0.09;
+          final rot = math.sin(phase * 0.35 + phOff) * 0.18;
+          canvas.rotate(rot);
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(
+              Rect.fromCenter(
+                  center: Offset.zero,
+                  width: effectiveR * 1.4,
+                  height: effectiveR * 1.9),
+              Radius.circular(effectiveR * 0.25),
+            ),
+            Paint()..color = color.withValues(alpha: alpha),
+          );
+      }
+
+      canvas.restore();
+    }
+  }
+
+  Path _starPath(double r) {
+    final path = Path();
+    for (int i = 0; i < 5; i++) {
+      final outerAngle = (i * 2 * math.pi / 5) - math.pi / 2;
+      final innerAngle = outerAngle + math.pi / 5;
+      final outer = Offset(math.cos(outerAngle) * r, math.sin(outerAngle) * r);
+      final inner = Offset(
+          math.cos(innerAngle) * r * 0.42, math.sin(innerAngle) * r * 0.42);
+      if (i == 0) {
+        path.moveTo(outer.dx, outer.dy);
+      } else {
+        path.lineTo(outer.dx, outer.dy);
+      }
+      path.lineTo(inner.dx, inner.dy);
+    }
+    path.close();
+    return path;
+  }
+
 }
