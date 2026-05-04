@@ -8,7 +8,6 @@ import 'memory_match/memory_match_logo.dart';
 import 'memory_match/memory_match_screen.dart';
 import 'number_merge/number_merge_logo.dart';
 import 'number_merge/number_merge_screen.dart';
-import 'block_fit/block_fit_screen.dart';
 import 'snake_classic/snake_classic_logo.dart';
 import 'snake_classic/snake_classic_screen.dart';
 import 'tic_tac_toe/tic_tac_toe_logo.dart';
@@ -24,7 +23,6 @@ class GameRegistry {
     'flappy_tap': () => const FlappyTapScreen(),
     'memory_match': () => const MemoryMatchScreen(),
     'number_merge': () => const NumberMergeScreen(),
-    'block_fit': () => const BlockFitScreen(),
     'snake_classic': () => const SnakeClassicScreen(),
     'tic_tac_toe': () => const TicTacToeScreen(),
   };
@@ -92,18 +90,6 @@ class GameRegistry {
       customLogo: build2048Logo,
     ),
     const GameInfo(
-      id: 'block_fit',
-      name: 'Block Fit',
-      description: 'Drag blocks to fill rows and columns. Clear them for points!',
-      howToPlay: 'Drag the block shapes onto the grid. Complete a full row or column to clear it and score points. Game ends when no blocks fit.',
-      category: GameCategory.puzzle,
-      icon: Icons.apps_rounded,
-      color: Color(0xFF6C63FF),
-      bgColor: Color(0xFFF0EFFF),
-      playCount: 9800,
-      isFeatured: true,
-    ),
-    const GameInfo(
       id: 'color_tap',
       name: 'Color Tap',
       description: 'Match the color circle to the target. Tap fast, skip smart — 3 lives!',
@@ -120,17 +106,6 @@ class GameRegistry {
       bgColor: Color(0xFFFFF4EC),
       playCount: 7600,
       customLogo: buildColorTapLogo,
-    ),
-    const GameInfo(
-      id: 'stack_tower',
-      name: 'Stack Tower',
-      description: 'Tap to stack blocks perfectly. How high can you build?',
-      howToPlay: 'Tap the screen to drop the moving block. Stack it perfectly on top of the previous block. Misaligned parts get cut off.',
-      category: GameCategory.arcade,
-      icon: Icons.layers_rounded,
-      color: Color(0xFF51CF66),
-      bgColor: Color(0xFFECFBF0),
-      playCount: 6200,
     ),
     const GameInfo(
       id: 'memory_match',
