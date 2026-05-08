@@ -1,200 +1,39 @@
 import 'package:flutter/material.dart';
 import '../core/models/game_info.dart';
-import 'color_tap/color_tap_logo.dart';
-import 'color_tap/color_tap_screen.dart';
-import 'flappy_tap/flappy_tap_logo.dart';
-import 'flappy_tap/flappy_tap_screen.dart';
-import 'memory_match/memory_match_logo.dart';
-import 'memory_match/memory_match_screen.dart';
-import 'number_merge/number_merge_logo.dart';
-import 'number_merge/number_merge_screen.dart';
-import 'snake_classic/snake_classic_logo.dart';
-import 'snake_classic/snake_classic_screen.dart';
-import 'sudoku/sudoku_logo.dart';
-import 'sudoku/sudoku_screen.dart';
-import 'tic_tac_toe/tic_tac_toe_logo.dart';
-import 'tic_tac_toe/tic_tac_toe_screen.dart';
+import 'all_games.dart';
 
 typedef GameWidgetBuilder = Widget Function();
 
 class GameRegistry {
   GameRegistry._();
 
-  static final Map<String, GameWidgetBuilder> _builders = {
-    'color_tap': () => const ColorTapScreen(),
-    'flappy_tap': () => const FlappyTapScreen(),
-    'memory_match': () => const MemoryMatchScreen(),
-    'number_merge': () => const NumberMergeScreen(),
-    'snake_classic': () => const SnakeClassicScreen(),
-    'sudoku': () => const SudokuScreen(),
-    'tic_tac_toe': () => const TicTacToeScreen(),
+  static final Map<String, GameDefinition> _defMap = {
+    for (final d in allGameDefinitions) d.info.id: d,
   };
 
   static Widget buildGame(String gameId) {
-    final builder = _builders[gameId];
-    if (builder == null) {
-      return const Center(child: Text('Game not found'));
-    }
-    return builder();
+    final def = _defMap[gameId];
+    if (def == null) return const Center(child: Text('Game not found'));
+    return def.screenBuilder();
   }
 
-  static bool hasGame(String gameId) => _builders.containsKey(gameId);
+  static bool hasGame(String gameId) => _defMap.containsKey(gameId);
 
-  static const Set<String> _customOverlayGames = {
-    'color_tap',
-    'memory_match',
-    'sudoku',
-    'tic_tac_toe',
-    'number_merge',
-    'snake_classic',
-    'flappy_tap',
-  };
+  /// All current games use custom overlays — returns true for any registered id.
+  static bool usesCustomOverlays(String gameId) => _defMap.containsKey(gameId);
 
-  static bool usesCustomOverlays(String gameId) =>
-      _customOverlayGames.contains(gameId);
+  static List<GameInfo> get allGames =>
+      allGameDefinitions.map((d) => d.info).toList();
 
-  static final List<GameInfo> allGames = [
-    const GameInfo(
-      id: 'flappy_tap',
-      name: 'Flappy Tap',
-      description: 'Tap to fly through the gaps. How far can you go? Simple yet addictive!',
-      howToPlay:
-          'Choose your difficulty (Easy, Medium, Hard) — pipe speed and gap size scale with the level.\n'
-          'Tap anywhere on the screen to make the bird flap upward.\n'
-          'Gravity pulls the bird down continuously — tap rhythmically to stay in the air.\n'
-          'Fly through the gaps between the green pipes to score points (5/10/20 pts per pipe on Easy/Medium/Hard).\n'
-          'The game ends if the bird hits a pipe or the ground.\n'
-          'Stay calm and find your rhythm — panic-tapping makes you overshoot!',
-      category: GameCategory.action,
-      icon: Icons.air_rounded,
-      color: Color(0xFF4ECDC4),
-      bgColor: Color(0xFFE8FAF8),
-      playCount: 12500,
-      isFeatured: true,
-      customLogo: buildFlappyTapLogo,
-    ),
-    const GameInfo(
-      id: 'number_merge',
-      name: '2048 Merge',
-      description: 'Slide tiles and merge numbers. Can you reach 2048?',
-      howToPlay:
-          'Swipe left, right, up, or down to slide all tiles on the board.\n'
-          'When two tiles with the same number collide, they merge into one tile worth double the value.\n'
-          'Every swipe spawns a new tile (usually a 2, occasionally a 4).\n'
-          'Reach the target tile for your chosen difficulty — 1024 on Easy, 2048 on Medium, 4096 on Hard.\n'
-          'The game ends when the board is full and no moves remain.\n'
-          'Plan your moves — avoid cornering your highest tile!',
-      category: GameCategory.puzzle,
-      icon: Icons.calculate_rounded,
-      color: Color(0xFFFF6B6B),
-      bgColor: Color(0xFFFFF0F0),
+  static GameInfo? getById(String id) => _defMap[id]?.info;
 
-      playCount: 18200,
-      isFeatured: true,
-      customLogo: build2048Logo,
-    ),
-    const GameInfo(
-      id: 'color_tap',
-      name: 'Color Tap',
-      description: 'Match the color circle to the target. Tap fast, skip smart — 3 lives!',
-      howToPlay:
-          'Choose your difficulty (Easy, Medium, Hard) — more colors and faster rounds at higher levels.\n'
-          'A large colored circle appears in the center. The "TARGET" color is shown at the top.\n'
-          'TAP the circle if its color matches the target to score points.\n'
-          'Tap the SKIP button if the colors do NOT match to safely advance.\n'
-          'Wrong action (tap a non-match, or skip a match, or let the timer run out) costs one life.\n'
-          'You have 3 lives — game ends when all lives are lost.',
-      category: GameCategory.arcade,
-      icon: Icons.circle_rounded,
-      color: Color(0xFFFF6B35),
-      bgColor: Color(0xFFFFDEC0),
-      playCount: 7600,
-      customLogo: buildColorTapLogo,
-    ),
-    const GameInfo(
-      id: 'memory_match',
-      name: 'Memory Match',
-      description: 'Flip cards and find matching emoji pairs. Train your memory!',
-      howToPlay:
-          'Choose your difficulty (Easy = 4×3, Medium = 4×4, Hard = 6×4).\n'
-          'All cards start face-down. Tap any card to flip it over and reveal the emoji.\n'
-          'Tap a second card — if the emojis match, both cards stay face-up and you score points.\n'
-          'If they don\'t match, both cards flip back face-down after a short delay.\n'
-          'First-attempt matches score +20 pts; later matches score +10 pts.\n'
-          'Match all pairs to win a +50 completion bonus!\n'
-          'Remember the positions — the fewer wrong flips, the higher your score.',
-      category: GameCategory.puzzle,
-      icon: Icons.flip_rounded,
-      color: Color(0xFF339AF0),
-      bgColor: Color(0xFFD0E8FF),
-      playCount: 5400,
-      customLogo: buildMemoryMatchLogo,
-    ),
-    const GameInfo(
-      id: 'snake_classic',
-      name: 'Snake Classic',
-      description: 'Guide the snake to eat apples and grow longer. How long can you survive?',
-      howToPlay:
-          'Choose your difficulty (Easy, Medium, Hard) — speed and points scale with the level.\n'
-          'Swipe up, down, left, or right to steer the snake. The snake moves on its own; you only choose direction.\n'
-          'You can\'t reverse 180° — pivot through a perpendicular turn first.\n'
-          'Eat the red apple to grow longer and score 5/10/20 points (Easy/Medium/Hard).\n'
-          'The game ends if the snake hits a wall or runs into its own body.\n'
-          'Plan your turns — fast modes punish hesitation!',
-      category: GameCategory.action,
-      icon: Icons.pest_control_rounded,
-      color: Color(0xFF20C997),
-      bgColor: Color(0xFFE6FCF5),
-      playCount: 11000,
-      isFeatured: true,
-      customLogo: buildSnakeLogo,
-    ),
-    const GameInfo(
-      id: 'sudoku',
-      name: 'Sudoku',
-      description: 'Fill the 9×9 grid — every row, column and box must contain 1–9.',
-      howToPlay:
-        'Choose Easy (46 givens), Medium (36 givens), or Hard (28 givens).\n'
-        'Tap a cell to select it, then tap a number on the keypad to fill it in.\n'
-        'Every row, column, and 3×3 box must contain each digit from 1 to 9 exactly once.\n'
-        'Tapping a number that conflicts with the rules counts as an error.\n'
-        'Your score is based on completion time — faster is better!\n'
-        'Tap the eraser to clear a cell.',
-      category: GameCategory.puzzle,
-      icon: Icons.grid_on_rounded,
-      color: Color(0xFF6366F1),
-      bgColor: Color(0xFFEEF2FF),
-      playCount: 0,
-      isFeatured: false,
-      customLogo: buildSudokuLogo,
-    ),
-    const GameInfo(
-      id: 'tic_tac_toe',
-      name: 'Tic Tac Toe',
-      description: 'Classic X and O. Play against the computer!',
-      howToPlay:
-          'Choose your difficulty (Easy, Medium, Hard) or play with a friend on the same device.\n'
-          'Players take turns — X always goes first in any given round.\n'
-          'Tap an empty cell on the 3x3 grid to place your mark there.\n'
-          'Get three of your marks in a row, column, or diagonal to win the round.\n'
-          'Win two rounds in a row to start a Streak — keep it going for bragging rights!\n'
-          'After each round the starter alternates, so you both get a fair go.',
-      category: GameCategory.board,
-      icon: Icons.close_rounded,
-      color: Color(0xFFBE4BDB),
-      bgColor: Color(0xFFF8F0FC),
-      playCount: 8900,
-      customLogo: buildTicTacToeLogo,
-    ),
-  ];
+  static GameDefinition? getDefinition(String id) => _defMap[id];
 
-  static List<GameInfo> getByCategory(GameCategory category) {
-    return allGames.where((g) => g.category == category).toList();
-  }
+  static List<GameInfo> getByCategory(GameCategory category) =>
+      allGames.where((g) => g.category == category).toList();
 
-  static List<GameInfo> get featured {
-    return allGames.where((g) => g.isFeatured).toList();
-  }
+  static List<GameInfo> get featured =>
+      allGames.where((g) => g.isFeatured).toList();
 
   static List<GameInfo> get trending {
     final sorted = List<GameInfo>.from(allGames);
@@ -202,20 +41,13 @@ class GameRegistry {
     return sorted;
   }
 
-  static GameInfo? getById(String id) {
-    try {
-      return allGames.firstWhere((g) => g.id == id);
-    } catch (_) {
-      return null;
-    }
-  }
-
   static List<GameInfo> search(String query) {
     final q = query.toLowerCase();
-    return allGames.where((g) {
-      return g.name.toLowerCase().contains(q) ||
-          g.category.label.toLowerCase().contains(q) ||
-          g.description.toLowerCase().contains(q);
-    }).toList();
+    return allGames
+        .where((g) =>
+            g.name.toLowerCase().contains(q) ||
+            g.category.label.toLowerCase().contains(q) ||
+            g.description.toLowerCase().contains(q))
+        .toList();
   }
 }
