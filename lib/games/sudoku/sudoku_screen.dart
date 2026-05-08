@@ -408,6 +408,24 @@ class _SudokuScreenState extends State<SudokuScreen> {
                         return s > 0 ? kSudokuMaxScore - s : null;
                       }(),
                     ),
+                    trailing: GameRestartButton(
+                      gameName: 'Sudoku',
+                      accentColor: diff.color,
+                      onRestart: () => _startGame(diff),
+                      onDialogOpened: () {
+                        _ticker?.cancel();
+                        _stopwatch.stop();
+                      },
+                      onDialogDismissed: () {
+                        if (_mode == _Mode.playing) {
+                          _stopwatch.start();
+                          _ticker = Timer.periodic(
+                            const Duration(seconds: 1),
+                            (_) { if (mounted) setState(() => _elapsedSeconds = _stopwatch.elapsed.inSeconds); },
+                          );
+                        }
+                      },
+                    ),
                   ),
                   Expanded(
                     child: _SudokuGrid(
@@ -766,7 +784,6 @@ class _SudokuGridState extends State<_SudokuGrid> with TickerProviderStateMixin 
             width: gridSize,
             height: gridSize,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
               // Three-layer shadow: key drop + colored glow + wide ambient
               boxShadow: [
                 BoxShadow(
@@ -788,13 +805,11 @@ class _SudokuGridState extends State<_SudokuGrid> with TickerProviderStateMixin 
               ],
             ),
             // Clip cells AND border ring together — corners are always clean
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(18),
-              child: Stack(
-                children: [
-                  Container(
-                    color: Colors.white,
-                    child: Column(
+            child: Stack(
+              children: [
+                Container(
+                  color: Colors.white,
+                  child: Column(
                       children: List.generate(9, (row) {
                         return Row(
                           children: List.generate(9, (col) {
@@ -804,12 +819,10 @@ class _SudokuGridState extends State<_SudokuGrid> with TickerProviderStateMixin 
                       }),
                     ),
                   ),
-                  // Border ring drawn inside the clip so corners are always sharp
                   Positioned.fill(
                     child: IgnorePointer(
                       child: DecoratedBox(
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(18),
                           border: Border.all(
                             color: widget.accentColor.withValues(alpha: 0.20),
                             width: 1.5,
@@ -820,7 +833,6 @@ class _SudokuGridState extends State<_SudokuGrid> with TickerProviderStateMixin 
                   ),
                 ],
               ),
-            ),
           ),
         );
       },
