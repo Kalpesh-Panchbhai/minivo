@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../framework/game_definition.dart';
-import '../framework/game_session.dart';
-import '../shared/generic_game_result_screen.dart' as game_result;
 import '../../core/models/game_info.dart';
 import 'color_tap_logo.dart';
 import 'color_tap_screen.dart';
@@ -61,35 +59,6 @@ final colorTapGame = GameDefinition(
   screenBuilder: () => const ColorTapScreen(),
   logoBuilder: buildColorTapLogo,
   tutorialSteps: colorTapSteps,
-  boardBuilder: _buildColorTapBoard,
-  bgPainterBuilder: _buildColorTapBg,
-  resultStatsBuilder: _buildColorTapResultStats,
 );
-
-Widget _buildColorTapBoard(GameSession session) =>
-    ColorTapBoard(session: session);
-
-ColorTapBgPainter _buildColorTapBg(double t) => ColorTapBgPainter(t);
-
-Widget _buildColorTapResultStats(GameSession session, DifficultyDef diff) =>
-    game_result.GameResultStatsRow(
-      stats: [
-        game_result.StatItem(
-          label: 'SCORE',
-          value: session.currentScore,
-          color: diff.color,
-        ),
-        game_result.StatItem(
-          label: 'BEST',
-          value: session.bestScore,
-          color: const Color(0xFF8B7BA7),
-        ),
-        game_result.StatItem(
-          label: 'MISTAKES',
-          value: session.mistakes,
-          color: const Color(0xFFEF4444),
-        ),
-      ],
-    );
 
 String _pts(int s) => '$s pts';

@@ -3,89 +3,97 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/services/audio_service.dart';
-import '../framework/game_definition.dart';
-import '../framework/game_scaffold.dart';
-import '../framework/game_session.dart';
+import '../../core/services/score_service.dart';
+import '../../core/widgets/how_to_play_sheet.dart';
+import '../game_picker_scaffold.dart';
+import '../game_registry.dart';
+import '../game_wrapper.dart';
 import '../shared/animated_background.dart';
-import 'color_tap_definition.dart';
+import '../shared/animated_difficulty_icon.dart';
+import '../shared/game_control_buttons.dart';
+import '../shared/game_hud_bar.dart';
+import '../shared/game_difficulty_picker.dart';
+import '../shared/generic_game_result_screen.dart' as game_result;
+import 'color_tap_stats.dart';
+import 'color_tap_tutorial.dart';
 
 // ── Palette ────────────────────────────────────────────────────────────────
-const Color _kAccent = Color(0xFFFF6B35);
+const Color _kBgTop    = Color(0xFFFFDEC0);
+const Color _kBgBot    = Color(0xFFFFC898);
+const Color _kAccent   = Color(0xFFFF6B35);
+const Color _kAccentLt = Color(0xFFFF922B);
 // ── Game colors ────────────────────────────────────────────────────────────
-const Color _kRed = Color(0xFFEF4444);
-const Color _kBlue = Color(0xFF3B82F6);
-const Color _kGreen = Color(0xFF22C55E);
+const Color _kRed    = Color(0xFFEF4444);
+const Color _kBlue   = Color(0xFF3B82F6);
+const Color _kGreen  = Color(0xFF22C55E);
 const Color _kYellow = Color(0xFFEAB308);
 const Color _kPurple = Color(0xFF8B5CF6);
 const Color _kOrange = Color(0xFFF97316);
 
-// ── Per-difficulty config (keyed by DifficultyDef.key) ─────────────────────
-class _CTConfig {
-  final int timeMs;
-  final int points;
-  final List<Color> palette;
-  final List<String> paletteNames;
-  const _CTConfig({
-    required this.timeMs,
-    required this.points,
-    required this.palette,
-    required this.paletteNames,
-  });
+// ── Difficulty palette ─────────────────────────────────────────────────────
+const Color _kEasyColor   = Color(0xFF22C55E);
+const Color _kMediumColor = Color(0xFFF59E0B);
+const Color _kHardColor   = Color(0xFFEF4444);
+
+// ── Difficulty ─────────────────────────────────────────────────────────────
+enum _Difficulty { easy, medium, hard }
+
+extension _DifficultyX on _Difficulty {
+  String get label       => ['EASY', 'MEDIUM', 'HARD'][index];
+  Color  get color       => [_kEasyColor, _kMediumColor, _kHardColor][index];
+  int    get timeMs      => [3000, 2000, 1500][index];
+  int    get points      => [10, 15, 20][index];
+  String get subKey      => ['easy', 'medium', 'hard'][index];
+  String get hint => [
+        '4 colors • 3 seconds per round.',
+        '5 colors • 2 seconds per round.',
+        '6 colors • 1.5 seconds per round.',
+      ][index];
+  DifficultyKind get kind => [
+        DifficultyKind.easy,
+        DifficultyKind.medium,
+        DifficultyKind.hard,
+      ][index];
+
+  List<Color> get palette => [
+        [_kRed, _kBlue, _kGreen, _kYellow],
+        [_kRed, _kBlue, _kGreen, _kYellow, _kPurple],
+        [_kRed, _kBlue, _kGreen, _kYellow, _kPurple, _kOrange],
+      ][index];
+
+  List<String> get paletteNames => [
+        ['RED', 'BLUE', 'GREEN', 'YELLOW'],
+        ['RED', 'BLUE', 'GREEN', 'YELLOW', 'PURPLE'],
+        ['RED', 'BLUE', 'GREEN', 'YELLOW', 'PURPLE', 'ORANGE'],
+      ][index];
 }
 
-const Map<String, _CTConfig> _kConfigs = {
-  'easy': _CTConfig(
-    timeMs: 3000,
-    points: 10,
-    palette: [_kRed, _kBlue, _kGreen, _kYellow],
-    paletteNames: ['RED', 'BLUE', 'GREEN', 'YELLOW'],
-  ),
-  'medium': _CTConfig(
-    timeMs: 2000,
-    points: 15,
-    palette: [_kRed, _kBlue, _kGreen, _kYellow, _kPurple],
-    paletteNames: ['RED', 'BLUE', 'GREEN', 'YELLOW', 'PURPLE'],
-  ),
-  'hard': _CTConfig(
-    timeMs: 1500,
-    points: 20,
-    palette: [_kRed, _kBlue, _kGreen, _kYellow, _kPurple, _kOrange],
-    paletteNames: ['RED', 'BLUE', 'GREEN', 'YELLOW', 'PURPLE', 'ORANGE'],
-  ),
-};
-
-_CTConfig _configFor(DifficultyDef d) =>
-    _kConfigs[d.key] ?? _kConfigs['medium']!;
-
 // ════════════════════════════════════════════════════════════════
-// Root screen — thin wrapper around GameScaffold
+// Root screen
 // ════════════════════════════════════════════════════════════════
 
-class ColorTapScreen extends StatelessWidget {
+class ColorTapScreen extends StatefulWidget {
   const ColorTapScreen({super.key});
 
   @override
-  Widget build(BuildContext context) =>
-      GameScaffold(definition: colorTapGame);
+  State<ColorTapScreen> createState() => _ColorTapScreenState();
 }
 
-// ════════════════════════════════════════════════════════════════
-// Board — playing-state widget driven by GameSession
-// ════════════════════════════════════════════════════════════════
-
-class ColorTapBoard extends StatefulWidget {
-  final GameSession session;
-  const ColorTapBoard({required this.session, super.key});
-
-  @override
-  State<ColorTapBoard> createState() => _ColorTapBoardState();
-}
-
-class _ColorTapBoardState extends State<ColorTapBoard>
+class _ColorTapScreenState extends State<ColorTapScreen>
     with TickerProviderStateMixin {
+  _Difficulty? _activeDifficulty;
+  _Difficulty _pickerDifficulty = _Difficulty.medium;
+
+  bool _isFavorite = false;
+
+  // Game state
   final _rng = math.Random();
+  int _score = 0;
+  int _bestScore = 0;
+  bool _isNewBest = false;
   int _lives = 3;
   bool _gameOver = false;
 
@@ -119,24 +127,24 @@ class _ColorTapBoardState extends State<ColorTapBoard>
   int _lastPointsEarned = 0;
   Timer? _scorePopupTimer;
 
-  DifficultyDef get _diff => widget.session.difficulty;
-  _CTConfig get _cfg => _configFor(_diff);
+  // Background hue shift animation
+  late AnimationController _bgHueCtrl;
 
   @override
   void initState() {
     super.initState();
-    _timerCtrl = AnimationController(
+    _isFavorite = ScoreService().isFavorite(kColorTapGameId);
+    _timerCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 3));
+    _bgHueCtrl = AnimationController(
       vsync: this,
-      duration: Duration(milliseconds: _cfg.timeMs),
-    );
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _nextRound();
-    });
+      duration: const Duration(seconds: 18),
+    )..repeat();
   }
 
   @override
   void dispose() {
     _timerCtrl.dispose();
+    _bgHueCtrl.dispose();
     _roundTimer?.cancel();
     _feedbackTimer?.cancel();
     _shakeTimer?.cancel();
@@ -145,17 +153,79 @@ class _ColorTapBoardState extends State<ColorTapBoard>
     super.dispose();
   }
 
-  // ── Game logic ──────────────────────────────────────────────────────────
+  void _toggleFavorite() {
+    ScoreService().toggleFavorite(kColorTapGameId);
+    setState(() => _isFavorite = !_isFavorite);
+  }
 
-  void _nextRound() {
+  void _showHelp() {
+    final info = GameRegistry.getById(kColorTapGameId);
+    if (info == null) return;
+    showHowToPlaySheet(
+      context,
+      title: info.name,
+      howToPlay: info.howToPlay,
+      accent: _kAccent,
+      steps: colorTapSteps(),
+    );
+  }
+
+  int _bestFor(_Difficulty d) =>
+      ScoreService().getHighScore(kColorTapGameId, subKey: d.subKey);
+
+  // ── Game logic ────────────────────────────────────────────────────────────
+
+  void _startGame(_Difficulty diff) {
+    _roundTimer?.cancel();
+    _feedbackTimer?.cancel();
+    _shakeTimer?.cancel();
+    _comboTimer?.cancel();
+    _scorePopupTimer?.cancel();
+    _timerCtrl.dispose();
+    _timerCtrl = AnimationController(
+      vsync: this,
+      duration: Duration(milliseconds: diff.timeMs),
+    );
+
+    setState(() {
+      _activeDifficulty = diff;
+      _pickerDifficulty = diff;
+      _score = 0;
+      _bestScore = _bestFor(diff);
+      _isNewBest = false;
+      _lives = 3;
+      _gameOver = false;
+      _showCorrect = false;
+      _showWrong = false;
+      _showSkip = false;
+      _shakeWrong = false;
+      _comboCount = 0;
+      _showCombo = false;
+      _showScorePopup = false;
+    });
+
+    ScoreService().incrementGamePlayCount(kColorTapGameId);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        GameWrapper.of(context).startGame();
+        GameWrapper.of(context).updateScore(0);
+      }
+    });
+
+    _nextRound(diff);
+  }
+
+  void _nextRound(_Difficulty diff) {
     if (!mounted || _gameOver) return;
     _roundTimer?.cancel();
 
-    final palette = _cfg.palette;
-    final names = _cfg.paletteNames;
+    final palette = diff.palette;
+    final names = diff.paletteNames;
 
+    // Pick circle color
     final circleIdx = _rng.nextInt(palette.length);
-    final shouldMatch = _rng.nextBool();
+    // Pick target color — 50% chance of matching, 50% different
+    final bool shouldMatch = _rng.nextBool();
     int targetIdx;
     if (shouldMatch || palette.length == 1) {
       targetIdx = circleIdx;
@@ -176,47 +246,57 @@ class _ColorTapBoardState extends State<ColorTapBoard>
       _shakeWrong = false;
     });
 
-    _timerCtrl.duration = Duration(milliseconds: _cfg.timeMs);
+    _timerCtrl.duration = Duration(milliseconds: diff.timeMs);
     _timerCtrl.forward(from: 0);
 
-    _roundTimer = Timer(Duration(milliseconds: _cfg.timeMs), () {
+    _roundTimer = Timer(Duration(milliseconds: diff.timeMs), () {
       if (!mounted || _gameOver) return;
-      _onWrongAction();
+      _onWrongAction(diff);
     });
   }
 
   void _onTap() {
-    if (_gameOver) return;
+    final diff = _activeDifficulty;
+    if (diff == null || _gameOver) return;
     _roundTimer?.cancel();
     _timerCtrl.stop();
+
     if (_isMatch) {
-      _onCorrectTap();
+      _onCorrectTap(diff);
     } else {
-      _onWrongAction();
+      _onWrongAction(diff);
     }
   }
 
   void _onSkip() {
-    if (_gameOver) return;
+    final diff = _activeDifficulty;
+    if (diff == null || _gameOver) return;
     _roundTimer?.cancel();
     _timerCtrl.stop();
+
     if (!_isMatch) {
-      _onCorrectSkip();
+      _onCorrectSkip(diff);
     } else {
-      _onWrongAction();
+      _onWrongAction(diff);
     }
   }
 
-  void _onCorrectTap() {
+  void _onCorrectTap(_Difficulty diff) {
     AudioService().playScore();
-    widget.session.incrementScore(_cfg.points);
+    final newScore = _score + diff.points;
+    if (newScore > _bestScore) {
+      _bestScore = newScore;
+      _isNewBest = true;
+      ScoreService().saveScore(kColorTapGameId, newScore, subKey: diff.subKey);
+    }
     final newCombo = _comboCount + 1;
     setState(() {
+      _score = newScore;
       _showCorrect = true;
       _comboCount = newCombo;
       _showCombo = newCombo >= 3;
       _showScorePopup = true;
-      _lastPointsEarned = _cfg.points;
+      _lastPointsEarned = diff.points;
     });
     _comboTimer?.cancel();
     _comboTimer = Timer(const Duration(milliseconds: 1200), () {
@@ -226,13 +306,14 @@ class _ColorTapBoardState extends State<ColorTapBoard>
     _scorePopupTimer = Timer(const Duration(milliseconds: 700), () {
       if (mounted) setState(() => _showScorePopup = false);
     });
+    GameWrapper.of(context).updateScore(_score);
     _feedbackTimer?.cancel();
     _feedbackTimer = Timer(const Duration(milliseconds: 500), () {
-      if (mounted && !_gameOver) _nextRound();
+      if (mounted && !_gameOver) _nextRound(diff);
     });
   }
 
-  void _onCorrectSkip() {
+  void _onCorrectSkip(_Difficulty diff) {
     AudioService().playScore();
     final newCombo = _comboCount + 1;
     setState(() {
@@ -246,13 +327,12 @@ class _ColorTapBoardState extends State<ColorTapBoard>
     });
     _feedbackTimer?.cancel();
     _feedbackTimer = Timer(const Duration(milliseconds: 400), () {
-      if (mounted && !_gameOver) _nextRound();
+      if (mounted && !_gameOver) _nextRound(diff);
     });
   }
 
-  void _onWrongAction() {
+  void _onWrongAction(_Difficulty diff) {
     AudioService().playGameOver();
-    widget.session.incrementMistakes();
     final newLives = _lives - 1;
     setState(() {
       _lives = newLives;
@@ -274,121 +354,306 @@ class _ColorTapBoardState extends State<ColorTapBoard>
     } else {
       _feedbackTimer?.cancel();
       _feedbackTimer = Timer(const Duration(milliseconds: 600), () {
-        if (mounted && !_gameOver) _nextRound();
+        if (mounted && !_gameOver) _nextRound(diff);
       });
     }
   }
 
   void _endGame() {
     setState(() => _gameOver = true);
-    _roundTimer?.cancel();
-    _timerCtrl.stop();
-    widget.session.failGame();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) GameWrapper.of(context).endGame();
+    });
   }
 
-  // ── Build ───────────────────────────────────────────────────────────────
+  void _newGame() => _startGame(_activeDifficulty ?? _pickerDifficulty);
+
+  void _backToPicker() {
+    _roundTimer?.cancel();
+    _feedbackTimer?.cancel();
+    _timerCtrl.stop();
+    GameWrapper.of(context).restartGame();
+    setState(() {
+      _activeDifficulty = null;
+      _gameOver = false;
+      _score = 0;
+      _lives = 3;
+      _comboCount = 0;
+      _showCombo = false;
+    });
+  }
+
+  // ── Build ──────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // Lives row (was inside score pill — shown standalone since framework
-        // owns the score pill)
-        _LivesRow(lives: _lives),
-        const SizedBox(height: 10),
-        // Target label
-        _TargetLabel(colorName: _targetColorName, color: _targetColor),
-        const SizedBox(height: 12),
-        // Timer bar
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 28),
-          child: AnimatedBuilder(
-            animation: _timerCtrl,
-            builder: (_, _) => _TimerBar(
-              progress: 1.0 - _timerCtrl.value,
-              color: _diff.color,
+    if (_activeDifficulty == null) return _buildPicker();
+    if (_gameOver) return _buildGameOver();
+    return _buildGame();
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // PICKER
+  // ════════════════════════════════════════════════════════════════
+
+  Widget _buildPicker() {
+    return GamePickerScaffold(
+      bgColorTop: _kBgTop,
+      bgColorBottom: _kBgBot,
+      animatedBg: AnimatedBackground(
+        factory: (t) => _ColorTapBgPainter(t),
+        period: const Duration(seconds: 12),
+      ),
+      iconRingColors: const [_kAccent, _kAccentLt, _kAccent],
+      iconChild: ClipOval(
+        child: GameRegistry.getById(kColorTapGameId)
+                ?.buildBrandedLogo(size: 84) ??
+            const SizedBox.shrink(),
+      ),
+      title: 'Color Tap',
+      subtitle: 'Match • Reflex • Speed',
+      onBack: () => context.pop(),
+      isFavorite: _isFavorite,
+      onFavoriteToggle: _toggleFavorite,
+      onHowToPlay: _showHelp,
+      tallThreshold: 860,
+      body: _PickerSection(
+        difficulty: _pickerDifficulty,
+        onDifficultyChanged: (d) => setState(() => _pickerDifficulty = d),
+        onPlay: () => _startGame(_pickerDifficulty),
+      ),
+    );
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // GAME
+  // ════════════════════════════════════════════════════════════════
+
+  Widget _buildGame() {
+    final diff = _activeDifficulty!;
+    return AnimatedBuilder(
+      animation: _bgHueCtrl,
+      builder: (_, child) {
+        // Slowly shift bg gradient hue for ambience
+        final hueShift = math.sin(_bgHueCtrl.value * 2 * math.pi) * 0.5;
+        final topColor = Color.lerp(
+          _kBgTop,
+          const Color(0xFFFFF0E8),
+          (hueShift + 1) / 2,
+        )!;
+        return Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [topColor, _kBgBot],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
             ),
           ),
-        ),
-        const SizedBox(height: 16),
-        // Main circle + overlays
-        Expanded(
-          child: Stack(
-            alignment: Alignment.center,
-            clipBehavior: Clip.none,
-            children: [
-              Center(
-                child: _GameCircle(
-                  color: _circleColor,
-                  showCorrect: _showCorrect,
-                  showWrong: _showWrong,
-                  showSkip: _showSkip,
-                  shakeWrong: _shakeWrong,
-                  onTap: _onTap,
-                ),
-              ),
-              if (_showScorePopup)
-                Positioned(
-                  top: 12,
-                  child: _ScorePopup(points: _lastPointsEarned),
-                ),
-              if (_showCombo)
-                Positioned(
-                  top: 8,
-                  right: 24,
-                  child: _ComboBadge(count: _comboCount),
-                ),
-            ],
+          child: child,
+        );
+      },
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: AnimatedBackground(
+              factory: (t) => _ColorTapBgPainter(t),
+              period: const Duration(seconds: 12),
+            ),
           ),
+          SafeArea(
+            child: Column(
+              children: [
+                const SizedBox(height: 4),
+                // HUD
+                GameHudBar(
+                  leading: GameBackButton(
+                    onTap: _backToPicker,
+                    iconColor: const Color(0xFF7A2E00),
+                  ),
+                  centerContent: _ScorePill(
+                    difficulty: diff,
+                    score: _score,
+                    best: _bestScore,
+                    lives: _lives,
+                  ),
+                  trailing: GameRestartButton(
+                    gameName: 'Color Tap',
+                    accentColor: _kAccent,
+                    onRestart: _newGame,
+                    iconColor: const Color(0xFF7A2E00),
+                    onDialogOpened: () {
+                      _roundTimer?.cancel();
+                      _timerCtrl.stop();
+                    },
+                    onDialogDismissed: () {
+                      if (!_gameOver) {
+                        _timerCtrl.forward(from: _timerCtrl.value);
+                        final diff2 = _activeDifficulty;
+                        if (diff2 != null) {
+                          final remaining =
+                              (1.0 - _timerCtrl.value) * diff2.timeMs;
+                          _roundTimer = Timer(
+                            Duration(milliseconds: remaining.round()),
+                            () {
+                              if (!mounted || _gameOver) return;
+                              _onWrongAction(diff2);
+                            },
+                          );
+                        }
+                      }
+                    },
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // Target label
+                _TargetLabel(colorName: _targetColorName, color: _targetColor),
+                const SizedBox(height: 12),
+                // Timer bar
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 28),
+                  child: AnimatedBuilder(
+                    animation: _timerCtrl,
+                    builder: (_, _) => _TimerBar(
+                      progress: 1.0 - _timerCtrl.value,
+                      color: diff.color,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Main circle + overlays
+                Expanded(
+                  child: Stack(
+                    alignment: Alignment.center,
+                    clipBehavior: Clip.none,
+                    children: [
+                      Center(
+                        child: _GameCircle(
+                          color: _circleColor,
+                          showCorrect: _showCorrect,
+                          showWrong: _showWrong,
+                          showSkip: _showSkip,
+                          shakeWrong: _shakeWrong,
+                          onTap: _onTap,
+                        ),
+                      ),
+                      // Score popup floating up on correct tap
+                      if (_showScorePopup)
+                        Positioned(
+                          top: 12,
+                          child: _ScorePopup(points: _lastPointsEarned),
+                        ),
+                      // Combo badge
+                      if (_showCombo)
+                        Positioned(
+                          top: 8,
+                          right: 24,
+                          child: _ComboBadge(count: _comboCount),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Skip button
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 40),
+                  child: _SkipButton(onTap: _onSkip, accentColor: _kAccent),
+                ),
+                const SizedBox(height: 20),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // GAME OVER
+  // ════════════════════════════════════════════════════════════════
+
+  Widget _buildGameOver() {
+    final diff = _activeDifficulty!;
+    return game_result.GenericGameResultScreen(
+      headline: 'Game Over',
+      badgeContent: '🎨',
+      badgeColor: diff.color,
+      showNewBestBadge: _isNewBest,
+      actions: [
+        game_result.GameResultAction(
+          label: 'Play Again',
+          icon: Icons.refresh_rounded,
+          onTap: _newGame,
+          filled: true,
+          color: diff.color,
         ),
-        const SizedBox(height: 16),
-        // Skip button
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 40),
-          child: _SkipButton(onTap: _onSkip, accentColor: _kAccent),
+        game_result.GameResultAction(
+          label: 'Change Mode',
+          icon: Icons.tune_rounded,
+          onTap: _backToPicker,
+          filled: false,
         ),
-        const SizedBox(height: 20),
+        game_result.GameResultAction(
+          label: 'Home',
+          icon: Icons.home_rounded,
+          onTap: () => context.go('/home'),
+          filled: false,
+        ),
       ],
+      statsWidget: game_result.GameResultStatsRow(
+        stats: [
+          game_result.StatItem(
+            label: 'SCORE',
+            value: _score,
+            color: diff.color,
+          ),
+          game_result.StatItem(
+            label: 'BEST',
+            value: _bestScore,
+            color: const Color(0xFF8B7BA7),
+          ),
+          game_result.StatItem(
+            label: 'LIVES LEFT',
+            value: _lives.clamp(0, 3),
+            color: _kRed,
+          ),
+        ],
+      ),
     );
   }
 }
 
 // ════════════════════════════════════════════════════════════════
-// LIVES ROW
+// PICKER SECTION
 // ════════════════════════════════════════════════════════════════
 
-class _LivesRow extends StatelessWidget {
-  final int lives;
-  const _LivesRow({required this.lives});
+class _PickerSection extends StatelessWidget {
+  final _Difficulty difficulty;
+  final ValueChanged<_Difficulty> onDifficultyChanged;
+  final VoidCallback onPlay;
+
+  const _PickerSection({
+    required this.difficulty,
+    required this.onDifficultyChanged,
+    required this.onPlay,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(3, (i) {
-        final active = i < lives;
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 3),
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 300),
-            transitionBuilder: (child, anim) => ScaleTransition(
-              scale: CurvedAnimation(
-                parent: anim,
-                curve: Curves.easeOutBack,
-              ),
-              child: FadeTransition(opacity: anim, child: child),
-            ),
-            child: Icon(
-              active
-                  ? Icons.favorite_rounded
-                  : Icons.favorite_border_rounded,
-              key: ValueKey('heart_${i}_$active'),
-              color: active ? _kRed : _kRed.withValues(alpha: 0.25),
-              size: 18,
-            ),
-          ),
-        );
-      }),
+    return GameSinglePickerBody(
+      difficulties: _Difficulty.values.map((d) => GameDifficultyData(
+        label: d.label,
+        color: d.color,
+        kind: d.kind,
+        hint: d.hint,
+        bestScore: ScoreService().getHighScore(kColorTapGameId, subKey: d.subKey),
+        bestLabel: (s) => 'Best $s pts',
+      )).toList(),
+      activeIndex: _Difficulty.values.indexOf(difficulty),
+      onChanged: (i) => onDifficultyChanged(_Difficulty.values[i]),
+      playLabel: 'Play Color Tap',
+      playSubLabel: '${difficulty.points} pts per match',
+      onPlay: onPlay,
+      accentColor: _kAccent,
     );
   }
 }
@@ -396,6 +661,167 @@ class _LivesRow extends StatelessWidget {
 // ════════════════════════════════════════════════════════════════
 // GAME UI COMPONENTS
 // ════════════════════════════════════════════════════════════════
+
+class _ScorePill extends StatelessWidget {
+  final _Difficulty difficulty;
+  final int score;
+  final int best;
+  final int lives;
+
+  const _ScorePill({
+    required this.difficulty,
+    required this.score,
+    required this.best,
+    required this.lives,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = difficulty.color;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
+            boxShadow: [
+              BoxShadow(
+                color: color.withValues(alpha: 0.30),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AnimatedDifficultyIcon(kind: difficulty.kind, size: 14, prominent: false),
+              const SizedBox(width: 6),
+              Text(
+                difficulty.label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.4,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: _kAccent.withValues(alpha: 0.18),
+                blurRadius: 12,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              _scoreCol('SCORE', score, color),
+              const SizedBox(width: 12),
+              Container(width: 1, height: 28, color: const Color(0xFFFFD5B8)),
+              const SizedBox(width: 12),
+              _scoreCol('BEST', best, const Color(0xFF8B7BA7)),
+              const SizedBox(width: 12),
+              Container(width: 1, height: 28, color: const Color(0xFFFFD5B8)),
+              const SizedBox(width: 12),
+              _livesCol(lives),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _scoreCol(String label, int value, Color color) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: color.withValues(alpha: 0.85),
+            fontSize: 10,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.2,
+          ),
+        ),
+        const SizedBox(height: 2),
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 280),
+          transitionBuilder: (child, anim) => ScaleTransition(
+            scale: CurvedAnimation(parent: anim, curve: Curves.easeOutBack),
+            child: FadeTransition(opacity: anim, child: child),
+          ),
+          child: Text(
+            '$value',
+            key: ValueKey<int>(value),
+            style: TextStyle(
+              color: color,
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+              height: 1,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _livesCol(int lives) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Text(
+          'LIVES',
+          style: TextStyle(
+            color: Color(0xFF9E3900),
+            fontSize: 10,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.2,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(3, (i) {
+            final active = i < lives;
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 1.5),
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                transitionBuilder: (child, anim) => ScaleTransition(
+                  scale: CurvedAnimation(
+                    parent: anim,
+                    curve: Curves.easeOutBack,
+                  ),
+                  child: FadeTransition(opacity: anim, child: child),
+                ),
+                child: Icon(
+                  active ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                  key: ValueKey('heart_${i}_$active'),
+                  color: active ? _kRed : _kRed.withValues(alpha: 0.25),
+                  size: 14,
+                ),
+              ),
+            );
+          }),
+        ),
+      ],
+    );
+  }
+}
 
 class _TargetLabel extends StatelessWidget {
   final String colorName;
@@ -441,6 +867,7 @@ class _TargetLabel extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Animated color swatch dot
             Container(
               width: 14,
               height: 14,
@@ -507,6 +934,7 @@ class _TimerBar extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         child: Stack(
           children: [
+            // Track
             Container(
               height: 10,
               decoration: BoxDecoration(
@@ -514,6 +942,7 @@ class _TimerBar extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
+            // Fill bar with gradient
             FractionallySizedBox(
               widthFactor: progress.clamp(0.0, 1.0),
               child: AnimatedContainer(
@@ -540,6 +969,7 @@ class _TimerBar extends StatelessWidget {
                 ),
               ),
             ),
+            // Shine stripe on top of fill
             FractionallySizedBox(
               widthFactor: progress.clamp(0.0, 1.0),
               child: Container(
@@ -587,6 +1017,7 @@ class _GameCircleState extends State<_GameCircle>
   late AnimationController _pulseCtrl;
   late Animation<double> _pulseAnim;
 
+  // Ripple on tap
   bool _showRipple = false;
   late AnimationController _rippleCtrl;
   late Animation<double> _rippleAnim;
@@ -682,6 +1113,7 @@ class _GameCircleState extends State<_GameCircle>
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
+                    // Outer pulse ring
                     AnimatedBuilder(
                       animation: _pulseAnim,
                       builder: (_, _) => Transform.scale(
@@ -700,6 +1132,7 @@ class _GameCircleState extends State<_GameCircle>
                         ),
                       ),
                     ),
+                    // Glow layer
                     AnimatedContainer(
                       duration: const Duration(milliseconds: 220),
                       width: size,
@@ -709,9 +1142,7 @@ class _GameCircleState extends State<_GameCircle>
                         boxShadow: [
                           BoxShadow(
                             color: widget.color.withValues(
-                              alpha: widget.showCorrect || widget.showWrong
-                                  ? 0.55
-                                  : 0.35,
+                              alpha: widget.showCorrect || widget.showWrong ? 0.55 : 0.35,
                             ),
                             blurRadius: widget.showCorrect ? 48 : 28,
                             spreadRadius: widget.showCorrect ? 8 : 2,
@@ -719,6 +1150,7 @@ class _GameCircleState extends State<_GameCircle>
                         ],
                       ),
                     ),
+                    // Main circle — rich gradient
                     AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
                       width: size * 0.86,
@@ -762,6 +1194,7 @@ class _GameCircleState extends State<_GameCircle>
                         ],
                       ),
                     ),
+                    // Gloss shine on the circle
                     Positioned(
                       top: size * 0.09,
                       left: size * 0.20,
@@ -774,18 +1207,15 @@ class _GameCircleState extends State<_GameCircle>
                         ),
                       ),
                     ),
+                    // Ripple effect on tap
                     if (_showRipple)
                       AnimatedBuilder(
                         animation: _rippleAnim,
                         builder: (_, _) {
                           final rAlpha = (1 - _rippleAnim.value) * 0.50;
                           return Container(
-                            width: size *
-                                0.86 *
-                                (0.80 + _rippleAnim.value * 0.60),
-                            height: size *
-                                0.86 *
-                                (0.80 + _rippleAnim.value * 0.60),
+                            width: size * 0.86 * (0.80 + _rippleAnim.value * 0.60),
+                            height: size * 0.86 * (0.80 + _rippleAnim.value * 0.60),
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               border: Border.all(
@@ -796,9 +1226,9 @@ class _GameCircleState extends State<_GameCircle>
                           );
                         },
                       ),
+                    // Feedback icons
                     if (widget.showCorrect)
-                      Icon(Icons.check_rounded,
-                              color: Colors.white, size: size * 0.35)
+                      Icon(Icons.check_rounded, color: Colors.white, size: size * 0.35)
                           .animate()
                           .scale(
                             begin: const Offset(0.3, 0.3),
@@ -807,8 +1237,7 @@ class _GameCircleState extends State<_GameCircle>
                             curve: Curves.easeOutBack,
                           ),
                     if (widget.showWrong)
-                      Icon(Icons.close_rounded,
-                              color: Colors.white, size: size * 0.35)
+                      Icon(Icons.close_rounded, color: Colors.white, size: size * 0.35)
                           .animate()
                           .scale(
                             begin: const Offset(0.3, 0.3),
@@ -817,8 +1246,7 @@ class _GameCircleState extends State<_GameCircle>
                             curve: Curves.easeOutBack,
                           ),
                     if (widget.showSkip)
-                      Icon(Icons.skip_next_rounded,
-                              color: Colors.white, size: size * 0.32)
+                      Icon(Icons.skip_next_rounded, color: Colors.white, size: size * 0.32)
                           .animate()
                           .scale(
                             begin: const Offset(0.3, 0.3),
@@ -826,9 +1254,8 @@ class _GameCircleState extends State<_GameCircle>
                             duration: 180.ms,
                             curve: Curves.easeOutBack,
                           ),
-                    if (!widget.showCorrect &&
-                        !widget.showWrong &&
-                        !widget.showSkip)
+                    // Tap hint text when idle
+                    if (!widget.showCorrect && !widget.showWrong && !widget.showSkip)
                       Text(
                         'TAP',
                         style: TextStyle(
@@ -937,6 +1364,7 @@ class _SkipButtonState extends State<_SkipButton>
             child: Stack(
               alignment: Alignment.center,
               children: [
+                // Ripple overlay
                 AnimatedBuilder(
                   animation: _rippleAnim,
                   builder: (_, _) {
@@ -1080,18 +1508,18 @@ class _ComboBadge extends StatelessWidget {
 // Animated background — floating colored circles
 // ════════════════════════════════════════════════════════════════
 
-class ColorTapBgPainter extends AnimatedBgPainter {
-  const ColorTapBgPainter(super.t);
+class _ColorTapBgPainter extends AnimatedBgPainter {
+  const _ColorTapBgPainter(super.t);
 
   static const List<(Color, double, double, double, double)> _circles = [
-    (_kRed, 0.10, 0.12, 80.0, 0.0),
-    (_kBlue, 0.85, 0.20, 65.0, 0.9),
-    (_kGreen, 0.15, 0.72, 72.0, 1.8),
+    (_kRed,    0.10, 0.12, 80.0, 0.0),
+    (_kBlue,   0.85, 0.20, 65.0, 0.9),
+    (_kGreen,  0.15, 0.72, 72.0, 1.8),
     (_kYellow, 0.82, 0.78, 58.0, 2.7),
     (_kPurple, 0.48, 0.08, 55.0, 3.6),
     (_kOrange, 0.06, 0.45, 50.0, 4.5),
-    (_kRed, 0.70, 0.50, 42.0, 5.4),
-    (_kBlue, 0.35, 0.90, 48.0, 0.3),
+    (_kRed,    0.70, 0.50, 42.0, 5.4),
+    (_kBlue,   0.35, 0.90, 48.0, 0.3),
   ];
 
   @override

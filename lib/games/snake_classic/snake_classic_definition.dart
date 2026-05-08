@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../framework/game_definition.dart';
-import '../framework/game_session.dart';
 import '../../core/models/game_info.dart';
 import 'snake_classic_logo.dart';
 import 'snake_classic_screen.dart';
@@ -61,16 +60,6 @@ final snakeClassicGame = GameDefinition(
   screenBuilder: () => const SnakeClassicScreen(),
   logoBuilder: buildSnakeLogo,
   tutorialSteps: snakeClassicSteps,
-  boardBuilder: _buildSnakeBoard,
-  scoreDisplay: _scoreDisplay,
-  bgPainterBuilder: _buildSnakeBg,
 );
-
-Widget _buildSnakeBoard(GameSession session) =>
-    SnakeClassicBoard(session: session);
-
-SnakeBgPainter _buildSnakeBg(double t) => SnakeBgPainter(t);
-
-final ScoreDisplay _scoreDisplay = ScoreDisplay.scoreAndBest();
 
 String _pts(int s) => '$s pts';

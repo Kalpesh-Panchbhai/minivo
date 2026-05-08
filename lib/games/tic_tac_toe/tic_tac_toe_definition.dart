@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../core/models/best_stat.dart';
-import '../../core/models/game_info.dart';
 import '../../core/services/score_service.dart';
 import '../framework/game_definition.dart';
-import '../framework/game_session.dart';
+import '../../core/models/game_info.dart';
 import 'tic_tac_toe_logo.dart';
 import 'tic_tac_toe_screen.dart';
 import 'tic_tac_toe_tutorial.dart';
@@ -40,8 +39,6 @@ List<BestStat> _buildTicTacToeStats() {
   ];
 }
 
-String _streakLabel(int s) => s <= 0 ? '—' : '$s in a row';
-
 final ticTacToeGame = GameDefinition(
   info: const GameInfo(
     id: _kGameId,
@@ -61,39 +58,10 @@ final ticTacToeGame = GameDefinition(
     playCount: 8900,
     customLogo: buildTicTacToeLogo,
   ),
-  difficulties: [
-    DifficultyDef(
-      key: 'ai_easy',
-      label: 'EASY',
-      kind: DifficultyKind.easy,
-      color: _kEasyColor,
-      hint: 'Mostly random — easy to beat.',
-      scoreLabel: _streakLabel,
-      statSublabel: 'win streak',
-      statIcon: Icons.local_fire_department_rounded,
-    ),
-    DifficultyDef(
-      key: 'ai_medium',
-      label: 'MEDIUM',
-      kind: DifficultyKind.medium,
-      color: _kMediumColor,
-      hint: 'Plays smart but not perfect.',
-      scoreLabel: _streakLabel,
-      statSublabel: 'win streak',
-      statIcon: Icons.local_fire_department_rounded,
-    ),
-    DifficultyDef(
-      key: 'ai_hard',
-      label: 'HARD',
-      kind: DifficultyKind.hard,
-      color: _kHardColor,
-      hint: 'Plays sharp — clever players can still win.',
-      scoreLabel: _streakLabel,
-      statSublabel: 'win streak',
-      statIcon: Icons.local_fire_department_rounded,
-    ),
-  ],
-  playerSupport: const PlayerSupport(
+  // No standard difficulty picker for tic-tac-toe —
+  // mode selection (vs AI / pass-and-play) is handled in-screen.
+  difficulties: const [],
+  playerSupport: PlayerSupport(
     modes: [PlayerMode.vsAI, PlayerMode.localCoop],
     playerCounts: [2],
   ),
@@ -101,15 +69,4 @@ final ticTacToeGame = GameDefinition(
   logoBuilder: buildTicTacToeLogo,
   tutorialSteps: ticTacToeSteps,
   statsBuilder: _buildTicTacToeStats,
-  boardBuilder: _buildBoard,
-  scoreDisplay: _ticTacToeScoreDisplay,
-  bgPainterBuilder: _buildBg,
 );
-
-Widget _buildBoard(GameSession session) =>
-    TicTacToeBoard(session: session);
-
-TicTacToeBgPainter _buildBg(double t) => TicTacToeBgPainter(t);
-
-final ScoreDisplay _ticTacToeScoreDisplay =
-    ScoreDisplay.custom((session, _) => TicTacToeScorePill(session: session));

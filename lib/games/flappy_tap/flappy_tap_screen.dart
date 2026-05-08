@@ -1,15 +1,35 @@
-import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/services/audio_service.dart';
-import '../framework/game_definition.dart';
-import '../framework/game_scaffold.dart';
-import '../framework/game_session.dart';
+import '../../core/services/score_service.dart';
+import '../../core/widgets/how_to_play_sheet.dart';
+import '../game_picker_scaffold.dart';
+import '../game_registry.dart';
+import '../game_wrapper.dart';
 import '../shared/animated_background.dart';
-import 'flappy_tap_definition.dart';
+import '../shared/animated_difficulty_icon.dart';
+import '../shared/game_control_buttons.dart';
+import '../shared/game_hud_bar.dart';
+import '../shared/game_difficulty_picker.dart';
+import '../shared/generic_game_result_screen.dart' as game_result;
+import 'flappy_tap_stats.dart';
+import 'flappy_tap_tutorial.dart';
+
+// ── Picker palette ─────────────────────────────────────────────────────────
+const Color _kBgTop    = Color(0xFFE8F8FF);
+const Color _kBgBot    = Color(0xFFD0EEFF);
+// ── Flappy Tap brand colors ────────────────────────────────────────────────
+const Color _kFlappyAccent = Color(0xFF4ECDC4);
+const Color _kFlappyDark   = Color(0xFF2AA39A);
+
+// ── Difficulty palette ─────────────────────────────────────────────────────
+const Color _kEasyColor   = Color(0xFF22C55E);
+const Color _kMediumColor = Color(0xFFF59E0B);
+const Color _kHardColor   = Color(0xFFEF4444);
 
 // ── Sky / ground colors for the canvas ────────────────────────────────────
 const Color _kSkyTop    = Color(0xFF4A9FD4);
@@ -20,6 +40,7 @@ const Color _kPipeDark  = Color(0xFF388E3C);
 const Color _kGroundBr  = Color(0xFF8B6914);
 const Color _kGrassGr   = Color(0xFF5CB85C);
 
+
 // ── Game physics constants ─────────────────────────────────────────────────
 const double _kGravity    = 800.0; // px/s²
 const double _kJumpForce  = -340.0; // px/s (negative = upward)
@@ -28,43 +49,31 @@ const double _kGroundH    = 60.0;
 const double _kBirdRadius = 22.0;
 const double _kBirdXRel   = 0.22; // fraction of screen width
 
-// ── Per-difficulty config (keyed by DifficultyDef.key) ─────────────────────
-class _FTConfig {
-  final double pipeSpeed;
-  final double gapHeight;
-  final double spawnInterval;
-  final int pointsPerPipe;
-  const _FTConfig({
-    required this.pipeSpeed,
-    required this.gapHeight,
-    required this.spawnInterval,
-    required this.pointsPerPipe,
-  });
+// ── Difficulty enum ────────────────────────────────────────────────────────
+enum _Difficulty { easy, medium, hard }
+
+extension _DifficultyX on _Difficulty {
+  String get label => ['EASY', 'MEDIUM', 'HARD'][index];
+  Color  get color => [_kEasyColor, _kMediumColor, _kHardColor][index];
+
+  double get pipeSpeed      => [110.0, 160.0, 210.0][index];
+  double get gapHeight      => [200.0, 160.0, 140.0][index];
+  double get spawnInterval  => [3.0, 2.4, 2.0][index];
+  int    get pointsPerPipe  => [5, 10, 20][index];
+  String get subKey         => ['easy', 'medium', 'hard'][index];
+
+  String get hint => [
+        'Wide gaps · slow pipes · perfect for first timers',
+        'Classic Flappy speed · room for errors but stay focused',
+        'Blistering pace · tiny gaps · pure reflexes required',
+      ][index];
+
+  DifficultyKind get kind => [
+        DifficultyKind.easy,
+        DifficultyKind.medium,
+        DifficultyKind.hard,
+      ][index];
 }
-
-const Map<String, _FTConfig> _kConfigs = {
-  'easy': _FTConfig(
-    pipeSpeed: 110.0,
-    gapHeight: 200.0,
-    spawnInterval: 3.0,
-    pointsPerPipe: 5,
-  ),
-  'medium': _FTConfig(
-    pipeSpeed: 160.0,
-    gapHeight: 160.0,
-    spawnInterval: 2.4,
-    pointsPerPipe: 10,
-  ),
-  'hard': _FTConfig(
-    pipeSpeed: 210.0,
-    gapHeight: 140.0,
-    spawnInterval: 2.0,
-    pointsPerPipe: 20,
-  ),
-};
-
-_FTConfig _configFor(DifficultyDef d) =>
-    _kConfigs[d.key] ?? _kConfigs['medium']!;
 
 // ── Pipe data ──────────────────────────────────────────────────────────────
 class _Pipe {
@@ -91,31 +100,23 @@ class _Cloud {
 }
 
 // ════════════════════════════════════════════════════════════════
-// Root screen — thin wrapper around GameScaffold
+// Root screen — picker → game transition
 // ════════════════════════════════════════════════════════════════
 
-class FlappyTapScreen extends StatelessWidget {
+class FlappyTapScreen extends StatefulWidget {
   const FlappyTapScreen({super.key});
 
   @override
-  Widget build(BuildContext context) =>
-      GameScaffold(definition: flappyTapGame);
+  State<FlappyTapScreen> createState() => _FlappyTapScreenState();
 }
 
-// ════════════════════════════════════════════════════════════════
-// Board — playing-state widget driven by GameSession
-// ════════════════════════════════════════════════════════════════
-
-class FlappyTapBoard extends StatefulWidget {
-  final GameSession session;
-  const FlappyTapBoard({required this.session, super.key});
-
-  @override
-  State<FlappyTapBoard> createState() => _FlappyTapBoardState();
-}
-
-class _FlappyTapBoardState extends State<FlappyTapBoard>
+class _FlappyTapScreenState extends State<FlappyTapScreen>
     with TickerProviderStateMixin, WidgetsBindingObserver {
+  // ── Picker state ──────────────────────────────────────────────────────────
+  _Difficulty? _activeDifficulty;
+  _Difficulty _pickerDifficulty = _Difficulty.medium;
+  bool _isFavorite = false;
+
   // ── Bird state ────────────────────────────────────────────────────────────
   double _birdY    = 0.0; // pixels from top
   double _birdVy   = 0.0; // pixels/s, positive = downward
@@ -135,6 +136,10 @@ class _FlappyTapBoardState extends State<FlappyTapBoard>
   late final AnimationController _flashCtrl;
   double get _deathFlashAlpha => _flashCtrl.value * 0.55;
 
+  // ── Score state ───────────────────────────────────────────────────────────
+  int _score     = 0;
+  int _bestScore = 0;
+  bool _isNewBestScore = false;
   bool _gameOver = false;
 
   // ── Canvas dimensions ─────────────────────────────────────────────────────
@@ -150,46 +155,21 @@ class _FlappyTapBoardState extends State<FlappyTapBoard>
 
   final _rng = math.Random();
 
-  StreamSubscription<bool>? _pauseSub;
-  bool _paused = false;
-
-  DifficultyDef get _diff => widget.session.difficulty;
-  _FTConfig get _cfg => _configFor(_diff);
-
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _isFavorite = ScoreService().isFavorite(kFlappyTapGameId);
     _ticker = createTicker(_onTick);
     _flashCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 400),
     );
     _flashCtrl.addListener(() => setState(() {}));
-
-    _pauseSub = widget.session.pauseStream.listen((isPaused) {
-      _paused = isPaused;
-      if (isPaused) {
-        if (_ticker.isActive) {
-          _ticker.stop();
-          _lastTime = null;
-        }
-      } else {
-        if (!_gameOver && !_ticker.isActive) {
-          _lastTime = null;
-          _ticker.start();
-        }
-      }
-    });
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _startTicker();
-    });
   }
 
   @override
   void dispose() {
-    _pauseSub?.cancel();
     _ticker.dispose();
     _flashCtrl.dispose();
     _repaint.dispose();
@@ -199,13 +179,13 @@ class _FlappyTapBoardState extends State<FlappyTapBoard>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (_gameOver) return;
+    if (_activeDifficulty == null || _gameOver) return;
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive ||
         state == AppLifecycleState.hidden) {
       _stopTicker();
     } else if (state == AppLifecycleState.resumed) {
-      if (!_ticker.isActive && !_gameOver && !_paused) _startTicker();
+      if (!_ticker.isActive && !_gameOver) _startTicker();
     }
   }
 
@@ -213,11 +193,11 @@ class _FlappyTapBoardState extends State<FlappyTapBoard>
 
   void _startTicker() {
     _lastTime = null;
-    if (!_ticker.isActive) _ticker.start();
+    _ticker.start();
   }
 
   void _stopTicker() {
-    if (_ticker.isActive) _ticker.stop();
+    _ticker.stop();
     _lastTime = null;
   }
 
@@ -226,12 +206,35 @@ class _FlappyTapBoardState extends State<FlappyTapBoard>
       _lastTime = DateTime.now();
       return;
     }
-    if (!mounted || _gameOver || _paused) return;
+    if (!mounted || _gameOver) return;
+    if (GameWrapper.of(context).state == GameState.paused) return;
 
     final now = DateTime.now();
     final dt = now.difference(_lastTime!).inMicroseconds / 1e6;
     _lastTime = now;
     _update(dt.clamp(0.0, 0.05));
+  }
+
+  // ── Utility ──────────────────────────────────────────────────────────────
+
+  int _bestFor(_Difficulty d) =>
+      ScoreService().getHighScore(kFlappyTapGameId, subKey: d.subKey);
+
+  void _toggleFavorite() {
+    ScoreService().toggleFavorite(kFlappyTapGameId);
+    setState(() => _isFavorite = !_isFavorite);
+  }
+
+  void _showHelp() {
+    final info = GameRegistry.getById(kFlappyTapGameId);
+    if (info == null) return;
+    showHowToPlaySheet(
+      context,
+      title: info.name,
+      howToPlay: info.howToPlay,
+      accent: _kFlappyAccent,
+      steps: flappyTapSteps(),
+    );
   }
 
   // ── Cloud initialisation ─────────────────────────────────────────────────
@@ -251,10 +254,60 @@ class _FlappyTapBoardState extends State<FlappyTapBoard>
     }
   }
 
+  // ── Game start / restart ─────────────────────────────────────────────────
+
+  void _startGame(_Difficulty diff) {
+    _stopTicker();
+    _pipes.clear();
+
+    final startY = _canvasH > 0
+        ? (_canvasH - _kGroundH) / 2.0
+        : 300.0;
+
+    setState(() {
+      _activeDifficulty = diff;
+      _pickerDifficulty = diff;
+      _birdY  = startY;
+      _birdVy = 0.0;
+      _score  = 0;
+      _bestScore = _bestFor(diff);
+      _isNewBestScore = false;
+      _gameOver = false;
+      _sinceLastSpawn = 0.0;
+      _wingPhase = 0.0;
+      _groundOffset = 0.0;
+    });
+
+    _initClouds();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        GameWrapper.of(context).startGame();
+        GameWrapper.of(context).updateScore(0);
+        _startTicker();
+      }
+    });
+  }
+
+  void _newGame() => _startGame(_activeDifficulty ?? _pickerDifficulty);
+
+  void _backToPicker() {
+    _stopTicker();
+    GameWrapper.of(context).restartGame();
+    setState(() {
+      _activeDifficulty = null;
+      _gameOver = false;
+      _isNewBestScore = false;
+      _score = 0;
+      _pipes.clear();
+      _clouds.clear();
+    });
+  }
+
   // ── Jump ─────────────────────────────────────────────────────────────────
 
   void _jump() {
-    if (_gameOver) return;
+    if (_activeDifficulty == null || _gameOver) return;
     setState(() => _birdVy = _kJumpForce);
     AudioService().playScore(); // reuse score sound as flap sound
   }
@@ -262,31 +315,32 @@ class _FlappyTapBoardState extends State<FlappyTapBoard>
   // ── Game update ───────────────────────────────────────────────────────────
 
   void _update(double dt) {
-    if (_gameOver || _canvasH == 0) return;
+    final diff = _activeDifficulty;
+    if (diff == null || _gameOver || _canvasH == 0) return;
 
-    final cfg = _cfg;
     final playH = _canvasH - _kGroundH;
     final birdX = _canvasW * _kBirdXRel;
     // ── Wing animation ─────────────────────────────────────────────────────
     _wingPhase = (_wingPhase + 6.0 * dt) % (2 * math.pi);
 
     // ── Ground scroll ──────────────────────────────────────────────────────
-    _groundOffset = (_groundOffset + cfg.pipeSpeed * dt) % 60.0;
+    _groundOffset = (_groundOffset + diff.pipeSpeed * dt) % 60.0;
 
     // ── Cloud movement ─────────────────────────────────────────────────────
     for (final cloud in _clouds) {
       cloud.x -= cloud.speed * dt;
       if (cloud.x + cloud.radius * 2 < 0) {
         cloud.x = _canvasW + cloud.radius;
+        // ignore: parameter_assignments
       }
     }
 
     // ── Spawn pipes ────────────────────────────────────────────────────────
     _sinceLastSpawn += dt;
-    if (_sinceLastSpawn >= cfg.spawnInterval) {
+    if (_sinceLastSpawn >= diff.spawnInterval) {
       _sinceLastSpawn = 0;
-      final minGapCenter = cfg.gapHeight / 2 + 20;
-      final maxGapCenter = playH - cfg.gapHeight / 2 - 20;
+      final minGapCenter = diff.gapHeight / 2 + 20;
+      final maxGapCenter = playH - diff.gapHeight / 2 - 20;
       final gapCenterY = minGapCenter +
           _rng.nextDouble() * (maxGapCenter - minGapCenter);
       _pipes.add(_Pipe(x: _canvasW, gapCenterY: gapCenterY));
@@ -294,10 +348,18 @@ class _FlappyTapBoardState extends State<FlappyTapBoard>
 
     // ── Move pipes + check scored ─────────────────────────────────────────
     for (final pipe in _pipes) {
-      pipe.x -= cfg.pipeSpeed * dt;
+      pipe.x -= diff.pipeSpeed * dt;
       if (!pipe.scored && pipe.x + _kPipeWidth < birdX - _kBirdRadius) {
         pipe.scored = true;
-        widget.session.incrementScore(cfg.pointsPerPipe);
+        _score += diff.pointsPerPipe;
+        if (_score > _bestScore) {
+          _bestScore = _score;
+          _isNewBestScore = true;
+        }
+        ScoreService().saveScore(
+          kFlappyTapGameId, _score, subKey: diff.subKey,
+        );
+        GameWrapper.of(context).updateScore(_score);
       }
     }
 
@@ -323,7 +385,7 @@ class _FlappyTapBoardState extends State<FlappyTapBoard>
 
     // ── Pipe collision ────────────────────────────────────────────────────
     for (final pipe in _pipes) {
-      if (!_pipeHitsBird(pipe, birdX, cfg.gapHeight)) continue;
+      if (!_pipeHitsBird(pipe, birdX, diff.gapHeight)) continue;
       _endGame();
       return;
     }
@@ -358,10 +420,10 @@ class _FlappyTapBoardState extends State<FlappyTapBoard>
     final phase = SchedulerBinding.instance.schedulerPhase;
     if (phase == SchedulerPhase.idle ||
         phase == SchedulerPhase.postFrameCallbacks) {
-      if (mounted) widget.session.failGame();
+      if (mounted) GameWrapper.of(context).endGame();
     } else {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) widget.session.failGame();
+        if (mounted) GameWrapper.of(context).endGame();
       });
     }
   }
@@ -370,12 +432,62 @@ class _FlappyTapBoardState extends State<FlappyTapBoard>
 
   @override
   Widget build(BuildContext context) {
+    GameWrapper.of(context);
+
+    if (_activeDifficulty == null) return _buildPicker();
+    return _buildGame();
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // PICKER
+  // ════════════════════════════════════════════════════════════════
+
+  Widget _buildPicker() {
+    return GamePickerScaffold(
+      bgColorTop: _kBgTop,
+      bgColorBottom: _kBgBot,
+      animatedBg: AnimatedBackground(
+        factory: (t) => _FlappyBgPainter(t),
+        period: const Duration(seconds: 12),
+      ),
+      iconRingColors: const [_kFlappyAccent, _kFlappyDark, _kFlappyAccent],
+      iconChild: ClipOval(
+        child: GameRegistry.getById(kFlappyTapGameId)
+                ?.buildBrandedLogo(size: 84) ??
+            const SizedBox.shrink(),
+      ),
+      title: 'Flappy Tap',
+      subtitle: 'Tap • Dodge • Fly',
+      onBack: () => context.pop(),
+      isFavorite: _isFavorite,
+      onFavoriteToggle: _toggleFavorite,
+      onHowToPlay: _showHelp,
+      tallThreshold: 860,
+      body: _PickerSection(
+        difficulty: _pickerDifficulty,
+        onDifficultyChanged: (d) => setState(() => _pickerDifficulty = d),
+        onPlay: () => _startGame(_pickerDifficulty),
+      ),
+    );
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // GAME VIEW
+  // ════════════════════════════════════════════════════════════════
+
+  Widget _buildGame() {
+    if (_gameOver) return _buildGameOverScreen();
+
+    final diff = _activeDifficulty!;
+
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTapDown: (_) => _jump(),
       child: Stack(
         children: [
+          // Full-screen canvas
           Positioned.fill(child: _buildCanvas()),
+          // Death flash overlay
           if (_deathFlashAlpha > 0)
             Positioned.fill(
               child: IgnorePointer(
@@ -384,7 +496,39 @@ class _FlappyTapBoardState extends State<FlappyTapBoard>
                 ),
               ),
             ),
+          // HUD overlaid at top
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: _buildGameHud(diff),
+              ),
+            ),
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildGameHud(_Difficulty diff) {
+    return GameHudBar(
+      leading: GameBackButton(onTap: _backToPicker),
+      centerContent: _ScoreBoardPill(
+        difficulty: diff,
+        score: _score,
+        best: _bestScore,
+      ),
+      trailing: GameRestartButton(
+        gameName: 'Flappy Tap',
+        accentColor: _kFlappyAccent,
+        onRestart: _newGame,
+        onDialogOpened: _stopTicker,
+        onDialogDismissed: () {
+          if (!_gameOver) _startTicker();
+        },
       ),
     );
   }
@@ -404,10 +548,13 @@ class _FlappyTapBoardState extends State<FlappyTapBoard>
                   _birdY = (h - _kGroundH) / 2.0;
                 }
               });
+              // Init clouds once dimensions are known
               if (_clouds.isEmpty) _initClouds();
             }
           });
         }
+
+        final diff = _activeDifficulty!;
 
         return ValueListenableBuilder<int>(
           valueListenable: _repaint,
@@ -420,7 +567,8 @@ class _FlappyTapBoardState extends State<FlappyTapBoard>
               canvasH: h,
               pipes: List.unmodifiable(_pipes),
               clouds: List.unmodifiable(_clouds),
-              gapHeight: _cfg.gapHeight,
+              gapHeight: diff.gapHeight,
+              score: _score,
               wingPhase: _wingPhase,
               groundOffset: _groundOffset,
               isDead: _gameOver,
@@ -428,6 +576,217 @@ class _FlappyTapBoardState extends State<FlappyTapBoard>
           ),
         );
       },
+    );
+  }
+
+  Widget _buildGameOverScreen() {
+    final difficulty = _activeDifficulty!;
+    return game_result.GenericGameResultScreen(
+      headline: 'Game Over',
+      badgeContent: '🐦',
+      badgeColor: difficulty.color,
+      showNewBestBadge: _isNewBestScore,
+      actions: [
+        game_result.GameResultAction(
+          label: 'Play Again',
+          icon: Icons.refresh_rounded,
+          onTap: _newGame,
+          filled: true,
+          color: difficulty.color,
+        ),
+        game_result.GameResultAction(
+          label: 'Change Mode',
+          icon: Icons.tune_rounded,
+          onTap: _backToPicker,
+          filled: false,
+        ),
+        game_result.GameResultAction(
+          label: 'Home',
+          icon: Icons.home_rounded,
+          onTap: () => context.go('/home'),
+          filled: false,
+        ),
+      ],
+      statsWidget: game_result.GameResultStatsRow(
+        stats: [
+          game_result.StatItem(
+            label: 'SCORE',
+            value: _score,
+            color: difficulty.color,
+          ),
+          game_result.StatItem(
+            label: 'BEST',
+            value: _bestScore,
+            color: const Color(0xFF8B7BA7),
+          ),
+          game_result.StatItem(
+            label: 'PIPES',
+            value: _score ~/ difficulty.pointsPerPipe,
+            color: _kFlappyDark,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// PICKER — Difficulty selector + play button
+// ════════════════════════════════════════════════════════════════
+
+class _PickerSection extends StatelessWidget {
+  final _Difficulty difficulty;
+  final ValueChanged<_Difficulty> onDifficultyChanged;
+  final VoidCallback onPlay;
+
+  const _PickerSection({
+    required this.difficulty,
+    required this.onDifficultyChanged,
+    required this.onPlay,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GameSinglePickerBody(
+      difficulties: _Difficulty.values.map((d) => GameDifficultyData(
+        label: d.label,
+        color: d.color,
+        kind: d.kind,
+        hint: d.hint,
+        bestScore: ScoreService().getHighScore(kFlappyTapGameId, subKey: d.subKey),
+        bestLabel: (s) => 'Best $s',
+      )).toList(),
+      activeIndex: _Difficulty.values.indexOf(difficulty),
+      onChanged: (i) => onDifficultyChanged(_Difficulty.values[i]),
+      playLabel: 'Play Flappy Tap',
+      playSubLabel: '${difficulty.pointsPerPipe} pts per pipe',
+      onPlay: onPlay,
+      accentColor: _kFlappyAccent,
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// HUD — Score pill
+// ════════════════════════════════════════════════════════════════
+
+class _ScoreBoardPill extends StatelessWidget {
+  final _Difficulty difficulty;
+  final int score;
+  final int best;
+
+  const _ScoreBoardPill({
+    required this.difficulty,
+    required this.score,
+    required this.best,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = difficulty.color;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius:
+                const BorderRadius.vertical(top: Radius.circular(10)),
+            boxShadow: [
+              BoxShadow(
+                color: color.withValues(alpha: 0.30),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AnimatedDifficultyIcon(
+                kind: difficulty.kind,
+                size: 14,
+                prominent: false,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                difficulty.label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.4,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: _kFlappyAccent.withValues(alpha: 0.18),
+                blurRadius: 12,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              _scoreColumn('SCORE', score, color),
+              const SizedBox(width: 18),
+              Container(
+                width: 1,
+                height: 28,
+                color: _kFlappyAccent.withValues(alpha: 0.20),
+              ),
+              const SizedBox(width: 18),
+              _scoreColumn('BEST', best, _kFlappyDark),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _scoreColumn(String label, int value, Color color) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: color.withValues(alpha: 0.85),
+            fontSize: 10,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.2,
+          ),
+        ),
+        const SizedBox(height: 2),
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 280),
+          transitionBuilder: (child, anim) => ScaleTransition(
+            scale: CurvedAnimation(parent: anim, curve: Curves.easeOutBack),
+            child: FadeTransition(opacity: anim, child: child),
+          ),
+          child: Text(
+            '$value',
+            key: ValueKey<int>(value),
+            style: TextStyle(
+              color: color,
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+              height: 1,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -444,6 +803,7 @@ class _FlappyPainter extends CustomPainter {
   final List<_Pipe> pipes;
   final List<_Cloud> clouds;
   final double gapHeight;
+  final int score;
   final double wingPhase;
   final double groundOffset;
   final bool isDead;
@@ -456,6 +816,7 @@ class _FlappyPainter extends CustomPainter {
     required this.pipes,
     required this.clouds,
     required this.gapHeight,
+    required this.score,
     required this.wingPhase,
     required this.groundOffset,
     required this.isDead,
@@ -495,6 +856,8 @@ class _FlappyPainter extends CustomPainter {
     // ── Bird ─────────────────────────────────────────────────────────────
     final birdX = w * _kBirdXRel;
     _drawBird(canvas, birdX, birdY, birdVy, isDead, wingPhase);
+
+    // Score is shown in the HUD pill overlay, not on canvas.
   }
 
   void _drawCloud(Canvas canvas, double cx, double cy, double radius) {
@@ -768,6 +1131,7 @@ class _FlappyPainter extends CustomPainter {
       old.birdVy != birdVy ||
       old.pipes != pipes ||
       old.clouds != clouds ||
+      old.score != score ||
       old.wingPhase != wingPhase ||
       old.groundOffset != groundOffset ||
       old.isDead != isDead;
@@ -777,8 +1141,8 @@ class _FlappyPainter extends CustomPainter {
 // PICKER ANIMATED BACKGROUND — drifting clouds + mini birds
 // ════════════════════════════════════════════════════════════════
 
-class FlappyTapBgPainter extends AnimatedBgPainter {
-  const FlappyTapBgPainter(super.t);
+class _FlappyBgPainter extends AnimatedBgPainter {
+  const _FlappyBgPainter(super.t);
 
   // Clouds: [xFrac, yFrac, radiusFrac, speedFrac]
   static const _clouds = [
