@@ -15,8 +15,8 @@ import '../shared/animated_background.dart';
 import '../shared/animated_difficulty_icon.dart';
 import '../shared/game_control_buttons.dart';
 import '../shared/game_hud_bar.dart';
+import '../shared/game_difficulty_picker.dart';
 import '../shared/generic_game_result_screen.dart' as game_result;
-import '../shared/spinning_slider.dart';
 import 'color_tap_stats.dart';
 import 'color_tap_tutorial.dart';
 
@@ -25,9 +25,6 @@ const Color _kBgTop    = Color(0xFFFFDEC0);
 const Color _kBgBot    = Color(0xFFFFC898);
 const Color _kAccent   = Color(0xFFFF6B35);
 const Color _kAccentLt = Color(0xFFFF922B);
-const Color _kCardBg   = Colors.white;
-const Color _kHintText = Color(0xFF8B4400);
-
 // ── Game colors ────────────────────────────────────────────────────────────
 const Color _kRed    = Color(0xFFEF4444);
 const Color _kBlue   = Color(0xFF3B82F6);
@@ -642,290 +639,21 @@ class _PickerSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Container(
-          decoration: BoxDecoration(
-            color: _kCardBg,
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(24),
-              topRight: Radius.circular(24),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: _kAccent.withValues(alpha: 0.12),
-                blurRadius: 20,
-                offset: const Offset(0, 6),
-              ),
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 10,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      width: 28,
-                      height: 28,
-                      decoration: BoxDecoration(
-                        color: _kAccent.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(Icons.tune_rounded, size: 16, color: _kAccent),
-                    ),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'DIFFICULTY',
-                      style: TextStyle(
-                        color: _kAccent,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1.4,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                _DifficultyLabel(difficulty: difficulty),
-                const SizedBox(height: 14),
-                SpinningSlider(
-                  stopCount: _Difficulty.values.length,
-                  activeIndex: _Difficulty.values.indexOf(difficulty),
-                  activeColor: difficulty.color,
-                  stopColors: const [_kEasyColor, _kMediumColor, _kHardColor],
-                  onChanged: (i) => onDifficultyChanged(_Difficulty.values[i]),
-                ),
-                const SizedBox(height: 6),
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 220),
-                  child: Padding(
-                    key: ValueKey(difficulty),
-                    padding: const EdgeInsets.only(top: 6),
-                    child: Text(
-                      difficulty.hint,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: _kHintText,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _BestScorePill(difficulty: difficulty),
-              ],
-            ),
-          ),
-        ),
-        _PlayButton(difficulty: difficulty, onTap: onPlay)
-            .animate()
-            .fadeIn(delay: 220.ms, duration: 320.ms)
-            .slideY(begin: 0.08, end: 0, duration: 320.ms),
-      ],
-    );
-  }
-}
-
-class _DifficultyLabel extends StatelessWidget {
-  final _Difficulty difficulty;
-  const _DifficultyLabel({required this.difficulty});
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 260),
-      transitionBuilder: (child, anim) => FadeTransition(
-        opacity: anim,
-        child: ScaleTransition(scale: anim, child: child),
-      ),
-      child: Container(
-        key: ValueKey(difficulty.label),
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-        decoration: BoxDecoration(
-          color: difficulty.color.withValues(alpha: 0.10),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: difficulty.color.withValues(alpha: 0.30),
-            width: 1.5,
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            AnimatedDifficultyIcon(kind: difficulty.kind, size: 32),
-            const SizedBox(width: 12),
-            Text(
-              difficulty.label,
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 2,
-                color: difficulty.color,
-                height: 1,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _BestScorePill extends StatelessWidget {
-  final _Difficulty difficulty;
-  const _BestScorePill({required this.difficulty});
-
-  @override
-  Widget build(BuildContext context) {
-    final best = ScoreService().getHighScore(kColorTapGameId, subKey: difficulty.subKey);
-    final color = difficulty.color;
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 240),
-      transitionBuilder: (child, anim) => FadeTransition(opacity: anim, child: child),
-      child: Container(
-        key: ValueKey('best_${difficulty.label}_$best'),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: best > 0
-              ? color.withValues(alpha: 0.14)
-              : const Color(0xFF8B7BA7).withValues(alpha: 0.10),
-          borderRadius: BorderRadius.circular(99),
-          border: Border.all(
-            color: best > 0
-                ? color.withValues(alpha: 0.40)
-                : const Color(0xFF8B7BA7).withValues(alpha: 0.18),
-            width: 1,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              best > 0 ? Icons.emoji_events_rounded : Icons.flag_outlined,
-              size: 14,
-              color: best > 0 ? color : const Color(0xFF8B7BA7),
-            ),
-            const SizedBox(width: 6),
-            Flexible(
-              child: Text(
-                best > 0 ? 'Best $best pts' : 'Set your first best!',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: best > 0 ? color : const Color(0xFF6B5E7E),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.2,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PlayButton extends StatefulWidget {
-  final _Difficulty difficulty;
-  final VoidCallback onTap;
-  const _PlayButton({required this.difficulty, required this.onTap});
-
-  @override
-  State<_PlayButton> createState() => _PlayButtonState();
-}
-
-class _PlayButtonState extends State<_PlayButton> {
-  bool _pressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = widget.difficulty.color;
-    final lighter = Color.lerp(color, Colors.white, 0.22)!;
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) {
-        setState(() => _pressed = false);
-        widget.onTap();
-      },
-      onTapCancel: () => setState(() => _pressed = false),
-      child: AnimatedScale(
-        scale: _pressed ? 0.97 : 1.0,
-        duration: const Duration(milliseconds: 120),
-        child: Container(
-          height: 70,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [color, lighter],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: const BorderRadius.only(
-              bottomLeft: Radius.circular(22),
-              bottomRight: Radius.circular(22),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: color.withValues(alpha: 0.36),
-                blurRadius: 16,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 18),
-          child: Row(
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.22),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 26),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Play Color Tap',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 0.2,
-                      ),
-                    ),
-                    Text(
-                      '${widget.difficulty.points} pts per match',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.3,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(Icons.chevron_right_rounded, color: Colors.white, size: 26),
-            ],
-          ),
-        ),
-      ),
+    return GameSinglePickerBody(
+      difficulties: _Difficulty.values.map((d) => GameDifficultyData(
+        label: d.label,
+        color: d.color,
+        kind: d.kind,
+        hint: d.hint,
+        bestScore: ScoreService().getHighScore(kColorTapGameId, subKey: d.subKey),
+        bestLabel: (s) => 'Best $s pts',
+      )).toList(),
+      activeIndex: _Difficulty.values.indexOf(difficulty),
+      onChanged: (i) => onDifficultyChanged(_Difficulty.values[i]),
+      playLabel: 'Play Color Tap',
+      playSubLabel: '${difficulty.points} pts per match',
+      onPlay: onPlay,
+      accentColor: _kAccent,
     );
   }
 }

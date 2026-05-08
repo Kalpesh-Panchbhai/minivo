@@ -31,22 +31,26 @@ class GameResultAction {
 
 class GenericGameResultScreen extends StatelessWidget {
   final String headline;
+  final String? subtitle;
   final String badgeContent;
   final Color badgeColor;
   final Widget? statsWidget;
   final List<GameResultAction> actions;
   final List<Color>? gradientColors;
   final bool showNewBestBadge;
+  final List<Widget> extraBadges;
 
   const GenericGameResultScreen({
     super.key,
     required this.headline,
+    this.subtitle,
     required this.badgeContent,
     required this.badgeColor,
     this.statsWidget,
     required this.actions,
     this.gradientColors,
     this.showNewBestBadge = false,
+    this.extraBadges = const [],
   });
 
   @override
@@ -116,6 +120,18 @@ class GenericGameResultScreen extends StatelessWidget {
                 letterSpacing: 0.4,
               ),
             ).animate().fadeIn(delay: 220.ms, duration: 320.ms),
+            // Subtitle
+            if (subtitle != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                subtitle!,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF6B7280),
+                  fontWeight: FontWeight.w500,
+                ),
+              ).animate().fadeIn(delay: 240.ms, duration: 280.ms),
+            ],
             // New Best badge
             if (showNewBestBadge) ...[
               const SizedBox(height: 14),
@@ -164,6 +180,19 @@ class GenericGameResultScreen extends StatelessWidget {
                     duration: 380.ms,
                     curve: Curves.easeOutBack,
                   ),
+            ],
+            // Extra badges (e.g. streak, new best for games that handle them separately)
+            if (extraBadges.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              ...extraBadges.map((b) => b
+                  .animate()
+                  .fadeIn(delay: 300.ms, duration: 320.ms)
+                  .scale(
+                    begin: const Offset(0.85, 0.85),
+                    end: const Offset(1.0, 1.0),
+                    duration: 320.ms,
+                    curve: Curves.easeOutBack,
+                  )),
             ],
             // Stats widget
             if (statsWidget != null) ...[
@@ -300,6 +329,130 @@ class _StatDivider extends StatelessWidget {
         height: 48,
         color: Colors.black.withValues(alpha: 0.1),
       ),
+    );
+  }
+}
+
+class GameResultPlayersRow extends StatelessWidget {
+  final String p1Label;
+  final String p2Label;
+  final int p1Score;
+  final int p2Score;
+  final Color p1Color;
+  final Color p2Color;
+  final bool p1IsWinner;
+  final bool p2IsWinner;
+  final String scoreUnit;
+
+  const GameResultPlayersRow({
+    super.key,
+    required this.p1Label,
+    required this.p2Label,
+    required this.p1Score,
+    required this.p2Score,
+    required this.p1Color,
+    required this.p2Color,
+    required this.p1IsWinner,
+    required this.p2IsWinner,
+    this.scoreUnit = 'pairs',
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.65),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.9)),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF8475C2).withValues(alpha: 0.10),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _PlayerColumn(
+                label: p1Label,
+                score: p1Score,
+                color: p1Color,
+                isWinner: p1IsWinner,
+                scoreUnit: scoreUnit,
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Container(width: 1, height: 60, color: Colors.black.withValues(alpha: 0.1)),
+              ),
+              _PlayerColumn(
+                label: p2Label,
+                score: p2Score,
+                color: p2Color,
+                isWinner: p2IsWinner,
+                scoreUnit: scoreUnit,
+              ),
+            ],
+          ),
+        );
+  }
+}
+
+class _PlayerColumn extends StatelessWidget {
+  final String label;
+  final int score;
+  final Color color;
+  final bool isWinner;
+  final String scoreUnit;
+
+  const _PlayerColumn({
+    required this.label,
+    required this.score,
+    required this.color,
+    required this.isWinner,
+    required this.scoreUnit,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (isWinner) ...[
+          const Text('🏆', style: TextStyle(fontSize: 16)),
+          const SizedBox(height: 2),
+        ] else
+          const SizedBox(height: 18),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            color: color,
+            letterSpacing: 1.2,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '$score',
+          style: TextStyle(
+            color: color,
+            fontSize: 28,
+            fontWeight: FontWeight.w900,
+            height: 1,
+          ),
+        ),
+        Text(
+          scoreUnit,
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w500,
+            color: color.withValues(alpha: 0.65),
+          ),
+        ),
+      ],
     );
   }
 }

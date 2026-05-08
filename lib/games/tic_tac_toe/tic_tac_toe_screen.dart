@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/multiplayer/player_strip.dart';
 import '../../core/services/audio_service.dart';
 import '../../core/services/score_service.dart';
 import '../../core/widgets/how_to_play_sheet.dart';
@@ -13,9 +13,10 @@ import '../shared/animated_background.dart';
 import '../shared/animated_difficulty_icon.dart';
 import '../shared/game_control_buttons.dart';
 import '../shared/game_hud_bar.dart';
-import '../shared/spinning_slider.dart';
+import '../shared/game_difficulty_picker.dart';
 import 'tic_tac_toe_stats.dart';
 import 'tic_tac_toe_tutorial.dart';
+import '../shared/generic_game_result_screen.dart' as game_result;
 
 /// Test-only override for the very first starter pick of a session.
 /// `'X'` or `'O'` to force; `null` to use the regular random pick.
@@ -29,12 +30,9 @@ const Color _kDrawColor = Color(0xFFB6A5DD); // soft lilac
 
 // ── Mode buttons ──────────────────────────────────────────────────────────
 const Color _kAiColor = Color(0xFF6C4EF3);     // vibrant indigo
-const Color _kFriendColor = Color(0xFFFF5A5F); // warm coral
-
 // ── Design tokens ─────────────────────────────────────────────────────────
 const Color _kBgTop    = Color(0xFFFFF9F5);   // warm cream
 const Color _kBgBot    = Color(0xFFF8F5FF);   // pale lavender
-const Color _kCardBg   = Colors.white;
 
 // ── Board ambient tints ────────────────────────────────────────────────────
 // Neutral-warm baseline, leaning warm on X turn and cool on O turn.
@@ -540,20 +538,7 @@ class _TicTacToeScreenState extends State<TicTacToeScreen>
     }
 
     if (state == GameState.gameOver) {
-      return _WinnerScreen(
-        winner: _winner,
-        mode: _mode!,
-        difficulty: _difficulty,
-        xWins: _xWins,
-        oWins: _oWins,
-        draws: _draws,
-        streak: _streak,
-        streakOwner: _streakOwner,
-        wasNewBest: _wasNewBest,
-        onPlayAgain: _playAgainSameMode,
-        onChangeMode: _changeMode,
-        onHome: _backOrHome,
-      );
+      return _buildWinnerScreen();
     }
 
     // Playing or paused — render the in-game board.
@@ -575,6 +560,66 @@ class _TicTacToeScreenState extends State<TicTacToeScreen>
       onCellTap: _onCellTap,
       onBack: _backOrHome,
       onRestart: _playAgainSameMode,
+    );
+  }
+
+  Widget _buildWinnerScreen() {
+    final isAi = _mode == _Mode.ai;
+    String headline;
+    String big;
+    Color bigColor;
+    if (_winner == 'X') {
+      headline = isAi ? 'You Win!' : 'Player 1 Wins!';
+      big = 'X';
+      bigColor = _kXColor;
+    } else if (_winner == 'O') {
+      headline = isAi ? 'AI Wins!' : 'Player 2 Wins!';
+      big = 'O';
+      bigColor = _kOColor;
+    } else {
+      headline = "It's a Draw!";
+      big = '=';
+      bigColor = _kDrawColor;
+    }
+
+    final showStreak = _streak >= 2 && _streakOwner == _winner;
+    final extraBadges = <Widget>[
+      if (showStreak) _StreakBadge(streak: _streak),
+      if (_wasNewBest) const _NewBestBadge(),
+    ];
+
+    return game_result.GenericGameResultScreen(
+      headline: headline,
+      badgeContent: big,
+      badgeColor: bigColor,
+      showNewBestBadge: false,
+      extraBadges: extraBadges,
+      statsWidget: game_result.GameResultStatsRow(
+        stats: [
+          game_result.StatItem(label: isAi ? 'YOU' : 'P1', value: _xWins, color: _kXColor),
+          game_result.StatItem(label: 'DRAWS', value: _draws, color: const Color(0xFF8B7BA7)),
+          game_result.StatItem(label: isAi ? 'AI' : 'P2', value: _oWins, color: _kOColor),
+        ],
+      ),
+      actions: [
+        game_result.GameResultAction(
+          label: 'Play Again',
+          icon: Icons.refresh_rounded,
+          onTap: _playAgainSameMode,
+          filled: true,
+          color: _kAiColor,
+        ),
+        game_result.GameResultAction(
+          label: 'Change Mode',
+          icon: Icons.swap_horiz_rounded,
+          onTap: _changeMode,
+        ),
+        game_result.GameResultAction(
+          label: 'Home',
+          icon: Icons.home_rounded,
+          onTap: _backOrHome,
+        ),
+      ],
     );
   }
 }
@@ -632,233 +677,36 @@ class _ModePickerScreen extends StatelessWidget {
       onFavoriteToggle: onFavoriteToggle,
       onHowToPlay: onHelp,
       tallThreshold: 860,
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _AiSection(
-            difficulty: difficulty,
-            onDifficultyChanged: onDifficultyChanged,
-            onPlayAi: onPlayAi,
-          ),
-          const SizedBox(height: 12),
-          _GameButton(
-            label: 'Play with a Friend',
-            sublabel: 'Pass & play on one device',
-            icon: Icons.people_alt_rounded,
-            gradientColors: const [_kFriendColor, Color(0xFFFF8E53)],
-            onTap: onPlayFriend,
-          ),
-        ],
+      body: GameAiPickerBody(
+        difficulties: _Difficulty.values.map((d) {
+          final meta = _difficultyMeta(d);
+          final subKey = switch (d) {
+            _Difficulty.easy => kTicTacToeSubKeyEasy,
+            _Difficulty.medium => kTicTacToeSubKeyMedium,
+            _Difficulty.hard => kTicTacToeSubKeyHard,
+          };
+          return GameDifficultyData(
+            label: meta.label,
+            color: meta.color,
+            kind: _kindFor(d),
+            hint: switch (d) {
+              _Difficulty.easy => 'Mostly random — easy to beat.',
+              _Difficulty.medium => 'Plays smart but not perfect.',
+              _Difficulty.hard => 'Plays sharp — clever players can still win.',
+            },
+            bestScore: bestStreak(subKey),
+            bestLabel: (s) => 'Best $s in a row',
+          );
+        }).toList(),
+        activeIndex: _Difficulty.values.indexOf(difficulty),
+        onChanged: (i) => onDifficultyChanged(_Difficulty.values[i]),
+        onPlayAi: onPlayAi,
+        onPlayFriend: onPlayFriend,
       ),
     );
   }
 }
 
-class _AiSection extends StatelessWidget {
-  final _Difficulty difficulty;
-  final ValueChanged<_Difficulty> onDifficultyChanged;
-  final VoidCallback onPlayAi;
-  const _AiSection({
-    required this.difficulty,
-    required this.onDifficultyChanged,
-    required this.onPlayAi,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // Difficulty card — white, elevated, with a colored top accent bar
-        Container(
-          decoration: BoxDecoration(
-            color: _kCardBg,
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(24),
-              topRight: Radius.circular(24),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: _kAiColor.withValues(alpha: 0.12),
-                blurRadius: 20,
-                offset: const Offset(0, 6),
-              ),
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 10,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
-                child: Column(
-                  children: [
-                    // Eyebrow
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          width: 28,
-                          height: 28,
-                          decoration: BoxDecoration(
-                            color: _kAiColor.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Icon(Icons.smart_toy_rounded, size: 16, color: _kAiColor),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'AI DIFFICULTY',
-                          style: TextStyle(
-                            color: _kAiColor,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 1.4,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    _DifficultyLabel(difficulty: difficulty),
-                    const SizedBox(height: 14),
-                    _DifficultyTrack(
-                      difficulty: difficulty,
-                      onChanged: onDifficultyChanged,
-                    ),
-                    const SizedBox(height: 8),
-                    _DifficultyHint(difficulty: difficulty),
-                    const SizedBox(height: 10),
-                    _BestStreakPill(difficulty: difficulty),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        // Play vs AI button — flat top, attached to the card
-        _GameButton(
-          label: 'Play vs. AI',
-          sublabel: 'Single player',
-          icon: Icons.smart_toy_rounded,
-          gradientColors: [_kAiColor, Color(0xFF8B72F8)],
-          onTap: onPlayAi,
-          topRadius: 0,
-        )
-            .animate()
-            .fadeIn(delay: 200.ms, duration: 320.ms)
-            .slideY(begin: 0.08, end: 0, duration: 320.ms),
-      ],
-    );
-  }
-}
-
-// Personal-best pill displayed under each difficulty inside the AI card.
-// Reads from ScoreService on every build, so it reflects the active
-// difficulty in real time as the slider moves and updates immediately when
-// the player returns from a round that beat the previous best.
-class _BestStreakPill extends StatelessWidget {
-  final _Difficulty difficulty;
-  const _BestStreakPill({required this.difficulty});
-
-  @override
-  Widget build(BuildContext context) {
-    final meta = _difficultyMeta(difficulty);
-    final subKey = switch (difficulty) {
-      _Difficulty.easy => kTicTacToeSubKeyEasy,
-      _Difficulty.medium => kTicTacToeSubKeyMedium,
-      _Difficulty.hard => kTicTacToeSubKeyHard,
-    };
-    final best = bestStreak(subKey);
-
-    // Cross-fade between an aspirational empty state and the trophy state
-    // so it doesn't pop in / out as the user explores difficulties.
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 240),
-      transitionBuilder: (child, anim) =>
-          FadeTransition(opacity: anim, child: child),
-      child: Container(
-        key: ValueKey('best_${meta.label}_$best'),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: best > 0
-              ? meta.color.withValues(alpha: 0.14)
-              : const Color(0xFF8B7BA7).withValues(alpha: 0.10),
-          borderRadius: BorderRadius.circular(99),
-          border: Border.all(
-            color: best > 0
-                ? meta.color.withValues(alpha: 0.40)
-                : const Color(0xFF8B7BA7).withValues(alpha: 0.18),
-            width: 1,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              best > 0
-                  ? Icons.local_fire_department_rounded
-                  : Icons.flag_outlined,
-              size: 14,
-              color: best > 0 ? meta.color : const Color(0xFF8B7BA7),
-            ),
-            const SizedBox(width: 6),
-            // Flexible+ellipsis so the pill never overflows on narrow phones —
-            // the message is short enough to fit comfortably on every device
-            // we test, but this is the safe belt-and-braces guard.
-            Flexible(
-              child: Text(
-                best > 0
-                    ? 'Best $best in a row'
-                    : 'Set your first best!',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: best > 0 ? meta.color : const Color(0xFF6B5E7E),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.2,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DifficultyHint extends StatelessWidget {
-  final _Difficulty difficulty;
-  const _DifficultyHint({required this.difficulty});
-
-  @override
-  Widget build(BuildContext context) {
-    final text = switch (difficulty) {
-      _Difficulty.easy => 'Mostly random — easy to beat.',
-      _Difficulty.medium => 'Plays smart but not perfect.',
-      _Difficulty.hard => 'Plays sharp — clever players can still win.',
-    };
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 220),
-      child: Padding(
-        key: ValueKey(text),
-        padding: const EdgeInsets.only(top: 6),
-        child: Text(
-          text,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: Color(0xFF6B5E7E),
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 /// Animated TTT background — X's, O's and mini-grids gently bob and rotate
 /// with phase-offset sine waves so the canvas feels alive without distracting.
@@ -990,185 +838,6 @@ class _DifficultyMeta {
   });
 }
 
-class _DifficultyLabel extends StatelessWidget {
-  final _Difficulty difficulty;
-  const _DifficultyLabel({required this.difficulty});
-
-  @override
-  Widget build(BuildContext context) {
-    final meta = _difficultyMeta(difficulty);
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 260),
-      transitionBuilder: (child, anim) => FadeTransition(
-        opacity: anim,
-        child: ScaleTransition(scale: anim, child: child),
-      ),
-      child: Container(
-        key: ValueKey(meta.label),
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: meta.color.withValues(alpha: 0.10),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: meta.color.withValues(alpha: 0.30), width: 1.5),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            AnimatedDifficultyIcon(kind: _kindFor(difficulty), size: 32),
-            const SizedBox(width: 12),
-            Text(
-              meta.label,
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 2.0,
-                color: meta.color,
-                height: 1.0,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DifficultyTrack extends StatelessWidget {
-  final _Difficulty difficulty;
-  final ValueChanged<_Difficulty> onChanged;
-
-  const _DifficultyTrack({required this.difficulty, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    const values = _Difficulty.values;
-    return SpinningSlider(
-      stopCount: values.length,
-      activeIndex: values.indexOf(difficulty),
-      activeColor: _difficultyMeta(difficulty).color,
-      stopColors: const [_kEasyColor, _kMediumColor, _kHardColor],
-      onChanged: (i) => onChanged(values[i]),
-    );
-  }
-}
-
-// Gradient CTA button used for both "Play vs. AI" and "Play with a Friend".
-class _GameButton extends StatefulWidget {
-  final String label;
-  final String sublabel;
-  final IconData icon;
-  final List<Color> gradientColors;
-  final VoidCallback onTap;
-  final double topRadius;
-
-  const _GameButton({
-    required this.label,
-    required this.sublabel,
-    required this.icon,
-    required this.gradientColors,
-    required this.onTap,
-    this.topRadius = 22,
-  });
-
-  @override
-  State<_GameButton> createState() => _GameButtonState();
-}
-
-class _GameButtonState extends State<_GameButton> {
-  bool _pressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final radius = BorderRadius.only(
-      topLeft: Radius.circular(widget.topRadius),
-      topRight: Radius.circular(widget.topRadius),
-      bottomLeft: const Radius.circular(22),
-      bottomRight: const Radius.circular(22),
-    );
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) {
-        setState(() => _pressed = false);
-        widget.onTap();
-      },
-      onTapCancel: () => setState(() => _pressed = false),
-      child: AnimatedScale(
-        scale: _pressed ? 0.97 : 1.0,
-        duration: const Duration(milliseconds: 120),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: radius,
-            gradient: LinearGradient(
-              colors: widget.gradientColors,
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: widget.gradientColors.first.withValues(alpha: 0.30),
-                blurRadius: 14,
-                offset: const Offset(0, 6),
-              ),
-            ],
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-          child: Row(
-            children: [
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.22),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Icon(widget.icon, color: Colors.white, size: 24),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      widget.label,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 17,
-                        letterSpacing: 0.3,
-                        height: 1.1,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      widget.sublabel,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.85),
-                        fontWeight: FontWeight.w500,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.chevron_right_rounded, color: Colors.white, size: 20),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 // ════════════════════════════════════════════════════════════════
 // BOARD SCREEN (playing state) — custom scoreboard HUD + grid
 // ════════════════════════════════════════════════════════════════
@@ -1283,19 +952,26 @@ class _BoardScreen extends StatelessWidget {
                           : const SizedBox.shrink(),
                     ),
                     const SizedBox(height: 8),
-                    _TurnIndicator(
-                      mode: mode,
-                      currentPlayer: currentPlayer,
-                      aiThinking: aiThinking,
+                    // ── Opponent strip (top) ─────────────────────────────────
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: PlayerStrip(
+                        label: mode == _Mode.ai ? 'AI' : 'P2',
+                        mark: 'O',
+                        color: _kOColor,
+                        isActive: currentPlayer == 'O' && bannerLabel == null,
+                        isThinking: aiThinking,
+                        avatarIcon: mode == _Mode.ai ? Icons.smart_toy_rounded : null,
+                      ),
                     ),
-                    const SizedBox(height: 12),
-                    // Board with celebration burst overlay.
+                    const SizedBox(height: 8),
+                    // ── Game board ────────────────────────────────────────────
                     Expanded(
                       child: Center(
                         child: AspectRatio(
                           aspectRatio: 1,
                           child: Padding(
-                            padding: const EdgeInsets.all(28),
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
                             child: Stack(
                               children: [
                                 _Board(
@@ -1307,7 +983,14 @@ class _BoardScreen extends StatelessWidget {
                                 if (celebrating)
                                   Positioned.fill(
                                     child: IgnorePointer(
-                                      child: _Confetti(
+                                      child: _Confetti(color: bannerColor),
+                                    ),
+                                  ),
+                                if (bannerLabel != null)
+                                  Positioned.fill(
+                                    child: Center(
+                                      child: _WinBanner(
+                                        label: bannerLabel!,
                                         color: bannerColor,
                                       ),
                                     ),
@@ -1318,27 +1001,19 @@ class _BoardScreen extends StatelessWidget {
                         ),
                       ),
                     ),
-                    // Banner reserved area to avoid layout shift.
-                    SizedBox(
-                      height: 64,
-                      child: Center(
-                        child: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 280),
-                          transitionBuilder: (child, anim) => ScaleTransition(
-                            scale: anim,
-                            child:
-                                FadeTransition(opacity: anim, child: child),
-                          ),
-                          child: bannerLabel == null
-                              ? const SizedBox.shrink()
-                              : _WinBanner(
-                                  label: bannerLabel!,
-                                  color: bannerColor,
-                                ),
-                        ),
+                    const SizedBox(height: 8),
+                    // ── Local player strip (bottom) ───────────────────────────
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: PlayerStrip(
+                        label: mode == _Mode.ai ? 'You' : 'P1',
+                        mark: 'X',
+                        color: _kXColor,
+                        isActive: currentPlayer == 'X' && bannerLabel == null,
+                        isThinking: false,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 12),
                   ],
                 ),
               ),
@@ -1689,258 +1364,6 @@ class _ScoreBoardPill extends StatelessWidget {
   }
 }
 
-// Modern turn indicator: two side-by-side player chips. The active player's
-// chip glows + scales up; the inactive chip dims and shrinks. No prose label
-// is needed — the visual state alone communicates whose turn it is.
-class _TurnIndicator extends StatelessWidget {
-  final _Mode mode;
-  final String currentPlayer;
-  final bool aiThinking;
-
-  const _TurnIndicator({
-    required this.mode,
-    required this.currentPlayer,
-    required this.aiThinking,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isAi = mode == _Mode.ai;
-    final leftLabel = isAi ? 'YOU' : 'P1';
-    final rightLabel = isAi ? 'AI' : 'P2';
-
-    // In AI mode, "active" reflects whose turn — when AI is thinking the AI
-    // chip is the active one (glows). Otherwise it's the player whose mark
-    // matches `currentPlayer`.
-    final leftActive = aiThinking ? false : currentPlayer == 'X';
-    final rightActive = !leftActive;
-
-    // Each player gets a chip + a Material-style underline pill that grows
-    // when active and retracts when inactive — same UX pattern used by
-    // Words With Friends / chess apps. The chip's own scale + halo carry the
-    // primary signal; the underline confirms direction without a central
-    // arrow competing for attention.
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _PlayerSlot(
-          label: leftLabel,
-          mark: 'X',
-          color: _kXColor,
-          active: leftActive,
-          showThinking: false,
-        ),
-        const SizedBox(width: 22),
-        _PlayerSlot(
-          label: rightLabel,
-          mark: 'O',
-          color: _kOColor,
-          active: rightActive,
-          showThinking: isAi && aiThinking,
-        ),
-      ],
-    );
-  }
-}
-
-// Chip + underline indicator. Underline grows from 0 → 28 px under the
-// active player, retracts under the inactive one.
-class _PlayerSlot extends StatelessWidget {
-  final String label;
-  final String mark;
-  final Color color;
-  final bool active;
-  final bool showThinking;
-  const _PlayerSlot({
-    required this.label,
-    required this.mark,
-    required this.color,
-    required this.active,
-    required this.showThinking,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _PlayerChip(
-          label: label,
-          mark: mark,
-          color: color,
-          active: active,
-          showThinking: showThinking,
-        ),
-        const SizedBox(height: 6),
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 320),
-          curve: Curves.easeOutCubic,
-          width: active ? 28 : 0,
-          height: 3,
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(99),
-            boxShadow: active
-                ? [
-                    BoxShadow(
-                      color: color.withValues(alpha: 0.45),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ]
-                : null,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _PlayerChip extends StatelessWidget {
-  final String label;
-  final String mark;
-  final Color color;
-  final bool active;
-  final bool showThinking;
-  const _PlayerChip({
-    required this.label,
-    required this.mark,
-    required this.color,
-    required this.active,
-    required this.showThinking,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedScale(
-      duration: const Duration(milliseconds: 240),
-      curve: Curves.easeOutCubic,
-      scale: active ? 1.0 : 0.86,
-      child: AnimatedOpacity(
-        duration: const Duration(milliseconds: 240),
-        opacity: active ? 1.0 : 0.55,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 280),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: active ? color : Colors.transparent,
-              width: 2,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: active
-                    ? color.withValues(alpha: 0.35)
-                    : Colors.black.withValues(alpha: 0.05),
-                blurRadius: active ? 14 : 6,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Mark glyph (X or O) — rendered as an icon (not text) so the
-              // chip's marker doesn't collide with board-cell text in tests
-              // and screen readers.
-              Container(
-                width: 24,
-                height: 24,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.14),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  mark == 'X'
-                      ? Icons.close_rounded
-                      : Icons.radio_button_unchecked_rounded,
-                  size: 14,
-                  color: color,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.0,
-                ),
-              ),
-              // Thinking dots — only on the AI side while the AI is choosing.
-              if (showThinking) ...[
-                const SizedBox(width: 6),
-                _ThinkingDots(color: color),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// Three-dot pulsing indicator used when the AI is choosing a move.
-class _ThinkingDots extends StatefulWidget {
-  final Color color;
-  const _ThinkingDots({required this.color});
-  @override
-  State<_ThinkingDots> createState() => _ThinkingDotsState();
-}
-
-class _ThinkingDotsState extends State<_ThinkingDots>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _ctrl,
-      builder: (context, _) {
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: List.generate(3, (i) {
-            final phase = (_ctrl.value - i * 0.18).clamp(0.0, 1.0);
-            final t = (math.sin(phase * math.pi) + 1) / 2;
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 1.5),
-              child: Container(
-                width: 5,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: widget.color
-                      .withValues(alpha: 0.35 + 0.55 * t),
-                  shape: BoxShape.circle,
-                ),
-              ),
-            );
-          }),
-        );
-      },
-    );
-  }
-}
-
 class _Board extends StatelessWidget {
   final List<String> board;
   final List<int> winLine;
@@ -2201,329 +1624,3 @@ class _WinBanner extends StatelessWidget {
   }
 }
 
-// ════════════════════════════════════════════════════════════════
-// WINNER SCREEN
-// ════════════════════════════════════════════════════════════════
-
-class _WinnerScreen extends StatelessWidget {
-  final String? winner;
-  final _Mode mode;
-  final _Difficulty difficulty;
-  final int xWins;
-  final int oWins;
-  final int draws;
-  final int streak;
-  final String? streakOwner;
-  final bool wasNewBest;
-  final VoidCallback onPlayAgain;
-  final VoidCallback onChangeMode;
-  final VoidCallback onHome;
-
-  const _WinnerScreen({
-    required this.winner,
-    required this.mode,
-    required this.difficulty,
-    required this.xWins,
-    required this.oWins,
-    required this.draws,
-    required this.streak,
-    required this.streakOwner,
-    required this.wasNewBest,
-    required this.onPlayAgain,
-    required this.onChangeMode,
-    required this.onHome,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isAi = mode == _Mode.ai;
-    String headline;
-    String big;
-    Color bigColor;
-    if (winner == 'X') {
-      headline = isAi ? 'You Win!' : 'Player 1 Wins!';
-      big = 'X';
-      bigColor = _kXColor;
-    } else if (winner == 'O') {
-      headline = isAi ? 'AI Wins!' : 'Player 2 Wins!';
-      big = 'O';
-      bigColor = _kOColor;
-    } else {
-      headline = "It's a Draw!";
-      big = '=';
-      bigColor = _kDrawColor;
-    }
-
-    // Whether to show a streak callout (only on win, streak >= 2, and the
-    // current winner owns the streak).
-    final showStreak = streak >= 2 && streakOwner == winner;
-
-    return Container(
-      // Soft, tonal celebration gradient — same family as the picker but a
-      // little richer to feel rewarding without going dark.
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Color(0xFFF6F0FF),
-            Color(0xFFEDE3FB),
-            Color(0xFFFFE2E8),
-          ],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
-      ),
-      child: SafeArea(
-        child: Column(
-          children: [
-            const Spacer(),
-            // Big mark medallion (soft glow that picks up the winner color).
-            Container(
-              width: 148,
-              height: 148,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: bigColor.withValues(alpha: 0.40),
-                    blurRadius: 36,
-                    spreadRadius: 4,
-                  ),
-                ],
-              ),
-              child: Center(
-                child: Text(
-                  big,
-                  style: TextStyle(
-                    color: bigColor,
-                    fontSize: 92,
-                    fontWeight: FontWeight.w900,
-                    height: 1,
-                  ),
-                ),
-              ),
-            )
-                .animate()
-                .scale(
-                  begin: const Offset(0.4, 0.4),
-                  end: const Offset(1.0, 1.0),
-                  duration: 480.ms,
-                  curve: Curves.easeOutBack,
-                )
-                .fadeIn(duration: 320.ms),
-            const SizedBox(height: 22),
-            Text(
-              headline,
-              style: const TextStyle(
-                color: Color(0xFF3A2D55),
-                fontSize: 30,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.4,
-              ),
-            ).animate().fadeIn(delay: 220.ms, duration: 320.ms),
-            if (showStreak) ...[
-              const SizedBox(height: 10),
-              _StreakBadge(streak: streak)
-                  .animate()
-                  .fadeIn(delay: 280.ms, duration: 320.ms)
-                  .scale(
-                    begin: const Offset(0.85, 0.85),
-                    end: const Offset(1.0, 1.0),
-                    duration: 320.ms,
-                    curve: Curves.easeOutBack,
-                  ),
-            ],
-            if (wasNewBest) ...[
-              const SizedBox(height: 10),
-              const _NewBestBadge()
-                  .animate()
-                  .fadeIn(delay: 360.ms, duration: 320.ms)
-                  .scale(
-                    begin: const Offset(0.7, 0.7),
-                    end: const Offset(1.0, 1.0),
-                    duration: 380.ms,
-                    curve: Curves.easeOutBack,
-                  ),
-            ],
-            const SizedBox(height: 22),
-            _SessionScoreRow(
-              mode: mode,
-              xWins: xWins,
-              oWins: oWins,
-              draws: draws,
-            ).animate().fadeIn(delay: 320.ms, duration: 320.ms),
-            const Spacer(),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _ActionButton(
-                    label: 'Play Again',
-                    icon: Icons.refresh_rounded,
-                    onTap: onPlayAgain,
-                    filled: true,
-                    color: _kAiColor,
-                  ),
-                  const SizedBox(height: 10),
-                  _ActionButton(
-                    label: 'Change Mode',
-                    icon: Icons.swap_horiz_rounded,
-                    onTap: onChangeMode,
-                    filled: false,
-                  ),
-                  const SizedBox(height: 10),
-                  _ActionButton(
-                    label: 'Home',
-                    icon: Icons.home_rounded,
-                    onTap: onHome,
-                    filled: false,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SessionScoreRow extends StatelessWidget {
-  final _Mode mode;
-  final int xWins;
-  final int oWins;
-  final int draws;
-
-  const _SessionScoreRow({
-    required this.mode,
-    required this.xWins,
-    required this.oWins,
-    required this.draws,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isAi = mode == _Mode.ai;
-    final left = isAi ? 'YOU' : 'P1';
-    final right = isAi ? 'AI' : 'P2';
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.65),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.9)),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF8475C2).withValues(alpha: 0.10),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _stat(left, xWins, _kXColor),
-          _divider(),
-          _stat('DRAWS', draws, const Color(0xFF8B7BA7)),
-          _divider(),
-          _stat(right, oWins, _kOColor),
-        ],
-      ),
-    );
-  }
-
-  Widget _stat(String label, int value, Color color) {
-    return Column(
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            color: color,
-            fontSize: 11,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 1.2,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          '$value',
-          style: TextStyle(
-            color: color,
-            fontSize: 24,
-            fontWeight: FontWeight.w900,
-            height: 1,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _divider() => Container(
-        margin: const EdgeInsets.symmetric(horizontal: 18),
-        width: 1,
-        height: 36,
-        color: const Color(0xFF8475C2).withValues(alpha: 0.20),
-      );
-}
-
-class _ActionButton extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final VoidCallback onTap;
-  final bool filled;
-  final Color? color;
-
-  const _ActionButton({
-    required this.label,
-    required this.icon,
-    required this.onTap,
-    required this.filled,
-    this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final filledColor = color ?? _kAiColor;
-    return Material(
-      color: filled ? filledColor : Colors.white.withValues(alpha: 0.7),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: filled
-            ? BorderSide.none
-            : BorderSide(
-                color: const Color(0xFF8475C2).withValues(alpha: 0.20),
-              ),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                size: 20,
-                color: filled ? Colors.white : const Color(0xFF5E4F7A),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                label,
-                style: TextStyle(
-                  color: filled ? Colors.white : const Color(0xFF3A2D55),
-                  fontWeight: FontWeight.w800,
-                  fontSize: 16,
-                  letterSpacing: 0.4,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
