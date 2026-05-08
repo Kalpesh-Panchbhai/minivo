@@ -34,6 +34,9 @@ class GenericGameResultScreen extends StatelessWidget {
   final String? subtitle;
   final String badgeContent;
   final Color badgeColor;
+  /// When set, replaces the text/emoji badge with a custom widget
+  /// (e.g. the game's logo).
+  final Widget? badgeChild;
   final Widget? statsWidget;
   final List<GameResultAction> actions;
   final List<Color>? gradientColors;
@@ -46,6 +49,7 @@ class GenericGameResultScreen extends StatelessWidget {
     this.subtitle,
     required this.badgeContent,
     required this.badgeColor,
+    this.badgeChild,
     this.statsWidget,
     required this.actions,
     this.gradientColors,
@@ -90,15 +94,16 @@ class GenericGameResultScreen extends StatelessWidget {
                 ],
               ),
               child: Center(
-                child: Text(
-                  badgeContent,
-                  style: TextStyle(
-                    color: badgeColor,
-                    fontSize: 92,
-                    fontWeight: FontWeight.w900,
-                    height: 1,
-                  ),
-                ),
+                child: badgeChild ??
+                    Text(
+                      badgeContent,
+                      style: TextStyle(
+                        color: badgeColor,
+                        fontSize: 92,
+                        fontWeight: FontWeight.w900,
+                        height: 1,
+                      ),
+                    ),
               ),
             )
                 .animate()

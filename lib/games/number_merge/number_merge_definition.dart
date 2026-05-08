@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../framework/game_definition.dart';
+import '../framework/game_session.dart';
+import '../shared/generic_game_result_screen.dart' as game_result;
 import '../../core/models/game_info.dart';
 import 'number_merge_logo.dart';
 import 'number_merge_screen.dart';
@@ -62,6 +64,30 @@ final numberMergeGame = GameDefinition(
   screenBuilder: () => const NumberMergeScreen(),
   logoBuilder: build2048Logo,
   tutorialSteps: numberMergeSteps,
+  boardBuilder: _buildBoard,
+  bgPainterBuilder: _buildBg,
+  resultStatsBuilder: _buildResultStats,
 );
+
+Widget _buildBoard(GameSession session) =>
+    NumberMergeBoard(session: session);
+
+MergeBgPainter _buildBg(double t) => MergeBgPainter(t);
+
+Widget _buildResultStats(GameSession session, DifficultyDef diff) =>
+    game_result.GameResultStatsRow(
+      stats: [
+        game_result.StatItem(
+          label: 'SCORE',
+          value: session.currentScore,
+          color: diff.color,
+        ),
+        game_result.StatItem(
+          label: 'BEST',
+          value: session.bestScore,
+          color: const Color(0xFF8B7BA7),
+        ),
+      ],
+    );
 
 String _pts(int s) => '$s pts';

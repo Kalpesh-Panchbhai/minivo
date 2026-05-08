@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../framework/game_definition.dart';
+import '../framework/game_session.dart';
 import '../../core/models/game_info.dart';
 import 'memory_match_logo.dart';
 import 'memory_match_screen.dart';
@@ -59,6 +60,13 @@ final memoryMatchGame = GameDefinition(
   screenBuilder: () => const MemoryMatchScreen(),
   logoBuilder: buildMemoryMatchLogo,
   tutorialSteps: memoryMatchSteps,
+  boardBuilder: _buildMemoryMatchBoard,
+  bgPainterBuilder: _buildMemoryMatchBg,
 );
+
+Widget _buildMemoryMatchBoard(GameSession session) =>
+    MemoryMatchBoard(session: session);
+
+MemoryMatchBgPainter _buildMemoryMatchBg(double t) => MemoryMatchBgPainter(t);
 
 String _pts(int s) => '$s pts';

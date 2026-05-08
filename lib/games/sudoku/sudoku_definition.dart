@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../framework/game_definition.dart';
+import '../framework/game_session.dart';
+import '../shared/generic_game_result_screen.dart' as game_result;
 import '../../core/models/game_info.dart';
 import 'sudoku_logo.dart';
 import 'sudoku_screen.dart';
@@ -76,4 +78,32 @@ final sudokuGame = GameDefinition(
   screenBuilder: () => const SudokuScreen(),
   logoBuilder: buildSudokuLogo,
   tutorialSteps: sudokuSteps,
+  boardBuilder: _buildSudokuBoard,
+  scoreDisplay: _scoreDisplay,
+  bgPainterBuilder: _buildSudokuBg,
+  resultStatsBuilder: _buildSudokuResultStats,
 );
+
+Widget _buildSudokuBoard(GameSession session) =>
+    SudokuBoard(session: session);
+
+SudokuBgPainter _buildSudokuBg(double t) => SudokuBgPainter(t);
+
+final ScoreDisplay _scoreDisplay =
+    ScoreDisplay.timeAndMistakes(maxScore: _kSudokuMaxScore);
+
+Widget _buildSudokuResultStats(GameSession session, DifficultyDef diff) =>
+    game_result.GameResultStatsRow(
+      stats: [
+        game_result.StatItem(
+          label: 'TIME',
+          value: session.elapsedTime.inSeconds,
+          color: diff.color,
+        ),
+        game_result.StatItem(
+          label: 'MISTAKES',
+          value: session.mistakes,
+          color: const Color(0xFFEF4444),
+        ),
+      ],
+    );

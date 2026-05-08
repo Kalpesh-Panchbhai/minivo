@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../framework/game_definition.dart';
+import '../framework/game_session.dart';
+import '../shared/generic_game_result_screen.dart' as game_result;
 import '../../core/models/game_info.dart';
 import 'flappy_tap_logo.dart';
 import 'flappy_tap_screen.dart';
@@ -60,6 +62,42 @@ final flappyTapGame = GameDefinition(
   screenBuilder: () => const FlappyTapScreen(),
   logoBuilder: buildFlappyTapLogo,
   tutorialSteps: flappyTapSteps,
+  boardBuilder: _buildFlappyTapBoard,
+  bgPainterBuilder: _buildFlappyTapBg,
+  resultStatsBuilder: _buildFlappyTapResultStats,
 );
+
+Widget _buildFlappyTapBoard(GameSession session) =>
+    FlappyTapBoard(session: session);
+
+FlappyTapBgPainter _buildFlappyTapBg(double t) => FlappyTapBgPainter(t);
+
+Widget _buildFlappyTapResultStats(GameSession session, DifficultyDef diff) {
+  final pointsPerPipe = switch (diff.key) {
+    'easy' => 5,
+    'medium' => 10,
+    'hard' => 20,
+    _ => 10,
+  };
+  return game_result.GameResultStatsRow(
+    stats: [
+      game_result.StatItem(
+        label: 'SCORE',
+        value: session.currentScore,
+        color: diff.color,
+      ),
+      game_result.StatItem(
+        label: 'BEST',
+        value: session.bestScore,
+        color: const Color(0xFF8B7BA7),
+      ),
+      game_result.StatItem(
+        label: 'PIPES',
+        value: session.currentScore ~/ pointsPerPipe,
+        color: const Color(0xFF2AA39A),
+      ),
+    ],
+  );
+}
 
 String _pts(int s) => '$s pts';
