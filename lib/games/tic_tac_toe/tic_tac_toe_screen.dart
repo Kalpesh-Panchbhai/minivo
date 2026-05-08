@@ -1,183 +1,194 @@
 import 'dart:async';
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+
 import '../../core/multiplayer/player_strip.dart';
 import '../../core/services/audio_service.dart';
 import '../../core/services/score_service.dart';
-import '../../core/widgets/how_to_play_sheet.dart';
-import '../game_picker_scaffold.dart';
-import '../game_registry.dart';
-import '../game_wrapper.dart';
+import '../framework/game_definition.dart';
+import '../framework/game_scaffold.dart';
+import '../framework/game_session.dart';
 import '../shared/animated_background.dart';
 import '../shared/animated_difficulty_icon.dart';
-import '../shared/game_control_buttons.dart';
-import '../shared/game_hud_bar.dart';
-import '../shared/game_difficulty_picker.dart';
-import 'tic_tac_toe_stats.dart';
-import 'tic_tac_toe_tutorial.dart';
 import '../shared/generic_game_result_screen.dart' as game_result;
+import 'tic_tac_toe_definition.dart';
+import 'tic_tac_toe_stats.dart';
+
+// Re-export so other files can keep importing this file for the game id /
+// sub-key constants.
+export 'tic_tac_toe_stats.dart'
+    show
+        kTicTacToeGameId,
+        kTicTacToeSubKeyEasy,
+        kTicTacToeSubKeyMedium,
+        kTicTacToeSubKeyHard;
 
 /// Test-only override for the very first starter pick of a session.
 /// `'X'` or `'O'` to force; `null` to use the regular random pick.
 @visibleForTesting
 String? debugFirstStarter;
 
-// ── Player accent colors (softened, candy-pastel feel) ─────────────────────
-const Color _kXColor = Color(0xFFE85D75);   // soft coral red
-const Color _kOColor = Color(0xFF5BC0DE);   // soft sky cyan
-const Color _kDrawColor = Color(0xFFB6A5DD); // soft lilac
+// ── Player accent colors ──────────────────────────────────────────────────
+const Color _kXColor = Color(0xFFE85D75);
+const Color _kOColor = Color(0xFF5BC0DE);
+const Color _kDrawColor = Color(0xFFB6A5DD);
 
-// ── Mode buttons ──────────────────────────────────────────────────────────
-const Color _kAiColor = Color(0xFF6C4EF3);     // vibrant indigo
-// ── Design tokens ─────────────────────────────────────────────────────────
-const Color _kBgTop    = Color(0xFFFFF9F5);   // warm cream
-const Color _kBgBot    = Color(0xFFF8F5FF);   // pale lavender
+const Color _kAiColor = Color(0xFF6C4EF3);
 
-// ── Board ambient tints ────────────────────────────────────────────────────
-// Neutral-warm baseline, leaning warm on X turn and cool on O turn.
+// ── Board ambient tints ───────────────────────────────────────────────────
 const Color _kTintNeutralTop = Color(0xFFFDEFE3);
 const Color _kTintNeutralBot = Color(0xFFFADFD0);
-const Color _kTintWarmTop = Color(0xFFFFE0D8);     // X turn (warm coral)
+const Color _kTintWarmTop = Color(0xFFFFE0D8);
 const Color _kTintWarmBot = Color(0xFFFFC9C0);
-const Color _kTintCoolTop = Color(0xFFDDEEF5);     // O turn (cool cyan)
+const Color _kTintCoolTop = Color(0xFFDDEEF5);
 const Color _kTintCoolBot = Color(0xFFC2DEEC);
 
-enum _Mode { ai, twoPlayer }
+// ════════════════════════════════════════════════════════════════
+// Cross-session series state — preserves win counts and streak across
+// "Play Again" without baking them into the per-session GameSession
+// (which is recreated each time). Resets when the (mode, difficulty)
+// signature changes between sessions.
+// ════════════════════════════════════════════════════════════════
+class _TttSeries {
+  String? signature;
+  int xWins = 0;
+  int oWins = 0;
+  int draws = 0;
+  int streak = 0;
+  String? streakOwner;
+  bool firstRoundOfSession = true;
 
-enum _Difficulty { easy, medium, hard }
+  void resetFor(String sig) {
+    signature = sig;
+    xWins = 0;
+    oWins = 0;
+    draws = 0;
+    streak = 0;
+    streakOwner = null;
+    firstRoundOfSession = true;
+  }
+}
 
-class TicTacToeScreen extends StatefulWidget {
+final _TttSeries _series = _TttSeries();
+
+// ════════════════════════════════════════════════════════════════
+// Root — thin wrapper around GameScaffold
+// ════════════════════════════════════════════════════════════════
+
+class TicTacToeScreen extends StatelessWidget {
   const TicTacToeScreen({super.key});
 
   @override
-  State<TicTacToeScreen> createState() => _TicTacToeScreenState();
+  Widget build(BuildContext context) =>
+      GameScaffold(definition: ticTacToeGame);
 }
 
-class _TicTacToeScreenState extends State<TicTacToeScreen>
-    with TickerProviderStateMixin {
-  // Mode + difficulty
-  _Mode? _mode;
-  _Difficulty _difficulty = _Difficulty.medium;
+// ════════════════════════════════════════════════════════════════
+// Board — playing-state widget driven by GameSession
+// ════════════════════════════════════════════════════════════════
 
-  // ────────────────────────────────────────────────────────
+class TicTacToeBoard extends StatefulWidget {
+  final GameSession session;
+  const TicTacToeBoard({required this.session, super.key});
+
+  @override
+  State<TicTacToeBoard> createState() => _TicTacToeBoardState();
+}
+
+class _TicTacToeBoardState extends State<TicTacToeBoard>
+    with TickerProviderStateMixin {
   // Per-round state
-  // ────────────────────────────────────────────────────────
   List<String> _board = List.filled(9, '');
   String _currentPlayer = 'X';
-  String? _winner; // 'X' / 'O' / null (draw or in-progress)
+  String? _winner;
   List<int> _winLine = [];
   bool _aiThinking = false;
   bool _roundOver = false;
-  bool _showWinBanner = false;
   String? _bannerLabel;
   Color _bannerColor = _kDrawColor;
-
-  // ────────────────────────────────────────────────────────
-  // Persistent session score (resets only on mode change)
-  // ────────────────────────────────────────────────────────
-  int _xWins = 0;
-  int _oWins = 0;
-  int _draws = 0;
-
-  // Win streak (resets on loss/draw/mode change). Owner = 'X' or 'O'.
-  int _streak = 0;
-  String? _streakOwner;
-  bool _showStreakBadge = false;
-
-  // Who starts the next round. Random for the very first round of a session,
-  // then strictly alternates. Symbols stay fixed (X = human / P1, O = AI / P2).
-  String _starter = 'X';
-  // True only for the very first round after entering a mode (so we randomise).
-  bool _firstRoundOfSession = true;
-
-  // Win celebration burst.
   bool _celebrating = false;
+  bool _showStreakBadge = false;
+  bool _wasNewBest = false;
+  bool _showResult = false;
 
-  // Favorite
-  bool _isFavorite = false;
-  static const _gameId = kTicTacToeGameId;
+  // Round starter
+  String _starter = 'X';
 
-  // Animations
   late final AnimationController _winLineCtrl;
-
   final _audio = AudioService();
   final _rng = math.Random();
-  // Pending AI move / win-banner timers — cancelled on dispose so test
-  // teardown does not see "Timer still pending" warnings.
   Timer? _aiMoveTimer;
-  Timer? _endGameTimer;
+  Timer? _endRoundTimer;
+  StreamSubscription<void>? _restartSub;
+
+  bool get _isAi => widget.session.players.mode == PlayerMode.vsAI;
+  DifficultyDef get _diff => widget.session.difficulty;
 
   @override
   void initState() {
     super.initState();
-    _isFavorite = ScoreService().isFavorite(_gameId);
     _winLineCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 350),
     );
+
+    // Maintain or reset the cross-session streak/wins counter based on
+    // the active mode + difficulty signature.
+    final sig = '${_isAi ? 'ai' : 'friend'}|${_diff.key}';
+    if (_series.signature != sig) {
+      _series.resetFor(sig);
+    }
+    _publishSessionScore();
+
+    // React to "Play Again" signals from the framework.
+    _restartSub = widget.session.restartSignal.listen((_) {
+      if (mounted) _resetBoardForNewRound();
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _resetBoardForNewRound();
+    });
   }
 
   @override
   void dispose() {
     _aiMoveTimer?.cancel();
-    _endGameTimer?.cancel();
+    _endRoundTimer?.cancel();
+    _restartSub?.cancel();
     _winLineCtrl.dispose();
     super.dispose();
   }
 
-  GameWrapperState get _wrapper => GameWrapper.of(context);
+  // ── Score syncing ────────────────────────────────────────────────────────
 
-  // ════════════════════════════════════════════════════════════════
-  // SESSION / FLOW
-  // ════════════════════════════════════════════════════════════════
+  /// Publish the active streak (vs-AI) or 0 (vs-Friend) to the session so
+  /// the framework's HUD + result screen + best-score persistence see it.
+  void _publishSessionScore() {
+    if (_isAi) {
+      // Streak is "current player's run of consecutive wins". For the
+      // BEST score we only care about the human (X) — but currentScore
+      // here mirrors any active streak so the HUD can show it. The
+      // framework persists `currentScore` to the active sub-key on
+      // completeGame(); we only call completeGame() when the human's
+      // streak is the active one (see _onWin), so AI runs never overwrite
+      // the human's best.
+      widget.session.updateScore(_series.streak);
+    } else {
+      widget.session.updateScore(0);
+    }
+    widget.session.setCustomData('p1Wins', _series.xWins);
+    widget.session.setCustomData('p2Wins', _series.oWins);
+    widget.session.setCustomData('draws', _series.draws);
+  }
 
-  void _selectMode(_Mode mode) {
+  // ── Round lifecycle ──────────────────────────────────────────────────────
+
+  void _resetBoardForNewRound() {
     setState(() {
-      _mode = mode;
-      _xWins = 0;
-      _oWins = 0;
-      _draws = 0;
-      _streak = 0;
-      _streakOwner = null;
-      _showStreakBadge = false;
-      // First round of a fresh session — randomise who starts.
-      _firstRoundOfSession = true;
-    });
-    _resetBoardForNewRound();
-    _wrapper.startGame();
-  }
-
-  void _changeMode() {
-    setState(() {
-      _mode = null;
-      _xWins = 0;
-      _oWins = 0;
-      _draws = 0;
-      _streak = 0;
-      _streakOwner = null;
-      _showStreakBadge = false;
-      _firstRoundOfSession = true;
-      _resetBoardForNewRound(notify: false);
-    });
-    _wrapper.restartGame();
-  }
-
-  void _playAgainSameMode() {
-    _resetBoardForNewRound();
-    _wrapper.restartGame();
-    _wrapper.startGame();
-  }
-
-  /// Rebuilds the board for a new round and decides who starts.
-  /// Rule: on the very first round of a session pick randomly; after that,
-  /// strictly alternate the starter from the previous round.
-  void _resetBoardForNewRound({bool notify = true}) {
-    void apply() {
-      // Decide starter for this new round.
-      if (_firstRoundOfSession) {
+      if (_series.firstRoundOfSession) {
         _starter = debugFirstStarter ?? (_rng.nextBool() ? 'X' : 'O');
-        _firstRoundOfSession = false;
+        _series.firstRoundOfSession = false;
       } else {
         _starter = (_starter == 'X') ? 'O' : 'X';
       }
@@ -187,59 +198,23 @@ class _TicTacToeScreenState extends State<TicTacToeScreen>
       _winLine = [];
       _aiThinking = false;
       _roundOver = false;
-      _showWinBanner = false;
       _bannerLabel = null;
       _celebrating = false;
       _showStreakBadge = false;
+      _showResult = false;
+      _wasNewBest = false;
       _winLineCtrl.value = 0;
-    }
-    if (notify) {
-      setState(apply);
-    } else {
-      apply();
-    }
-    // If AI is starting, kick off its move.
-    if (_mode == _Mode.ai && _currentPlayer == 'O') {
+    });
+    if (_isAi && _currentPlayer == 'O') {
       _scheduleAiMove();
     }
   }
 
-  void _toggleFavorite() {
-    setState(() {
-      _isFavorite = !_isFavorite;
-      ScoreService().toggleFavorite(_gameId);
-    });
-    _audio.playTap();
-  }
-
-  void _backOrHome() {
-    if (context.canPop()) {
-      context.pop();
-    } else {
-      context.go('/home');
-    }
-  }
-
-  void _showHowToPlay(BuildContext context) {
-    final game = GameRegistry.getById(_gameId);
-    if (game == null) return;
-    showHowToPlaySheet(
-      context,
-      title: game.name,
-      howToPlay: game.howToPlay,
-      accent: _kAiColor,
-      steps: ticTacToeSteps(),
-    );
-  }
-
-  // ════════════════════════════════════════════════════════════════
-  // GAMEPLAY
-  // ════════════════════════════════════════════════════════════════
+  // ── Gameplay ─────────────────────────────────────────────────────────────
 
   void _onCellTap(int index) {
     if (_roundOver || _board[index].isNotEmpty) return;
-    // In AI mode the human controls only X. Block taps during AI's turn.
-    if (_mode == _Mode.ai && (_aiThinking || _currentPlayer != 'X')) return;
+    if (_isAi && (_aiThinking || _currentPlayer != 'X')) return;
 
     setState(() {
       _board[index] = _currentPlayer;
@@ -260,19 +235,17 @@ class _TicTacToeScreenState extends State<TicTacToeScreen>
       _currentPlayer = _currentPlayer == 'X' ? 'O' : 'X';
     });
 
-    if (_mode == _Mode.ai && _currentPlayer == 'O') {
+    if (_isAi && _currentPlayer == 'O') {
       _scheduleAiMove();
     }
   }
 
   void _scheduleAiMove() {
     setState(() => _aiThinking = true);
-    // Pause long enough for the user to feel the turn-aware tint cross-fade
-    // (which animates over ~420 ms) before the AI actually plays.
-    final thinkMs = switch (_difficulty) {
-      _Difficulty.easy => 700,
-      _Difficulty.medium => 900,
-      _Difficulty.hard => 1100,
+    final thinkMs = switch (_diff.kind) {
+      DifficultyKind.easy => 700,
+      DifficultyKind.medium => 900,
+      DifficultyKind.hard => 1100,
     };
     _aiMoveTimer?.cancel();
     _aiMoveTimer = Timer(Duration(milliseconds: thinkMs), () {
@@ -297,17 +270,13 @@ class _TicTacToeScreenState extends State<TicTacToeScreen>
   }
 
   int _pickAiMove() {
-    switch (_difficulty) {
-      case _Difficulty.easy:
-        // 70% random, 30% smart — beatable by anyone.
+    switch (_diff.kind) {
+      case DifficultyKind.easy:
         if (_rng.nextDouble() < 0.7) return _randomMove();
         return _smartMove(useMinimax: false);
-      case _Difficulty.medium:
+      case DifficultyKind.medium:
         return _smartMove(useMinimax: false);
-      case _Difficulty.hard:
-        // Hard: mostly optimal play, but with a 25% chance of choosing
-        // a "smart but not perfect" heuristic move. This keeps Hard
-        // genuinely challenging while still letting a clever player win.
+      case DifficultyKind.hard:
         if (_rng.nextDouble() < 0.25) {
           return _smartMove(useMinimax: false);
         }
@@ -324,26 +293,19 @@ class _TicTacToeScreenState extends State<TicTacToeScreen>
   }
 
   int _smartMove({required bool useMinimax}) {
-    // 1) Win if possible.
     final win = _findMoveThatCompletes('O');
     if (win != null) return win;
-    // 2) Block opponent's winning move.
     final block = _findMoveThatCompletes('X');
     if (block != null) return block;
 
-    if (useMinimax) {
-      return _minimaxBestMove();
-    }
+    if (useMinimax) return _minimaxBestMove();
 
-    // 3) Take center.
     if (_board[4].isEmpty) return 4;
-    // 4) Take a corner.
     const corners = [0, 2, 6, 8];
     final freeCorners = corners.where((i) => _board[i].isEmpty).toList();
     if (freeCorners.isNotEmpty) {
       return freeCorners[_rng.nextInt(freeCorners.length)];
     }
-    // 5) Side.
     return _randomMove();
   }
 
@@ -359,7 +321,6 @@ class _TicTacToeScreenState extends State<TicTacToeScreen>
     return null;
   }
 
-  // Minimax with alpha-beta. O is maximizer, X is minimizer.
   int _minimaxBestMove() {
     int bestScore = -1000;
     int bestMove = _randomMove();
@@ -412,9 +373,9 @@ class _TicTacToeScreenState extends State<TicTacToeScreen>
   }
 
   static const _winningLines = <List<int>>[
-    [0, 1, 2], [3, 4, 5], [6, 7, 8], // rows
-    [0, 3, 6], [1, 4, 7], [2, 5, 8], // cols
-    [0, 4, 8], [2, 4, 6], // diagonals
+    [0, 1, 2], [3, 4, 5], [6, 7, 8],
+    [0, 3, 6], [1, 4, 7], [2, 5, 8],
+    [0, 4, 8], [2, 4, 6],
   ];
 
   List<int>? _findWinningLine(String player) {
@@ -426,154 +387,222 @@ class _TicTacToeScreenState extends State<TicTacToeScreen>
 
   bool _isBoardFull() => !_board.contains('');
 
-  // Maps the active AI difficulty to the persistent best-streak sub-key.
-  // Returns null in pass-and-play mode — we don't persist anything there
-  // (per product rule: "best is always against AI for all levels").
-  String? _aiSubKey() {
-    if (_mode != _Mode.ai) return null;
-    switch (_difficulty) {
-      case _Difficulty.easy:
-        return kTicTacToeSubKeyEasy;
-      case _Difficulty.medium:
-        return kTicTacToeSubKeyMedium;
-      case _Difficulty.hard:
-        return kTicTacToeSubKeyHard;
-    }
-  }
-
-  /// True when the player just achieved a new best-streak on the current
-  /// difficulty. Used by the win banner / game-over screen to celebrate.
-  bool _wasNewBest = false;
+  // ── Round outcome ────────────────────────────────────────────────────────
 
   void _onWin(List<int> line, String player) {
-    final isAi = _mode == _Mode.ai;
     setState(() {
       _winLine = line;
       _winner = player;
       _roundOver = true;
-      _showWinBanner = true;
       _celebrating = true;
       if (player == 'X') {
-        _xWins++;
-        _bannerLabel = isAi ? 'You Win!' : 'Player 1 Wins!';
+        _series.xWins++;
+        _bannerLabel = _isAi ? 'You Win!' : 'Player 1 Wins!';
         _bannerColor = _kXColor;
       } else {
-        _oWins++;
-        _bannerLabel = isAi ? 'AI Wins!' : 'Player 2 Wins!';
+        _series.oWins++;
+        _bannerLabel = _isAi ? 'AI Wins!' : 'Player 2 Wins!';
         _bannerColor = _kOColor;
       }
-      // Streak: continues if same owner, otherwise restarts at 1.
-      if (_streakOwner == player) {
-        _streak++;
+      if (_series.streakOwner == player) {
+        _series.streak++;
       } else {
-        _streakOwner = player;
-        _streak = 1;
+        _series.streakOwner = player;
+        _series.streak = 1;
       }
-      _showStreakBadge = _streak >= 2;
+      _showStreakBadge = _series.streak >= 2;
     });
 
-    // Persist the player's streak as the new "best" for the active
-    // difficulty whenever it surpasses the previous best. We never persist
-    // anything for AI wins, draws, or two-player rounds.
-    if (isAi && player == 'X') {
-      final subKey = _aiSubKey();
-      if (subKey != null) {
-        ScoreService()
-            .saveScore(_gameId, _streak, subKey: subKey)
-            .then((isNew) {
-          if (mounted && isNew) setState(() => _wasNewBest = true);
-        });
-      }
-    } else {
-      _wasNewBest = false;
-    }
-
+    _publishSessionScore();
     _winLineCtrl.forward(from: 0);
     _audio.playSuccess();
-    _endGameTimer?.cancel();
-    _endGameTimer = Timer(const Duration(milliseconds: 1700), () {
-      if (mounted) _wrapper.endGame();
+
+    // For vs-AI human wins, detect new best vs the previous stored best
+    // before completeGame() persists the new score.
+    if (_isAi && player == 'X' && _series.streak > widget.session.bestScore) {
+      _wasNewBest = true;
+    }
+
+    // Persist the new streak as the best score for this difficulty so it
+    // survives across app launches (in addition to whatever the framework
+    // does on completeGame()).
+    if (_isAi && player == 'X') {
+      ScoreService().saveScore(
+        kTicTacToeGameId,
+        _series.streak,
+        subKey: _diff.key,
+      );
+    }
+
+    _endRoundTimer?.cancel();
+    _endRoundTimer = Timer(const Duration(milliseconds: 1700), () {
+      if (mounted) _showRoundResult();
     });
   }
 
   void _onDraw() {
     setState(() {
       _winner = null;
-      _wasNewBest = false;
-      // Draw breaks any active streak.
-      _streak = 0;
-      _streakOwner = null;
+      _series.draws++;
+      _series.streak = 0;
+      _series.streakOwner = null;
       _showStreakBadge = false;
       _roundOver = true;
-      _showWinBanner = true;
-      _draws++;
       _bannerLabel = "It's a Draw!";
       _bannerColor = _kDrawColor;
     });
-    _endGameTimer?.cancel();
-    _endGameTimer = Timer(const Duration(milliseconds: 1500), () {
-      if (mounted) _wrapper.endGame();
+    _publishSessionScore();
+
+    _endRoundTimer?.cancel();
+    _endRoundTimer = Timer(const Duration(milliseconds: 1500), () {
+      if (mounted) _showRoundResult();
     });
   }
 
-  // ════════════════════════════════════════════════════════════════
-  // BUILD ROOT
-  // ════════════════════════════════════════════════════════════════
+  void _showRoundResult() {
+    setState(() => _showResult = true);
+  }
+
+  void _playAgainSameMode() {
+    _resetBoardForNewRound();
+  }
+
+  // ── Build ────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
-    final state = _wrapper.state;
-
-    if (state == GameState.ready || _mode == null) {
-      return _ModePickerScreen(
-        difficulty: _difficulty,
-        onDifficultyChanged: (d) => setState(() => _difficulty = d),
-        isFavorite: _isFavorite,
-        onFavoriteToggle: _toggleFavorite,
-        onBack: _backOrHome,
-        onPlayAi: () => _selectMode(_Mode.ai),
-        onPlayFriend: () => _selectMode(_Mode.twoPlayer),
-        onHelp: () => _showHowToPlay(context),
-      );
+    if (_showResult) {
+      return _buildRoundResult();
     }
+    return _buildBoard();
+  }
 
-    if (state == GameState.gameOver) {
-      return _buildWinnerScreen();
-    }
+  Widget _buildBoard() {
+    final isXTurn = _currentPlayer == 'X';
+    final topColor = (_bannerLabel != null)
+        ? _kTintNeutralTop
+        : (isXTurn ? _kTintWarmTop : _kTintCoolTop);
+    final botColor = (_bannerLabel != null)
+        ? _kTintNeutralBot
+        : (isXTurn ? _kTintWarmBot : _kTintCoolBot);
 
-    // Playing or paused — render the in-game board.
-    return _BoardScreen(
-      board: _board,
-      currentPlayer: _currentPlayer,
-      mode: _mode!,
-      difficulty: _difficulty,
-      xWins: _xWins,
-      oWins: _oWins,
-      aiThinking: _aiThinking,
-      winLine: _winLine,
-      winLineCtrl: _winLineCtrl,
-      bannerLabel: _showWinBanner ? _bannerLabel : null,
-      bannerColor: _bannerColor,
-      celebrating: _celebrating,
-      streak: _streak,
-      showStreakBadge: _showStreakBadge,
-      onCellTap: _onCellTap,
-      onBack: _backOrHome,
-      onRestart: _playAgainSameMode,
+    return TweenAnimationBuilder<Color?>(
+      duration: const Duration(milliseconds: 420),
+      curve: Curves.easeOut,
+      tween: ColorTween(end: topColor),
+      builder: (context, animTop, _) {
+        return TweenAnimationBuilder<Color?>(
+          duration: const Duration(milliseconds: 420),
+          curve: Curves.easeOut,
+          tween: ColorTween(end: botColor),
+          builder: (context, animBot, _) {
+            return Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [animTop ?? topColor, animBot ?? botColor],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
+              ),
+              child: Column(
+                children: [
+                  // Optional streak badge
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 260),
+                    curve: Curves.easeOutCubic,
+                    child: _showStreakBadge
+                        ? Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: _StreakBadge(streak: _series.streak),
+                          )
+                        : const SizedBox.shrink(),
+                  ),
+                  const SizedBox(height: 8),
+                  // Opponent strip (top)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: PlayerStrip(
+                      label: _isAi ? 'AI' : 'P2',
+                      mark: 'O',
+                      color: _kOColor,
+                      isActive:
+                          _currentPlayer == 'O' && _bannerLabel == null,
+                      isThinking: _aiThinking,
+                      avatarIcon:
+                          _isAi ? Icons.smart_toy_rounded : null,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  // Board
+                  Expanded(
+                    child: Center(
+                      child: AspectRatio(
+                        aspectRatio: 1,
+                        child: Padding(
+                          padding:
+                              const EdgeInsets.symmetric(horizontal: 20),
+                          child: Stack(
+                            children: [
+                              _Board(
+                                board: _board,
+                                winLine: _winLine,
+                                winLineCtrl: _winLineCtrl,
+                                onCellTap: _onCellTap,
+                              ),
+                              if (_celebrating)
+                                Positioned.fill(
+                                  child: IgnorePointer(
+                                    child: _Confetti(color: _bannerColor),
+                                  ),
+                                ),
+                              if (_bannerLabel != null)
+                                Positioned.fill(
+                                  child: Center(
+                                    child: _WinBanner(
+                                      label: _bannerLabel!,
+                                      color: _bannerColor,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  // Local player strip (bottom)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: PlayerStrip(
+                      label: _isAi ? 'You' : 'P1',
+                      mark: 'X',
+                      color: _kXColor,
+                      isActive:
+                          _currentPlayer == 'X' && _bannerLabel == null,
+                      isThinking: false,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
-  Widget _buildWinnerScreen() {
-    final isAi = _mode == _Mode.ai;
+  Widget _buildRoundResult() {
     String headline;
     String big;
     Color bigColor;
     if (_winner == 'X') {
-      headline = isAi ? 'You Win!' : 'Player 1 Wins!';
+      headline = _isAi ? 'You Win!' : 'Player 1 Wins!';
       big = 'X';
       bigColor = _kXColor;
     } else if (_winner == 'O') {
-      headline = isAi ? 'AI Wins!' : 'Player 2 Wins!';
+      headline = _isAi ? 'AI Wins!' : 'Player 2 Wins!';
       big = 'O';
       bigColor = _kOColor;
     } else {
@@ -582,9 +611,10 @@ class _TicTacToeScreenState extends State<TicTacToeScreen>
       bigColor = _kDrawColor;
     }
 
-    final showStreak = _streak >= 2 && _streakOwner == _winner;
+    final showStreak =
+        _series.streak >= 2 && _series.streakOwner == _winner;
     final extraBadges = <Widget>[
-      if (showStreak) _StreakBadge(streak: _streak),
+      if (showStreak) _StreakBadge(streak: _series.streak),
       if (_wasNewBest) const _NewBestBadge(),
     ];
 
@@ -596,9 +626,21 @@ class _TicTacToeScreenState extends State<TicTacToeScreen>
       extraBadges: extraBadges,
       statsWidget: game_result.GameResultStatsRow(
         stats: [
-          game_result.StatItem(label: isAi ? 'YOU' : 'P1', value: _xWins, color: _kXColor),
-          game_result.StatItem(label: 'DRAWS', value: _draws, color: const Color(0xFF8B7BA7)),
-          game_result.StatItem(label: isAi ? 'AI' : 'P2', value: _oWins, color: _kOColor),
+          game_result.StatItem(
+            label: _isAi ? 'YOU' : 'P1',
+            value: _series.xWins,
+            color: _kXColor,
+          ),
+          game_result.StatItem(
+            label: 'DRAWS',
+            value: _series.draws,
+            color: const Color(0xFF8B7BA7),
+          ),
+          game_result.StatItem(
+            label: _isAi ? 'AI' : 'P2',
+            value: _series.oWins,
+            color: _kOColor,
+          ),
         ],
       ),
       actions: [
@@ -609,15 +651,138 @@ class _TicTacToeScreenState extends State<TicTacToeScreen>
           filled: true,
           color: _kAiColor,
         ),
-        game_result.GameResultAction(
-          label: 'Change Mode',
-          icon: Icons.swap_horiz_rounded,
-          onTap: _changeMode,
+      ],
+    );
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// Custom HUD score pill — shows X vs O wins with difficulty / mode tab
+// ════════════════════════════════════════════════════════════════
+
+class TicTacToeScorePill extends StatelessWidget {
+  final GameSession session;
+  const TicTacToeScorePill({required this.session, super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final isAi = session.players.mode == PlayerMode.vsAI;
+    final diff = session.difficulty;
+    final leftLabel = isAi ? 'YOU' : 'P1';
+    final rightLabel = isAi ? 'AI' : 'P2';
+    final tabLabel = isAi ? diff.label : 'PASS & PLAY';
+    final tabColor = isAi ? diff.color : const Color(0xFF8475C2);
+
+    final xWins = session.getCustomData<int>('p1Wins') ?? 0;
+    final oWins = session.getCustomData<int>('p2Wins') ?? 0;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+          decoration: BoxDecoration(
+            color: tabColor,
+            borderRadius:
+                const BorderRadius.vertical(top: Radius.circular(10)),
+            boxShadow: [
+              BoxShadow(
+                color: tabColor.withValues(alpha: 0.30),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (isAi) ...[
+                AnimatedDifficultyIcon(
+                  kind: diff.kind,
+                  size: 14,
+                  prominent: false,
+                ),
+                const SizedBox(width: 6),
+              ],
+              Text(
+                tabLabel,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.4,
+                ),
+              ),
+            ],
+          ),
         ),
-        game_result.GameResultAction(
-          label: 'Home',
-          icon: Icons.home_rounded,
-          onTap: _backOrHome,
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF8475C2).withValues(alpha: 0.18),
+                blurRadius: 12,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              _scoreColumn(leftLabel, xWins, _kXColor),
+              const SizedBox(width: 14),
+              const Text(
+                'VS',
+                style: TextStyle(
+                  color: Color(0xFF8B7BA7),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              const SizedBox(width: 14),
+              _scoreColumn(rightLabel, oWins, _kOColor),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _scoreColumn(String label, int value, Color color) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: color,
+            fontSize: 11,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1.2,
+          ),
+        ),
+        const SizedBox(height: 2),
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 280),
+          transitionBuilder: (child, anim) => ScaleTransition(
+            scale: CurvedAnimation(parent: anim, curve: Curves.easeOutBack),
+            child: FadeTransition(opacity: anim, child: child),
+          ),
+          child: Text(
+            '$value',
+            key: ValueKey<int>(value),
+            style: TextStyle(
+              color: color,
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+              height: 1,
+            ),
+          ),
         ),
       ],
     );
@@ -625,93 +790,11 @@ class _TicTacToeScreenState extends State<TicTacToeScreen>
 }
 
 // ════════════════════════════════════════════════════════════════
-// MODE PICKER SCREEN — themed hero panel + card with controls
+// Animated TTT picker background
 // ════════════════════════════════════════════════════════════════
 
-class _ModePickerScreen extends StatelessWidget {
-  final _Difficulty difficulty;
-  final ValueChanged<_Difficulty> onDifficultyChanged;
-  final bool isFavorite;
-  final VoidCallback onFavoriteToggle;
-  final VoidCallback onBack;
-  final VoidCallback onPlayAi;
-  final VoidCallback onPlayFriend;
-  final VoidCallback onHelp;
-
-  const _ModePickerScreen({
-    required this.difficulty,
-    required this.onDifficultyChanged,
-    required this.isFavorite,
-    required this.onFavoriteToggle,
-    required this.onBack,
-    required this.onPlayAi,
-    required this.onPlayFriend,
-    required this.onHelp,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GamePickerScaffold(
-      bgColorTop: _kBgTop,
-      bgColorBottom: _kBgBot,
-      animatedBg: AnimatedBackground(
-        factory: (t) => _TttBackgroundPainter(t),
-        period: const Duration(seconds: 9),
-      ),
-      iconRingColors: const [Color(0xFF6C4EF3), Color(0xFFFF5A5F), Color(0xFF6C4EF3)],
-      iconChild: Builder(builder: (ctx) {
-        final info = GameRegistry.getById(kTicTacToeGameId);
-        final logo = info?.buildBrandedLogo(size: 84);
-        if (logo != null) {
-          return ClipRRect(
-            borderRadius: BorderRadius.circular(42),
-            child: logo,
-          );
-        }
-        return const Icon(Icons.close_rounded, size: 40, color: Color(0xFF6C4EF3));
-      }),
-      title: 'Tic Tac Toe',
-      subtitle: 'Three in a row wins.',
-      onBack: onBack,
-      isFavorite: isFavorite,
-      onFavoriteToggle: onFavoriteToggle,
-      onHowToPlay: onHelp,
-      tallThreshold: 860,
-      body: GameAiPickerBody(
-        difficulties: _Difficulty.values.map((d) {
-          final meta = _difficultyMeta(d);
-          final subKey = switch (d) {
-            _Difficulty.easy => kTicTacToeSubKeyEasy,
-            _Difficulty.medium => kTicTacToeSubKeyMedium,
-            _Difficulty.hard => kTicTacToeSubKeyHard,
-          };
-          return GameDifficultyData(
-            label: meta.label,
-            color: meta.color,
-            kind: _kindFor(d),
-            hint: switch (d) {
-              _Difficulty.easy => 'Mostly random — easy to beat.',
-              _Difficulty.medium => 'Plays smart but not perfect.',
-              _Difficulty.hard => 'Plays sharp — clever players can still win.',
-            },
-            bestScore: bestStreak(subKey),
-            bestLabel: (s) => 'Best $s in a row',
-          );
-        }).toList(),
-        activeIndex: _Difficulty.values.indexOf(difficulty),
-        onChanged: (i) => onDifficultyChanged(_Difficulty.values[i]),
-        onPlayAi: onPlayAi,
-        onPlayFriend: onPlayFriend,
-      ),
-    );
-  }
-}
-
-
-/// Animated TTT background — X's, O's and mini-grids gently bob and rotate
-/// with phase-offset sine waves so the canvas feels alive without distracting.
-class _TttBackgroundPainter extends AnimatedBgPainter {
-  const _TttBackgroundPainter(super.t);
+class TicTacToeBgPainter extends AnimatedBgPainter {
+  const TicTacToeBgPainter(super.t);
 
   @override
   void paintAt(Canvas canvas, Size size, double t) {
@@ -732,7 +815,7 @@ class _TttBackgroundPainter extends AnimatedBgPainter {
       ..style = PaintingStyle.stroke;
 
     void drawX(double cx, double cy, double r, double itemPhase) {
-      final rot = math.sin(phase + itemPhase) * 0.12; // slight tilt
+      final rot = math.sin(phase + itemPhase) * 0.12;
       canvas.save();
       canvas.translate(cx, cy);
       canvas.rotate(rot);
@@ -763,11 +846,7 @@ class _TttBackgroundPainter extends AnimatedBgPainter {
     final w = size.width;
     final h = size.height;
 
-    // Each item gets a different phase + a vertical bob so the cluster feels
-    // organic instead of moving in lock-step. Bob amplitude is tile-radius
-    // proportional so smaller marks barely shift.
     final items = [
-      // X marks: (xRel, yRel, radius, phase)
       ('x', 0.08, 0.12, 18.0, 0.0),
       ('x', 0.88, 0.08, 14.0, 0.7),
       ('x', 0.15, 0.55, 12.0, 1.4),
@@ -776,7 +855,6 @@ class _TttBackgroundPainter extends AnimatedBgPainter {
       ('x', 0.75, 0.90, 13.0, 3.5),
       ('x', 0.50, 0.04, 10.0, 4.2),
       ('x', 0.30, 0.95, 15.0, 4.9),
-      // O marks
       ('o', 0.82, 0.22, 16.0, 0.3),
       ('o', 0.10, 0.35, 14.0, 1.0),
       ('o', 0.93, 0.68, 18.0, 1.7),
@@ -796,236 +874,16 @@ class _TttBackgroundPainter extends AnimatedBgPainter {
       }
     }
 
-    // Mini grids
     drawMiniGrid(w * 0.70, h * 0.02 + math.sin(phase + 0.5) * 4, 48, 0.5);
     drawMiniGrid(w * 0.02, h * 0.90 + math.sin(phase + 2.5) * 3, 40, 2.5);
     drawMiniGrid(w * 0.78, h * 0.75 + math.sin(phase + 4.5) * 4, 36, 4.5);
   }
 }
 
-// ── Difficulty palette ─────────────────────────────────────────────────────
-const Color _kEasyColor   = Color(0xFF22C55E); // fresh green
-const Color _kMediumColor = Color(0xFFF59E0B); // amber
-const Color _kHardColor   = Color(0xFFEF4444); // vivid red
-
-_DifficultyMeta _difficultyMeta(_Difficulty d) => switch (d) {
-      _Difficulty.easy => const _DifficultyMeta(
-          label: 'EASY',
-          color: _kEasyColor,
-        ),
-      _Difficulty.medium => const _DifficultyMeta(
-          label: 'MEDIUM',
-          color: _kMediumColor,
-        ),
-      _Difficulty.hard => const _DifficultyMeta(
-          label: 'HARD',
-          color: _kHardColor,
-        ),
-    };
-
-DifficultyKind _kindFor(_Difficulty d) => switch (d) {
-      _Difficulty.easy => DifficultyKind.easy,
-      _Difficulty.medium => DifficultyKind.medium,
-      _Difficulty.hard => DifficultyKind.hard,
-    };
-
-class _DifficultyMeta {
-  final String label;
-  final Color color;
-  const _DifficultyMeta({
-    required this.label,
-    required this.color,
-  });
-}
-
 // ════════════════════════════════════════════════════════════════
-// BOARD SCREEN (playing state) — custom scoreboard HUD + grid
+// Streak / new-best badges, board, marks, win line, banner, confetti
 // ════════════════════════════════════════════════════════════════
 
-class _BoardScreen extends StatelessWidget {
-  final List<String> board;
-  final String currentPlayer;
-  final _Mode mode;
-  final _Difficulty difficulty;
-  final int xWins;
-  final int oWins;
-  final bool aiThinking;
-  final List<int> winLine;
-  final AnimationController winLineCtrl;
-  final String? bannerLabel;
-  final Color bannerColor;
-  final bool celebrating;
-  final int streak;
-  final bool showStreakBadge;
-  final ValueChanged<int> onCellTap;
-  final VoidCallback onBack;
-  final VoidCallback onRestart;
-
-  const _BoardScreen({
-    required this.board,
-    required this.currentPlayer,
-    required this.mode,
-    required this.difficulty,
-    required this.xWins,
-    required this.oWins,
-    required this.aiThinking,
-    required this.winLine,
-    required this.winLineCtrl,
-    required this.bannerLabel,
-    required this.bannerColor,
-    required this.celebrating,
-    required this.streak,
-    required this.showStreakBadge,
-    required this.onCellTap,
-    required this.onBack,
-    required this.onRestart,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    // Turn-aware ambient tint:
-    //   X turn → warm coral
-    //   O turn → cool cyan
-    //   Game over (no clear current turn) → neutral.
-    final isXTurn = currentPlayer == 'X';
-    final topColor = (bannerLabel != null)
-        ? _kTintNeutralTop
-        : (isXTurn ? _kTintWarmTop : _kTintCoolTop);
-    final botColor = (bannerLabel != null)
-        ? _kTintNeutralBot
-        : (isXTurn ? _kTintWarmBot : _kTintCoolBot);
-
-    return TweenAnimationBuilder<Color?>(
-      duration: const Duration(milliseconds: 420),
-      curve: Curves.easeOut,
-      tween: ColorTween(end: topColor),
-      builder: (context, animTop, _) {
-        return TweenAnimationBuilder<Color?>(
-          duration: const Duration(milliseconds: 420),
-          curve: Curves.easeOut,
-          tween: ColorTween(end: botColor),
-          builder: (context, animBot, _) {
-            return Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    animTop ?? topColor,
-                    animBot ?? botColor,
-                  ],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                ),
-              ),
-              child: SafeArea(
-                child: Column(
-                  children: [
-                    // Reserve enough top space for the floating tab above
-                    // the score pill so it doesn't clip under SafeArea.
-                    const SizedBox(height: 12),
-                    // Top bar: back button left + score pill centred + restart button right
-                    GameHudBar(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                      leading: GameBackButton(onTap: onBack),
-                      centerContent: _ScoreBoardPill(
-                        mode: mode,
-                        difficulty: difficulty,
-                        xWins: xWins,
-                        oWins: oWins,
-                      ),
-                      trailing: GameRestartButton(
-                        gameName: 'Tic Tac Toe',
-                        accentColor: _kAiColor,
-                        onRestart: onRestart,
-                      ),
-                    ),
-                    // Streak badge appears inline with a small AnimatedSize
-                    // so it doesn't reserve space on cramped screens
-                    // (e.g. 320 px tall landscape devices).
-                    AnimatedSize(
-                      duration: const Duration(milliseconds: 260),
-                      curve: Curves.easeOutCubic,
-                      child: showStreakBadge
-                          ? Padding(
-                              padding: const EdgeInsets.only(top: 6),
-                              child: _StreakBadge(streak: streak),
-                            )
-                          : const SizedBox.shrink(),
-                    ),
-                    const SizedBox(height: 8),
-                    // ── Opponent strip (top) ─────────────────────────────────
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: PlayerStrip(
-                        label: mode == _Mode.ai ? 'AI' : 'P2',
-                        mark: 'O',
-                        color: _kOColor,
-                        isActive: currentPlayer == 'O' && bannerLabel == null,
-                        isThinking: aiThinking,
-                        avatarIcon: mode == _Mode.ai ? Icons.smart_toy_rounded : null,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    // ── Game board ────────────────────────────────────────────
-                    Expanded(
-                      child: Center(
-                        child: AspectRatio(
-                          aspectRatio: 1,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 20),
-                            child: Stack(
-                              children: [
-                                _Board(
-                                  board: board,
-                                  winLine: winLine,
-                                  winLineCtrl: winLineCtrl,
-                                  onCellTap: onCellTap,
-                                ),
-                                if (celebrating)
-                                  Positioned.fill(
-                                    child: IgnorePointer(
-                                      child: _Confetti(color: bannerColor),
-                                    ),
-                                  ),
-                                if (bannerLabel != null)
-                                  Positioned.fill(
-                                    child: Center(
-                                      child: _WinBanner(
-                                        label: bannerLabel!,
-                                        color: bannerColor,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    // ── Local player strip (bottom) ───────────────────────────
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: PlayerStrip(
-                        label: mode == _Mode.ai ? 'You' : 'P1',
-                        mark: 'X',
-                        color: _kXColor,
-                        isActive: currentPlayer == 'X' && bannerLabel == null,
-                        isThinking: false,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-}
-
-// ── Streak badge (shown on board when streak >= 2) ─────────────────────────
 class _StreakBadge extends StatelessWidget {
   final int streak;
   const _StreakBadge({required this.streak});
@@ -1068,8 +926,6 @@ class _StreakBadge extends StatelessWidget {
   }
 }
 
-// ── New-best celebration chip (shown on the WinnerScreen when a player
-// streak surpasses the previous best for the active difficulty) ───────────
 class _NewBestBadge extends StatelessWidget {
   const _NewBestBadge();
 
@@ -1110,7 +966,6 @@ class _NewBestBadge extends StatelessWidget {
   }
 }
 
-// ── Confetti / radial burst on win ─────────────────────────────────────────
 class _Confetti extends StatefulWidget {
   final Color color;
   const _Confetti({required this.color});
@@ -1195,7 +1050,6 @@ class _ConfettiPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final maxR = size.shortestSide * 0.55;
-    // Eased outward motion + fade-out tail.
     final eased = Curves.easeOutCubic.transform(progress.clamp(0, 1));
     final alpha = (1 - progress).clamp(0.0, 1.0);
     for (final p in particles) {
@@ -1216,152 +1070,6 @@ class _ConfettiPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _ConfettiPainter oldDelegate) =>
       oldDelegate.progress != progress;
-}
-
-class _ScoreBoardPill extends StatelessWidget {
-  final _Mode mode;
-  final _Difficulty difficulty;
-  final int xWins;
-  final int oWins;
-
-  const _ScoreBoardPill({
-    required this.mode,
-    required this.difficulty,
-    required this.xWins,
-    required this.oWins,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isAi = mode == _Mode.ai;
-    final leftLabel = isAi ? 'YOU' : 'P1';
-    final rightLabel = isAi ? 'AI' : 'P2';
-    final isAiMode = isAi;
-    final meta = isAi ? _difficultyMeta(difficulty) : null;
-    final tabLabel = isAi ? meta!.label : 'PASS & PLAY';
-    final tabColor = isAi ? meta!.color : const Color(0xFF8475C2);
-
-    // Use a Column so the tab sits cleanly above the pill — previously a
-    // Stack overlapped the tab's lower half behind the pill, trimming letters
-    // like the descender on "MEDIUM".
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Difficulty / mode tab. Tinted with the difficulty colour so the
-        // user can see the active level even on the playing board.
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-          decoration: BoxDecoration(
-            color: tabColor,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
-            boxShadow: [
-              BoxShadow(
-                color: tabColor.withValues(alpha: 0.30),
-                blurRadius: 8,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (isAiMode) ...[
-                AnimatedDifficultyIcon(
-                  kind: _kindFor(difficulty),
-                  size: 14,
-                  prominent: false,
-                ),
-                const SizedBox(width: 6),
-              ],
-              Text(
-                tabLabel,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.4,
-                ),
-              ),
-            ],
-          ),
-        ),
-        // Score pill — joins the tab via a flat top edge.
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(16),
-              topRight: Radius.circular(16),
-              bottomLeft: Radius.circular(16),
-              bottomRight: Radius.circular(16),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF8475C2).withValues(alpha: 0.18),
-                blurRadius: 12,
-                offset: const Offset(0, 6),
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              _scoreColumn(leftLabel, xWins, _kXColor),
-              const SizedBox(width: 14),
-              const Text(
-                'VS',
-                style: TextStyle(
-                  color: Color(0xFF8B7BA7),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.2,
-                ),
-              ),
-              const SizedBox(width: 14),
-              _scoreColumn(rightLabel, oWins, _kOColor),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _scoreColumn(String label, int value, Color color) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            color: color,
-            fontSize: 11,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 1.2,
-          ),
-        ),
-        const SizedBox(height: 2),
-        AnimatedSwitcher(
-          duration: const Duration(milliseconds: 280),
-          transitionBuilder: (child, anim) => ScaleTransition(
-            scale: CurvedAnimation(parent: anim, curve: Curves.easeOutBack),
-            child: FadeTransition(opacity: anim, child: child),
-          ),
-          child: Text(
-            '$value',
-            key: ValueKey<int>(value),
-            style: TextStyle(
-              color: color,
-              fontSize: 22,
-              fontWeight: FontWeight.w900,
-              height: 1,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
 }
 
 class _Board extends StatelessWidget {
@@ -1388,12 +1096,10 @@ class _Board extends StatelessWidget {
           height: size,
           child: Stack(
             children: [
-              // Bold black grid lines (Poki-style).
               CustomPaint(
                 size: Size.square(size),
                 painter: _GridPainter(),
               ),
-              // Cells (tap targets) — ordered 0..8 for finder.byType(GestureDetector).at(i).
               for (int i = 0; i < 9; i++)
                 Positioned(
                   left: (i % 3) * cell,
@@ -1421,7 +1127,6 @@ class _Board extends StatelessWidget {
                     ),
                   ),
                 ),
-              // Win line overlay.
               if (winLine.isNotEmpty)
                 Positioned.fill(
                   child: IgnorePointer(
@@ -1448,7 +1153,6 @@ class _Board extends StatelessWidget {
 class _GridPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    // Soft mauve grid lines instead of harsh near-black.
     final paint = Paint()
       ..color = const Color(0xFF8475C2).withValues(alpha: 0.55)
       ..strokeWidth = 7
@@ -1456,7 +1160,6 @@ class _GridPainter extends CustomPainter {
       ..style = PaintingStyle.stroke;
     final cell = size.width / 3;
     final inset = cell * 0.10;
-    // Two vertical lines.
     canvas.drawLine(
       Offset(cell, inset),
       Offset(cell, size.height - inset),
@@ -1467,7 +1170,6 @@ class _GridPainter extends CustomPainter {
       Offset(cell * 2, size.height - inset),
       paint,
     );
-    // Two horizontal lines.
     canvas.drawLine(
       Offset(inset, cell),
       Offset(size.width - inset, cell),
@@ -1498,7 +1200,6 @@ class _Mark extends StatelessWidget {
       child: CustomPaint(
         painter: _MarkPainter(player: player, color: color),
         child: Center(
-          // Invisible Text used by tests to find marks ('X'/'O').
           child: Text(
             player,
             style: const TextStyle(
@@ -1565,7 +1266,8 @@ class _WinLinePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (line.length < 3 || progress <= 0) return;
     Offset cellCenter(int i) =>
-        Offset((i % 3) * cellSize + cellSize / 2, (i ~/ 3) * cellSize + cellSize / 2);
+        Offset((i % 3) * cellSize + cellSize / 2,
+            (i ~/ 3) * cellSize + cellSize / 2);
     final start = cellCenter(line.first);
     final end = cellCenter(line.last);
     final current = Offset.lerp(start, end, progress.clamp(0.0, 1.0))!;
