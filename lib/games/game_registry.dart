@@ -10,6 +10,8 @@ import 'number_merge/number_merge_logo.dart';
 import 'number_merge/number_merge_screen.dart';
 import 'snake_classic/snake_classic_logo.dart';
 import 'snake_classic/snake_classic_screen.dart';
+import 'sudoku/sudoku_logo.dart';
+import 'sudoku/sudoku_screen.dart';
 import 'tic_tac_toe/tic_tac_toe_logo.dart';
 import 'tic_tac_toe/tic_tac_toe_screen.dart';
 
@@ -24,6 +26,7 @@ class GameRegistry {
     'memory_match': () => const MemoryMatchScreen(),
     'number_merge': () => const NumberMergeScreen(),
     'snake_classic': () => const SnakeClassicScreen(),
+    'sudoku': () => const SudokuScreen(),
     'tic_tac_toe': () => const TicTacToeScreen(),
   };
 
@@ -40,6 +43,7 @@ class GameRegistry {
   static const Set<String> _customOverlayGames = {
     'color_tap',
     'memory_match',
+    'sudoku',
     'tic_tac_toe',
     'number_merge',
     'snake_classic',
@@ -144,6 +148,25 @@ class GameRegistry {
       playCount: 11000,
       isFeatured: true,
       customLogo: buildSnakeLogo,
+    ),
+    const GameInfo(
+      id: 'sudoku',
+      name: 'Sudoku',
+      description: 'Fill the 9×9 grid — every row, column and box must contain 1–9.',
+      howToPlay:
+        'Choose Easy (46 givens), Medium (36 givens), or Hard (28 givens).\n'
+        'Tap a cell to select it, then tap a number on the keypad to fill it in.\n'
+        'Every row, column, and 3×3 box must contain each digit from 1 to 9 exactly once.\n'
+        'Tapping a number that conflicts with the rules counts as an error.\n'
+        'Your score is based on completion time — faster is better!\n'
+        'Tap the eraser to clear a cell.',
+      category: GameCategory.puzzle,
+      icon: Icons.grid_on_rounded,
+      color: Color(0xFF6366F1),
+      bgColor: Color(0xFFEEF2FF),
+      playCount: 0,
+      isFeatured: false,
+      customLogo: buildSudokuLogo,
     ),
     const GameInfo(
       id: 'tic_tac_toe',

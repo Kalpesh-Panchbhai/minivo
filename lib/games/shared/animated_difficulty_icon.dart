@@ -97,32 +97,49 @@ class _LeafIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final phase = t * 2 * math.pi;
-    // Compose two sines at different rates — feels like real wind that
-    // gusts and lulls instead of a perfect pendulum.
     final swayAmp = prominent ? 0.20 : 0.10;
     final sway = (math.sin(phase) * 0.7 + math.sin(phase * 1.7 + 0.3) * 0.3) * swayAmp;
     final breath = 1.0 + math.sin(phase * 0.5) * 0.025;
+    final glow = (math.sin(phase * 0.5) + 1) / 2; // 0..1
+    final glowAlpha = 0.25 + glow * 0.30;
 
     return SizedBox(
       width: size,
       height: size,
-      child: Center(
-        child: Transform.rotate(
-          angle: sway,
-          // Pivot at the base of the leaf so the whole sprout bends like a
-          // stem — not a clock hand spinning around its centre.
-          alignment: Alignment.bottomCenter,
-          child: Transform.scale(
-            scale: breath,
-            child: Text(
-              '🌱',
-              style: TextStyle(
-                fontSize: size * 0.86,
-                height: 1,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // White glow halo so the green leaf is visible on any background.
+          Container(
+            width: size * 0.52,
+            height: size * 0.52,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.white.withValues(alpha: glowAlpha + 0.20),
+                  blurRadius: size * 0.30,
+                  spreadRadius: size * 0.04,
+                ),
+                BoxShadow(
+                  color: const Color(0xFF4ADE80).withValues(alpha: glowAlpha * 0.40),
+                  blurRadius: size * 0.18,
+                ),
+              ],
+            ),
+          ),
+          Transform.rotate(
+            angle: sway,
+            alignment: Alignment.bottomCenter,
+            child: Transform.scale(
+              scale: breath,
+              child: Text(
+                '🌱',
+                style: TextStyle(fontSize: size * 0.86, height: 1),
               ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }

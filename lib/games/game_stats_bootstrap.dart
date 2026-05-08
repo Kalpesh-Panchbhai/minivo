@@ -3,6 +3,7 @@ import 'flappy_tap/flappy_tap_stats.dart';
 import 'memory_match/memory_match_stats.dart';
 import 'number_merge/number_merge_stats.dart';
 import 'snake_classic/snake_classic_stats.dart';
+import 'sudoku/sudoku_stats.dart';
 import 'tic_tac_toe/tic_tac_toe_stats.dart';
 
 /// Single entry point for registering all per-game custom stats builders.
@@ -13,6 +14,7 @@ import 'tic_tac_toe/tic_tac_toe_stats.dart';
 void registerAllGameStats() {
   registerColorTapStats();
   registerMemoryMatchStats();
+  registerSudokuStats();
   registerTicTacToeStats();
   registerNumberMergeStats();
   registerSnakeClassicStats();
