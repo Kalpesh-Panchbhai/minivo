@@ -1,12 +1,22 @@
-import '../core/services/best_stats_registry.dart';
-import 'all_games.dart';
+import 'color_tap/color_tap_stats.dart';
+import 'flappy_tap/flappy_tap_stats.dart';
+import 'memory_match/memory_match_stats.dart';
+import 'number_merge/number_merge_stats.dart';
+import 'snake_classic/snake_classic_stats.dart';
+import 'sudoku/sudoku_stats.dart';
+import 'tic_tac_toe/tic_tac_toe_stats.dart';
 
-/// Registers every game's stats builder with [BestStatsRegistry].
+/// Single entry point for registering all per-game custom stats builders.
+/// Add new games here as they ship.
 ///
-/// Called once at app startup. Stats are derived automatically from each
-/// game's [GameDefinition]. No per-game `registerXxxStats()` calls needed.
+/// Games that don't register a custom builder fall back to the default
+/// high-score builder in [BestStatsRegistry].
 void registerAllGameStats() {
-  for (final def in allGameDefinitions) {
-    BestStatsRegistry.register(def.info.id, def.buildBestStats);
-  }
+  registerColorTapStats();
+  registerMemoryMatchStats();
+  registerSudokuStats();
+  registerTicTacToeStats();
+  registerNumberMergeStats();
+  registerSnakeClassicStats();
+  registerFlappyTapStats();
 }
