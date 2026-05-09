@@ -263,6 +263,7 @@ class GameAiPickerBody extends StatelessWidget {
   final VoidCallback onPlayFriend;
   final List<Color> aiGradient;
   final List<Color> friendGradient;
+  final String difficultyLabel;
 
   const GameAiPickerBody({
     super.key,
@@ -273,6 +274,7 @@ class GameAiPickerBody extends StatelessWidget {
     required this.onPlayFriend,
     this.aiGradient = const [Color(0xFF6C4EF3), Color(0xFF8B72F8)],
     this.friendGradient = const [Color(0xFFFF5A5F), Color(0xFFFF8E53)],
+    this.difficultyLabel = 'AI DIFFICULTY',
   });
 
   @override
@@ -284,8 +286,8 @@ class GameAiPickerBody extends StatelessWidget {
           difficulties: difficulties,
           activeIndex: activeIndex,
           onChanged: onChanged,
-          eyebrowIcon: Icons.smart_toy_rounded,
-          eyebrowLabel: 'AI DIFFICULTY',
+          eyebrowIcon: Icons.tune_rounded,
+          eyebrowLabel: difficultyLabel,
           accentColor: aiGradient.first,
         ),
         GamePickerButton(

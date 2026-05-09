@@ -12,6 +12,8 @@ import 'snake_classic/snake_classic_logo.dart';
 import 'snake_classic/snake_classic_screen.dart';
 import 'sudoku/sudoku_logo.dart';
 import 'sudoku/sudoku_screen.dart';
+import 'dots_and_boxes/dots_and_boxes_logo.dart';
+import 'dots_and_boxes/dots_and_boxes_screen.dart';
 import 'tic_tac_toe/tic_tac_toe_logo.dart';
 import 'tic_tac_toe/tic_tac_toe_screen.dart';
 
@@ -22,6 +24,7 @@ class GameRegistry {
 
   static final Map<String, GameWidgetBuilder> _builders = {
     'color_tap': () => const ColorTapScreen(),
+    'dots_and_boxes': () => const DotsAndBoxesScreen(),
     'flappy_tap': () => const FlappyTapScreen(),
     'memory_match': () => const MemoryMatchScreen(),
     'number_merge': () => const NumberMergeScreen(),
@@ -42,6 +45,7 @@ class GameRegistry {
 
   static const Set<String> _customOverlayGames = {
     'color_tap',
+    'dots_and_boxes',
     'memory_match',
     'sudoku',
     'tic_tac_toe',
@@ -54,6 +58,24 @@ class GameRegistry {
       _customOverlayGames.contains(gameId);
 
   static final List<GameInfo> allGames = [
+    const GameInfo(
+      id: 'dots_and_boxes',
+      name: 'Dots & Boxes',
+      description: 'Draw lines, complete boxes, outsmart your opponent!',
+      howToPlay:
+          'Choose your difficulty (Easy = 4×4, Medium = 5×5, Hard = 6×6 boxes).\n'
+          'Players take turns drawing a single line between two adjacent dots.\n'
+          'Complete the 4th side of a box to claim it — it fills with your color.\n'
+          'Claiming a box earns you another turn — chain multiple boxes for big scores!\n'
+          'When all boxes are filled, the player with the most boxes wins.\n'
+          'Plan ahead — avoid setting up chains your opponent can exploit!',
+      category: GameCategory.board,
+      icon: Icons.grid_4x4_rounded,
+      color: Color(0xFF339AF0),
+      bgColor: Color(0xFFD0EBFF),
+      playCount: 3200,
+      customLogo: buildDotsAndBoxesLogo,
+    ),
     const GameInfo(
       id: 'flappy_tap',
       name: 'Flappy Tap',

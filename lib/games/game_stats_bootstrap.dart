@@ -1,4 +1,5 @@
 import 'color_tap/color_tap_stats.dart';
+import 'dots_and_boxes/dots_and_boxes_stats.dart';
 import 'flappy_tap/flappy_tap_stats.dart';
 import 'memory_match/memory_match_stats.dart';
 import 'number_merge/number_merge_stats.dart';
@@ -13,6 +14,7 @@ import 'tic_tac_toe/tic_tac_toe_stats.dart';
 /// high-score builder in [BestStatsRegistry].
 void registerAllGameStats() {
   registerColorTapStats();
+  registerDotsAndBoxesStats();
   registerMemoryMatchStats();
   registerSudokuStats();
   registerTicTacToeStats();
