@@ -6,6 +6,7 @@ import 'number_merge/number_merge_stats.dart';
 import 'snake_classic/snake_classic_stats.dart';
 import 'sudoku/sudoku_stats.dart';
 import 'tic_tac_toe/tic_tac_toe_stats.dart';
+import 'tile_drop/tile_drop_stats.dart';
 
 /// Single entry point for registering all per-game custom stats builders.
 /// Add new games here as they ship.
@@ -21,4 +22,5 @@ void registerAllGameStats() {
   registerNumberMergeStats();
   registerSnakeClassicStats();
   registerFlappyTapStats();
+  registerTileDropStats();
 }

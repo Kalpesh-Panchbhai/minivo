@@ -16,6 +16,8 @@ import 'dots_and_boxes/dots_and_boxes_logo.dart';
 import 'dots_and_boxes/dots_and_boxes_screen.dart';
 import 'tic_tac_toe/tic_tac_toe_logo.dart';
 import 'tic_tac_toe/tic_tac_toe_screen.dart';
+import 'tile_drop/tile_drop_logo.dart';
+import 'tile_drop/tile_drop_screen.dart';
 
 typedef GameWidgetBuilder = Widget Function();
 
@@ -31,6 +33,7 @@ class GameRegistry {
     'snake_classic': () => const SnakeClassicScreen(),
     'sudoku': () => const SudokuScreen(),
     'tic_tac_toe': () => const TicTacToeScreen(),
+    'tile_drop': () => const TileDropScreen(),
   };
 
   static Widget buildGame(String gameId) {
@@ -52,6 +55,7 @@ class GameRegistry {
     'number_merge',
     'snake_classic',
     'flappy_tap',
+    'tile_drop',
   };
 
   static bool usesCustomOverlays(String gameId) =>
@@ -207,6 +211,24 @@ class GameRegistry {
       bgColor: Color(0xFFF8F0FC),
       playCount: 8900,
       customLogo: buildTicTacToeLogo,
+    ),
+    const GameInfo(
+      id: 'tile_drop',
+      name: 'Tile Drop',
+      description: 'Drop tiles, merge numbers, chain reactions — how high can you score?',
+      howToPlay:
+          'Choose your difficulty (Easy, Medium, Hard) — harder levels introduce bigger tiles sooner.\n'
+          'A tile is shown at the top — tap any column on the board to drop it there.\n'
+          'Tiles stack from the bottom. When two identical tiles touch (vertically or horizontally), they merge into double the value!\n'
+          'Merges trigger gravity, which can cause chain reactions — each extra chain adds a ×0.5 score bonus.\n'
+          'The game ends when every column is full and the next tile cannot merge with any top cell.\n'
+          'Think ahead — dropping into a column that sets off a chain is the key to big scores!',
+      category: GameCategory.puzzle,
+      icon: Icons.view_column_rounded,
+      color: Color(0xFFFF922B),
+      bgColor: Color(0xFFFFF3D9),
+      playCount: 0,
+      customLogo: buildTileDropLogo,
     ),
   ];
 
