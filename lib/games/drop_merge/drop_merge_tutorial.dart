@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/widgets/how_to_play_sheet.dart';
 
-List<GameHowToPlayStep> tileDropSteps() {
+List<GameHowToPlayStep> dropMergeSteps() {
   return const [
     GameHowToPlayStep(
       text: '👇  Tap a column to drop the current tile. '

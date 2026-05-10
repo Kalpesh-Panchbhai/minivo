@@ -4,27 +4,27 @@ import '../../core/models/best_stat.dart';
 import '../../core/services/best_stats_registry.dart';
 import '../../core/services/score_service.dart';
 
-const String kTileDropGameId = 'tile_drop';
+const String kDropMergeGameId = 'drop_merge';
 
-const String kTileDropSubKeyEasy   = 'easy';
-const String kTileDropSubKeyMedium = 'medium';
-const String kTileDropSubKeyHard   = 'hard';
+const String kDropMergeSubKeyEasy   = 'easy';
+const String kDropMergeSubKeyMedium = 'medium';
+const String kDropMergeSubKeyHard   = 'hard';
 
 const Color _kEasyColor   = Color(0xFF4CB97A);
 const Color _kMediumColor = Color(0xFFEFA63A);
 const Color _kHardColor   = Color(0xFFE8533D);
 
-void registerTileDropStats() {
-  BestStatsRegistry.register(kTileDropGameId, _buildTileDropStats);
+void registerDropMergeStats() {
+  BestStatsRegistry.register(kDropMergeGameId, _buildDropMergeStats);
 }
 
-int bestTileDropScore(String subKey) =>
-    ScoreService().getHighScore(kTileDropGameId, subKey: subKey);
+int bestDropMergeScore(String subKey) =>
+    ScoreService().getHighScore(kDropMergeGameId, subKey: subKey);
 
-List<BestStat> _buildTileDropStats() {
-  final easy   = bestTileDropScore(kTileDropSubKeyEasy);
-  final medium = bestTileDropScore(kTileDropSubKeyMedium);
-  final hard   = bestTileDropScore(kTileDropSubKeyHard);
+List<BestStat> _buildDropMergeStats() {
+  final easy   = bestDropMergeScore(kDropMergeSubKeyEasy);
+  final medium = bestDropMergeScore(kDropMergeSubKeyMedium);
+  final hard   = bestDropMergeScore(kDropMergeSubKeyHard);
 
   if (easy == 0 && medium == 0 && hard == 0) return const [];
 

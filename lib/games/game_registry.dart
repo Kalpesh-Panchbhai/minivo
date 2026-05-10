@@ -16,8 +16,8 @@ import 'dots_and_boxes/dots_and_boxes_logo.dart';
 import 'dots_and_boxes/dots_and_boxes_screen.dart';
 import 'tic_tac_toe/tic_tac_toe_logo.dart';
 import 'tic_tac_toe/tic_tac_toe_screen.dart';
-import 'tile_drop/tile_drop_logo.dart';
-import 'tile_drop/tile_drop_screen.dart';
+import 'drop_merge/drop_merge_logo.dart';
+import 'drop_merge/drop_merge_screen.dart';
 
 typedef GameWidgetBuilder = Widget Function();
 
@@ -33,7 +33,7 @@ class GameRegistry {
     'snake_classic': () => const SnakeClassicScreen(),
     'sudoku': () => const SudokuScreen(),
     'tic_tac_toe': () => const TicTacToeScreen(),
-    'tile_drop': () => const TileDropScreen(),
+    'drop_merge': () => const DropMergeScreen(),
   };
 
   static Widget buildGame(String gameId) {
@@ -55,7 +55,7 @@ class GameRegistry {
     'number_merge',
     'snake_classic',
     'flappy_tap',
-    'tile_drop',
+    'drop_merge',
   };
 
   static bool usesCustomOverlays(String gameId) =>
@@ -213,8 +213,8 @@ class GameRegistry {
       customLogo: buildTicTacToeLogo,
     ),
     const GameInfo(
-      id: 'tile_drop',
-      name: 'Tile Drop',
+      id: 'drop_merge',
+      name: 'Drop Merge',
       description: 'Drop tiles, merge numbers, chain reactions — how high can you score?',
       howToPlay:
           'Choose your difficulty (Easy, Medium, Hard) — harder levels introduce bigger tiles sooner.\n'
@@ -228,7 +228,7 @@ class GameRegistry {
       color: Color(0xFFFF922B),
       bgColor: Color(0xFFFFF3D9),
       playCount: 0,
-      customLogo: buildTileDropLogo,
+      customLogo: buildDropMergeLogo,
     ),
   ];
 
