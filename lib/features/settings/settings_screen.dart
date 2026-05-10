@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_strings.dart';
 import '../../core/services/score_service.dart';
@@ -119,7 +120,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   context,
                   icon: Icons.privacy_tip_rounded,
                   title: AppStrings.privacyPolicy,
-                  onTap: () {},
+                  onTap: () => launchUrl(
+                    Uri.parse('https://kalpesh-panchbhai.github.io/puzzloragames/minivo/privacy.html'),
+                    mode: LaunchMode.externalApplication,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 _tile(

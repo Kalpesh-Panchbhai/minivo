@@ -134,7 +134,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [Color(0xFF1A1A2E), Color(0xFF16213E)],
+          colors: [Color(0xFF1A1A2E), Color(0xFF0D1B3E)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -144,30 +144,33 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
         ),
         boxShadow: [
           BoxShadow(
-            color: Color(0x33000000),
-            blurRadius: 16,
-            offset: Offset(0, 6),
+            color: Color(0x44000000),
+            blurRadius: 20,
+            offset: Offset(0, 8),
           ),
         ],
       ),
       child: SafeArea(
         bottom: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 22),
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
           child: Row(
             children: [
+              // Game controller icon
               Container(
-                width: 44,
-                height: 44,
+                width: 48,
+                height: 48,
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xFF6C63FF), Color(0xFF4ECDC4)],
+                    colors: [Color(0xFF7C3AED), Color(0xFF6C63FF)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(14),
                   boxShadow: const [
                     BoxShadow(
-                      color: Color(0x556C63FF),
-                      blurRadius: 12,
+                      color: Color(0x996C63FF),
+                      blurRadius: 20,
                       offset: Offset(0, 4),
                     ),
                   ],
@@ -175,49 +178,87 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                 child: const Icon(
                   Icons.videogame_asset_rounded,
                   color: Colors.white,
-                  size: 24,
+                  size: 26,
                 ),
               ),
               const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text(
-                      'MINIVO',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1.5,
-                      ),
+              // Brand text
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'MINIVO',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 2.5,
                     ),
-                    Text(
-                      'Play • Explore • Win',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.55),
-                        fontSize: 11,
-                      ),
+                  ),
+                  Text(
+                    'Play • Explore • Win',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.50),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
+              const Spacer(),
+              // Leaderboard button
               GestureDetector(
-                onTap: () => context.push('/search'),
+                onTap: () {
+                  showModalBottomSheet<void>(
+                    context: context,
+                    builder: (_) => const SizedBox(
+                      height: 160,
+                      child: Center(
+                        child: Text(
+                          'Coming soon',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ),
+                  );
+                },
                 child: Container(
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.12),
+                    color: Colors.white.withValues(alpha: 0.10),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.20),
+                      color: Colors.white.withValues(alpha: 0.15),
+                      width: 1.5,
                     ),
                   ),
                   child: const Icon(
-                    Icons.search_rounded,
-                    color: Colors.white,
+                    Icons.emoji_events_rounded,
+                    color: Color(0xFFFFCC00),
+                    size: 20,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Settings button
+              GestureDetector(
+                onTap: () => context.push('/settings'),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.15),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Icon(
+                    Icons.settings_rounded,
+                    color: Colors.white.withValues(alpha: 0.80),
                     size: 20,
                   ),
                 ),
