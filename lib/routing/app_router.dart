@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
+import 'crash_route_observer.dart';
 import '../features/splash/splash_screen.dart';
 import '../features/onboarding/onboarding_screen.dart';
 import '../features/home/main_shell.dart';
@@ -18,7 +19,7 @@ final RouteObserver<PageRoute<dynamic>> appRouteObserver =
 class AppRouter {
   static final GoRouter router = GoRouter(
     initialLocation: '/',
-    observers: [appRouteObserver],
+    observers: [appRouteObserver, CrashRouteObserver()],
     routes: [
       GoRoute(
         path: '/',

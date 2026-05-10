@@ -1,4 +1,5 @@
 import 'package:shared_preferences/shared_preferences.dart';
+import 'analytics_service.dart';
 
 class ScoreService {
   static final ScoreService _instance = ScoreService._();
@@ -75,12 +76,14 @@ class ScoreService {
 
   Future<void> toggleFavorite(String gameId) async {
     final list = getFavorites();
-    if (list.contains(gameId)) {
-      list.remove(gameId);
-    } else {
+    final added = !list.contains(gameId);
+    if (added) {
       list.add(gameId);
+    } else {
+      list.remove(gameId);
     }
     await _prefs?.setStringList('favorites', list);
+    AnalyticsService().favoriteToggled(gameId: gameId, added: added);
   }
 
   bool isFavorite(String gameId) {

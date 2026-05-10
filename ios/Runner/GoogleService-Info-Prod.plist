@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>API_KEY</key>
+	<string>AIzaSyD5ZY4nXO_YB3buSwNcX1p9JTvmjNS1u4c</string>
+	<key>GCM_SENDER_ID</key>
+	<string>168184149016</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.puzzloragames.dropzy</string>
+	<key>PROJECT_ID</key>
+	<string>puzzloragames-minivo</string>
+	<key>STORAGE_BUCKET</key>
+	<string>puzzloragames-minivo.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:168184149016:ios:0cb9331203ee8520853f6d</string>
+</dict>
+</plist>

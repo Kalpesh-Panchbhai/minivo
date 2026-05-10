@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_strings.dart';
+import '../../core/services/analytics_service.dart';
+import '../../core/services/crash_reporter.dart';
 import '../../core/services/score_service.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -85,6 +87,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   onChanged: (v) {
                     setState(() => _sound = v);
                     ScoreService().setSoundEnabled(v);
+                    AnalyticsService()
+                        .settingChanged(key: 'sound', value: v);
                   },
                 ),
                 const SizedBox(height: 8),
@@ -96,6 +100,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   onChanged: (v) {
                     setState(() => _vibration = v);
                     ScoreService().setVibrationEnabled(v);
+                    AnalyticsService()
+                        .settingChanged(key: 'vibration', value: v);
                   },
                 ),
 
@@ -120,10 +126,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   context,
                   icon: Icons.privacy_tip_rounded,
                   title: AppStrings.privacyPolicy,
-                  onTap: () => launchUrl(
-                    Uri.parse('https://kalpesh-panchbhai.github.io/puzzloragames/minivo/privacy.html'),
-                    mode: LaunchMode.externalApplication,
-                  ),
+                  onTap: () {
+                    AnalyticsService()
+                        .externalLinkOpened(link: 'privacy_policy');
+                    launchUrl(
+                      Uri.parse(
+                          'https://kalpesh-panchbhai.github.io/puzzloragames/minivo/privacy.html'),
+                      mode: LaunchMode.externalApplication,
+                    );
+                  },
                 ),
                 const SizedBox(height: 8),
                 _tile(
@@ -283,6 +294,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
     if (result != null && result.isNotEmpty) {
       await ScoreService().setDisplayName(result);
+      AnalyticsService()
+          .settingChanged(key: 'display_name', value: 'changed');
+      await CrashReporter().setUserIdentifier(result);
       setState(() {});
     }
   }

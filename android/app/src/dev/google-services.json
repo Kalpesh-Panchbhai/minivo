@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1030228829143",
+    "project_id": "puzzloragames-minivo-dev",
+    "storage_bucket": "puzzloragames-minivo-dev.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1030228829143:android:cda7e5d380a47904772192",
+        "android_client_info": {
+          "package_name": "com.puzzloragames.dropzy"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDeeGkEQjRe7dxeliwfTURi3Lykl7zTZYQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

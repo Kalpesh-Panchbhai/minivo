@@ -4,7 +4,9 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import '../core/constants/app_colors.dart';
 import '../core/constants/app_strings.dart';
+import '../core/services/analytics_service.dart';
 import '../core/services/audio_service.dart';
+import '../core/services/crash_reporter.dart';
 import '../core/services/score_service.dart';
 
 enum GameState { ready, playing, paused, gameOver }
@@ -36,6 +38,7 @@ class GameWrapperState extends State<GameWrapper> {
   GameState _state = GameState.ready;
   int _score = 0;
   int _highScore = 0;
+  DateTime? _startedAt;
 
   GameState get state => _state;
   int get score => _score;
@@ -48,10 +51,13 @@ class GameWrapperState extends State<GameWrapper> {
   }
 
   void startGame() {
+    _startedAt = DateTime.now();
     setState(() {
       _state = GameState.playing;
       _score = 0;
     });
+    AnalyticsService().gameStart(gameId: widget.gameId);
+    CrashReporter().log('game_start', {'game_id': widget.gameId});
   }
 
   void updateScore(int newScore) {
@@ -95,6 +101,22 @@ class GameWrapperState extends State<GameWrapper> {
     if (_getStars() == 3) coins += 15;
     ScoreService().addCoins(coins);
 
+    final duration =
+        _startedAt == null ? 0 : DateTime.now().difference(_startedAt!).inSeconds;
+    AnalyticsService().gameEnd(
+      gameId: widget.gameId,
+      result: 'loss',
+      score: _score,
+      durationSec: duration,
+      isHighScore: isNew,
+    );
+    CrashReporter().log('game_end', {
+      'game_id': widget.gameId,
+      'score': _score,
+      'duration_sec': duration,
+      'is_high_score': isNew,
+    });
+
     // Defer state change if we're mid-build/layout, otherwise apply immediately.
     // Using only addPostFrameCallback can fail to fire when the engine is idle
     // (e.g. after a long Future.delayed window with no animations running),
@@ -111,6 +133,11 @@ class GameWrapperState extends State<GameWrapper> {
   }
 
   void restartGame() {
+    final from = _state == GameState.gameOver
+        ? 'result_screen'
+        : (_state == GameState.paused ? 'pause' : 'mode_change');
+    AnalyticsService().gameRestart(gameId: widget.gameId, from: from);
+    _startedAt = null;
     setState(() {
       _state = GameState.ready;
       _score = 0;
@@ -358,14 +385,26 @@ class GameWrapperState extends State<GameWrapper> {
                   AppStrings.playAgain,
                   Icons.refresh_rounded,
                   AppColors.primary,
-                  restartGame,
+                  () {
+                    AnalyticsService().resultAction(
+                      gameId: widget.gameId,
+                      action: 'play_again',
+                    );
+                    restartGame();
+                  },
                 ),
                 const SizedBox(height: 8),
                 _overlayButton(
                   AppStrings.home,
                   Icons.home_rounded,
                   AppColors.textSecondary,
-                  () => context.go('/home'),
+                  () {
+                    AnalyticsService().resultAction(
+                      gameId: widget.gameId,
+                      action: 'home',
+                    );
+                    context.go('/home');
+                  },
                 ),
               ],
             ),

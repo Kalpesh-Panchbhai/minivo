@@ -5,6 +5,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/constants/app_strings.dart';
 import '../../core/models/game_info.dart';
+import '../../core/services/analytics_service.dart';
 import '../../core/services/score_service.dart';
 import '../../core/widgets/category_chip.dart';
 import '../../core/widgets/mosaic_game_tile.dart';
@@ -81,7 +82,12 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                         final cat = GameCategory.values[index];
                         return CategoryChip(
                           category: cat,
-                          onTap: () => context.push('/category/${cat.name}'),
+                          onTap: () {
+                            AnalyticsService().homeSectionTapped(
+                              section: 'category',
+                            );
+                            context.push('/category/${cat.name}');
+                          },
                         )
                             .animate(delay: (index * 40).ms)
                             .fadeIn(duration: 250.ms)
@@ -117,7 +123,13 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                     recentIds: recentIds,
                     favoriteIds: favoriteIds,
                     trendingIds: trendingIds,
-                    onGameTap: (id) => context.push('/game/$id'),
+                    onGameTap: (id) {
+                      AnalyticsService().homeSectionTapped(
+                        section: 'trending',
+                        gameId: id,
+                      );
+                      context.push('/game/$id');
+                    },
                   ),
                 ),
               ),
@@ -296,7 +308,13 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
             itemBuilder: (context, index) {
               final game = games[index];
               return GestureDetector(
-                onTap: () => context.push('/game/${game.id}'),
+                onTap: () {
+                  AnalyticsService().homeSectionTapped(
+                    section: 'recent',
+                    gameId: game.id,
+                  );
+                  context.push('/game/${game.id}');
+                },
                 child: Container(
                   width: 72,
                   height: 72,
