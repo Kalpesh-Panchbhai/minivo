@@ -6,6 +6,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/multiplayer/player_strip.dart';
+import '../../core/services/ads_service.dart';
 import '../../core/services/audio_service.dart';
 import '../../core/services/score_service.dart';
 import '../../core/widgets/how_to_play_sheet.dart';
@@ -20,6 +21,7 @@ import '../shared/game_difficulty_picker.dart';
 import 'memory_match_stats.dart';
 import 'memory_match_tutorial.dart';
 import '../shared/generic_game_result_screen.dart' as game_result;
+import '../shared/rewarded_undo_button.dart';
 
 // ── Palette ────────────────────────────────────────────────────────────────
 const Color _kBgTop    = Color(0xFFD0E8FF);
@@ -165,6 +167,11 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen>
   // AI memory: cardIndex → emoji the AI has "memorised"
   final Map<int, String> _aiMemory = {};
 
+  // Undo support (AI mode only, 1 per game, on first flip)
+  bool _undoUsed = false;
+  bool _showUndoButton = false;
+  int? _undoFirstIdx;
+
   // ── Animation controllers ─────────────────────────────────────────────────
   List<AnimationController> _flipCtrl = [];
   List<AnimationController> _bounceCtrl = [];
@@ -282,6 +289,9 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen>
       _lockInput    = false;
       _gameOver     = false;
       _wasNewBest   = false;
+      _undoUsed     = false;
+      _showUndoButton = false;
+      _undoFirstIdx = null;
     });
 
     ScoreService().incrementGamePlayCount(kMemoryMatchGameId);
@@ -309,7 +319,6 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen>
   void _onCardTap(int index) {
     final diff = _activeDiff;
     if (diff == null || _lockInput || _gameOver || _aiThinking) return;
-    // In AI mode, block human input during AI's turn
     if (_mode == _Mode.ai && _currentTurn == 1) return;
 
     final card = _cards[index];
@@ -323,10 +332,24 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen>
     _flipCtrl[index].forward(from: 0);
 
     if (_firstFlipIdx == null) {
-      // First card of the pair
       setState(() => _firstFlipIdx = index);
+      final undoAvailable = _mode == _Mode.ai &&
+          _currentTurn == 0 &&
+          !_undoUsed &&
+          AdsService().isRewardedReady;
+      if (undoAvailable) {
+        setState(() {
+          _showUndoButton = true;
+          _undoFirstIdx = index;
+        });
+      }
     } else {
-      // Second card — evaluate
+      if (_showUndoButton) {
+        setState(() {
+          _showUndoButton = false;
+          _undoFirstIdx = null;
+        });
+      }
       final firstIdx = _firstFlipIdx!;
       setState(() {
         _firstFlipIdx = null;
@@ -383,7 +406,6 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen>
       }
     } else {
       // ── MISMATCH ───────────────────────────────────────────────
-      // If human mismatched, AI "watches" and may remember
       if (_mode == _Mode.ai && !fromAi) {
         _maybeMemoize(firstIdx, diff);
         _maybeMemoize(secondIdx, diff);
@@ -400,15 +422,38 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen>
         _flipCtrl[firstIdx].reverse();
         _flipCtrl[secondIdx].reverse();
         setState(() {
-          first.faceUp   = false;
+          first.faceUp = false;
           first.mismatch = false;
-          second.faceUp   = false;
+          second.faceUp = false;
           second.mismatch = false;
-          _lockInput    = false;
+          _lockInput = false;
         });
         _advanceTurn();
       });
     }
+  }
+
+  bool get _canUndo => _showUndoButton && !_undoUsed;
+
+  void _onUndoExpired() {
+    if (!mounted || !_showUndoButton) return;
+    setState(() {
+      _showUndoButton = false;
+      _undoFirstIdx = null;
+    });
+  }
+
+  void _performUndo() {
+    final idx = _undoFirstIdx;
+    if (idx == null) return;
+    _flipCtrl[idx].reverse();
+    setState(() {
+      _cards[idx].faceUp = false;
+      _firstFlipIdx = null;
+      _undoUsed = true;
+      _showUndoButton = false;
+      _undoFirstIdx = null;
+    });
   }
 
   void _advanceTurn() {
@@ -610,10 +655,10 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen>
   Widget _buildGame() {
     final diff = _activeDiff!;
     final isAiMode = _mode == _Mode.ai;
-    final p1Active = _currentTurn == 0 && !_gameOver;
-    final p2Active = _currentTurn == 1 && !_gameOver;
+    final p1Active = (_currentTurn == 0 || _showUndoButton) && !_gameOver;
+    final p2Active = _currentTurn == 1 && !_showUndoButton && !_gameOver;
 
-    final isP1Turn = _currentTurn == 0;
+    final isP1Turn = _currentTurn == 0 || _showUndoButton;
     final topTint = isP1Turn ? _kTintWarmTop : _kTintCoolTop;
     final botTint = isP1Turn ? _kTintWarmBot : _kTintCoolBot;
 
@@ -710,7 +755,20 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen>
                     isActive: p1Active,
                   ),
                 ),
-                const SizedBox(height: 12),
+                SizedBox(
+                  height: 44,
+                  child: _canUndo
+                      ? Center(
+                          child: RewardedUndoButton(
+                            key: ValueKey('undo_$_undoFirstIdx'),
+                            onUndo: _performUndo,
+                            onExpired: _onUndoExpired,
+                            accentColor: _kP1Color,
+                          ),
+                        )
+                      : const SizedBox.shrink(),
+                ),
+                const SizedBox(height: 4),
               ],
             ),
           ),

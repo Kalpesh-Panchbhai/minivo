@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/multiplayer/player_strip.dart';
+import '../../core/services/ads_service.dart';
 import '../../core/services/audio_service.dart';
 import '../../core/services/score_service.dart';
 import '../../core/widgets/how_to_play_sheet.dart';
@@ -15,6 +16,7 @@ import '../shared/game_hud_bar.dart';
 import '../shared/animated_difficulty_icon.dart';
 import '../shared/game_difficulty_picker.dart';
 import '../shared/generic_game_result_screen.dart' as game_result;
+import '../shared/rewarded_undo_button.dart';
 import 'dots_and_boxes_logo.dart';
 import 'dots_and_boxes_stats.dart';
 import 'dots_and_boxes_tutorial.dart';
@@ -74,6 +76,15 @@ class _DotsAndBoxesScreenState extends State<DotsAndBoxesScreen>
   // Key of the most recently drawn line — used to trigger draw animation
   String? _lastDrawnKey;
 
+  // Undo support (AI mode only, 1 per game)
+  bool _undoUsed = false;
+  bool _inUndoWindow = false;
+  _LineType? _undoLineType;
+  int? _undoRow;
+  int? _undoCol;
+  int _undoClaimedCount = 0;
+  List<(int, int)> _undoClaimedBoxes = [];
+
   final _audio = AudioService();
   final _rng   = math.Random();
   Timer? _aiTimer;
@@ -107,6 +118,13 @@ class _DotsAndBoxesScreenState extends State<DotsAndBoxesScreen>
     _p1Score       = 0;
     _p2Score       = 0;
     _lastDrawnKey  = null;
+    _undoUsed      = false;
+    _inUndoWindow  = false;
+    _undoLineType  = null;
+    _undoRow       = null;
+    _undoCol       = null;
+    _undoClaimedCount = 0;
+    _undoClaimedBoxes = [];
     if (notify) setState(() {});
   }
 
@@ -147,36 +165,99 @@ class _DotsAndBoxesScreenState extends State<DotsAndBoxesScreen>
     return claimed;
   }
 
+  // ── Undo support ─────────────────────────────────────────────────────────
+
+  bool get _canUndo => _inUndoWindow && !_gameOver;
+
+  void _onUndoExpired() {
+    if (!mounted || _gameOver || !_inUndoWindow) return;
+    setState(() => _inUndoWindow = false);
+    _scheduleAiMove();
+  }
+
+  void _performUndo() {
+    if (_undoLineType == null || _undoRow == null || _undoCol == null) return;
+    setState(() {
+      if (_undoLineType == _LineType.h) {
+        _hOwner[_undoRow!][_undoCol!] = -1;
+      } else {
+        _vOwner[_undoRow!][_undoCol!] = -1;
+      }
+      for (final (r, c) in _undoClaimedBoxes) {
+        _boxes[r][c] = -1;
+      }
+      _p1Score -= _undoClaimedCount;
+      _currentPlayer = 0;
+      _inUndoWindow = false;
+      _undoUsed = true;
+      _undoLineType = null;
+      _undoRow = null;
+      _undoCol = null;
+      _undoClaimedCount = 0;
+      _undoClaimedBoxes = [];
+      _lastDrawnKey = null;
+    });
+  }
+
   // ── Line tap handlers ─────────────────────────────────────────────────────
 
   void _onHLineTap(int row, int col) {
     if (_gameOver || _hOwner[row][col] != -1) return;
-    if (_mode == _Mode.ai && (_aiThinking || _currentPlayer == 1)) return;
+    if (_mode == _Mode.ai && (_aiThinking || _inUndoWindow || _currentPlayer == 1)) return;
     setState(() {
       _hOwner[row][col] = _currentPlayer;
       _lastDrawnKey = 'h_${row}_$col';
     });
     _audio.playTap();
+    if (_mode == _Mode.ai && _currentPlayer == 0) {
+      _undoLineType = _LineType.h;
+      _undoRow = row;
+      _undoCol = col;
+    }
     _afterMove();
   }
 
   void _onVLineTap(int row, int col) {
     if (_gameOver || _vOwner[row][col] != -1) return;
-    if (_mode == _Mode.ai && (_aiThinking || _currentPlayer == 1)) return;
+    if (_mode == _Mode.ai && (_aiThinking || _inUndoWindow || _currentPlayer == 1)) return;
     setState(() {
       _vOwner[row][col] = _currentPlayer;
       _lastDrawnKey = 'v_${row}_$col';
     });
     _audio.playTap();
+    if (_mode == _Mode.ai && _currentPlayer == 0) {
+      _undoLineType = _LineType.v;
+      _undoRow = row;
+      _undoCol = col;
+    }
     _afterMove();
   }
 
   void _afterMove() {
-    final claimed = _claimBoxes(_currentPlayer);
-    if (_currentPlayer == 0) _p1Score += claimed; else _p2Score += claimed;
+    final n = _boxCount(_difficulty);
+    final claimedBoxes = <(int, int)>[];
+    for (int r = 0; r < n; r++) {
+      for (int c = 0; c < n; c++) {
+        if (_boxes[r][c] == -1 && _isBoxComplete(r, c)) {
+          _boxes[r][c] = _currentPlayer;
+          claimedBoxes.add((r, c));
+        }
+      }
+    }
+    final claimed = claimedBoxes.length;
+    if (_currentPlayer == 0) {
+      _p1Score += claimed;
+      _undoClaimedCount = claimed;
+      _undoClaimedBoxes = claimedBoxes;
+    } else {
+      _p2Score += claimed;
+    }
 
     if (_allBoxesFilled) {
-      setState(() => _gameOver = true);
+      setState(() {
+        _gameOver = true;
+        _undoLineType = null;
+      });
       _onGameEnd();
       return;
     }
@@ -184,11 +265,17 @@ class _DotsAndBoxesScreenState extends State<DotsAndBoxesScreen>
     if (claimed == 0) {
       setState(() => _currentPlayer = _currentPlayer == 0 ? 1 : 0);
     } else {
+      _undoLineType = null;
       setState(() {});
     }
 
     if (!_gameOver && _mode == _Mode.ai && _currentPlayer == 1) {
-      _scheduleAiMove();
+      final undoAvailable = !_undoUsed && _undoLineType != null && AdsService().isRewardedReady;
+      if (undoAvailable) {
+        setState(() => _inUndoWindow = true);
+      } else {
+        _scheduleAiMove();
+      }
     }
   }
 
@@ -225,6 +312,7 @@ class _DotsAndBoxesScreenState extends State<DotsAndBoxesScreen>
     final move = _pickAiMove();
     setState(() {
       _aiThinking = false;
+      _undoLineType = null;
       if (move.$1 == _LineType.h) {
         _hOwner[move.$2][move.$3] = 1;
         _lastDrawnKey = 'h_${move.$2}_${move.$3}';
@@ -397,6 +485,10 @@ class _DotsAndBoxesScreenState extends State<DotsAndBoxesScreen>
       p2Score:       _p2Score,
       gameOver:      _gameOver,
       lastDrawnKey:  _lastDrawnKey,
+      inUndoWindow:  _inUndoWindow,
+      canUndo:       _canUndo,
+      onUndo:        _performUndo,
+      onUndoExpired: _onUndoExpired,
       onHLineTap:    _onHLineTap,
       onVLineTap:    _onVLineTap,
       onBack:        _backOrHome,
@@ -565,6 +657,10 @@ class _BoardScreen extends StatelessWidget {
   final int                  p2Score;
   final bool                 gameOver;
   final String?              lastDrawnKey;
+  final bool                 inUndoWindow;
+  final bool                 canUndo;
+  final VoidCallback         onUndo;
+  final VoidCallback         onUndoExpired;
   final void Function(int, int) onHLineTap;
   final void Function(int, int) onVLineTap;
   final VoidCallback         onBack;
@@ -582,6 +678,10 @@ class _BoardScreen extends StatelessWidget {
     required this.p2Score,
     required this.gameOver,
     required this.lastDrawnKey,
+    required this.inUndoWindow,
+    required this.canUndo,
+    required this.onUndo,
+    required this.onUndoExpired,
     required this.onHLineTap,
     required this.onVLineTap,
     required this.onBack,
@@ -590,7 +690,7 @@ class _BoardScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final p1Turn    = currentPlayer == 0 && !gameOver;
+    final p1Turn    = (currentPlayer == 0 || inUndoWindow) && !gameOver;
     final topTarget = p1Turn ? const Color(0xFFDFF0FF) : const Color(0xFFFFECEC);
     final botTarget = p1Turn ? const Color(0xFFBEDDFA) : const Color(0xFFFFD4D4);
 
@@ -631,7 +731,7 @@ class _BoardScreen extends StatelessWidget {
                   label:      mode == _Mode.ai ? 'AI' : 'P2',
                   mark:       '2',
                   color:      _kP2Color,
-                  isActive:   currentPlayer == 1 && !gameOver,
+                  isActive:   currentPlayer == 1 && !inUndoWindow && !gameOver,
                   isThinking: aiThinking,
                   avatarIcon: mode == _Mode.ai ? Icons.smart_toy_rounded : null,
                 ),
@@ -666,11 +766,24 @@ class _BoardScreen extends StatelessWidget {
                   label:     mode == _Mode.ai ? 'You' : 'P1',
                   mark:      '1',
                   color:     _kP1Color,
-                  isActive:  currentPlayer == 0 && !gameOver,
+                  isActive:  (currentPlayer == 0 || inUndoWindow) && !gameOver,
                   isThinking: false,
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(
+                height: 44,
+                child: canUndo
+                    ? Center(
+                        child: RewardedUndoButton(
+                          key: ValueKey('undo_${lastDrawnKey ?? ''}'),
+                          onUndo: onUndo,
+                          onExpired: onUndoExpired,
+                          accentColor: _kP1Color,
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              ),
+              const SizedBox(height: 4),
             ]),
           ),
         ),

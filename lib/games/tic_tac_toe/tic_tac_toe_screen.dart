@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/multiplayer/player_strip.dart';
+import '../../core/services/ads_service.dart';
 import '../../core/services/audio_service.dart';
 import '../../core/services/score_service.dart';
 import '../../core/widgets/how_to_play_sheet.dart';
@@ -17,6 +18,7 @@ import '../shared/game_difficulty_picker.dart';
 import 'tic_tac_toe_stats.dart';
 import 'tic_tac_toe_tutorial.dart';
 import '../shared/generic_game_result_screen.dart' as game_result;
+import '../shared/rewarded_undo_button.dart';
 
 /// Test-only override for the very first starter pick of a session.
 /// `'X'` or `'O'` to force; `null` to use the regular random pick.
@@ -93,6 +95,11 @@ class _TicTacToeScreenState extends State<TicTacToeScreen>
 
   // Win celebration burst.
   bool _celebrating = false;
+
+  // Undo support (AI mode only, 1 per round)
+  int? _lastHumanMoveIdx;
+  bool _undoUsedThisRound = false;
+  bool _inUndoWindow = false;
 
   // Favorite
   bool _isFavorite = false;
@@ -192,6 +199,9 @@ class _TicTacToeScreenState extends State<TicTacToeScreen>
       _celebrating = false;
       _showStreakBadge = false;
       _winLineCtrl.value = 0;
+      _lastHumanMoveIdx = null;
+      _undoUsedThisRound = false;
+      _inUndoWindow = false;
     }
     if (notify) {
       setState(apply);
@@ -236,10 +246,29 @@ class _TicTacToeScreenState extends State<TicTacToeScreen>
   // GAMEPLAY
   // ════════════════════════════════════════════════════════════════
 
+  bool get _canUndo => _inUndoWindow && !_roundOver;
+
+  void _onUndoExpired() {
+    if (!mounted || _roundOver || !_inUndoWindow) return;
+    setState(() => _inUndoWindow = false);
+    _scheduleAiMove();
+  }
+
+  void _performUndo() {
+    final idx = _lastHumanMoveIdx;
+    if (idx == null) return;
+    setState(() {
+      _board[idx] = '';
+      _currentPlayer = 'X';
+      _inUndoWindow = false;
+      _lastHumanMoveIdx = null;
+      _undoUsedThisRound = true;
+    });
+  }
+
   void _onCellTap(int index) {
     if (_roundOver || _board[index].isNotEmpty) return;
-    // In AI mode the human controls only X. Block taps during AI's turn.
-    if (_mode == _Mode.ai && (_aiThinking || _currentPlayer != 'X')) return;
+    if (_mode == _Mode.ai && (_aiThinking || _inUndoWindow || _currentPlayer != 'X')) return;
 
     setState(() {
       _board[index] = _currentPlayer;
@@ -256,19 +285,24 @@ class _TicTacToeScreenState extends State<TicTacToeScreen>
       return;
     }
 
+    final undoAvailable = _mode == _Mode.ai && !_undoUsedThisRound && AdsService().isRewardedReady;
+
     setState(() {
       _currentPlayer = _currentPlayer == 'X' ? 'O' : 'X';
+      _lastHumanMoveIdx = index;
     });
 
     if (_mode == _Mode.ai && _currentPlayer == 'O') {
-      _scheduleAiMove();
+      if (undoAvailable) {
+        setState(() => _inUndoWindow = true);
+      } else {
+        _scheduleAiMove();
+      }
     }
   }
 
   void _scheduleAiMove() {
     setState(() => _aiThinking = true);
-    // Pause long enough for the user to feel the turn-aware tint cross-fade
-    // (which animates over ~420 ms) before the AI actually plays.
     final thinkMs = switch (_difficulty) {
       _Difficulty.easy => 700,
       _Difficulty.medium => 900,
@@ -281,6 +315,7 @@ class _TicTacToeScreenState extends State<TicTacToeScreen>
       setState(() {
         _board[move] = 'O';
         _aiThinking = false;
+        _lastHumanMoveIdx = null;
       });
       _audio.playTap();
       final winLine = _findWinningLine('O');
@@ -557,6 +592,10 @@ class _TicTacToeScreenState extends State<TicTacToeScreen>
       celebrating: _celebrating,
       streak: _streak,
       showStreakBadge: _showStreakBadge,
+      inUndoWindow: _inUndoWindow,
+      canUndo: _canUndo,
+      onUndo: _performUndo,
+      onUndoExpired: _onUndoExpired,
       onCellTap: _onCellTap,
       onBack: _backOrHome,
       onRestart: _playAgainSameMode,
@@ -857,6 +896,10 @@ class _BoardScreen extends StatelessWidget {
   final bool celebrating;
   final int streak;
   final bool showStreakBadge;
+  final bool inUndoWindow;
+  final bool canUndo;
+  final VoidCallback onUndo;
+  final VoidCallback onUndoExpired;
   final ValueChanged<int> onCellTap;
   final VoidCallback onBack;
   final VoidCallback onRestart;
@@ -876,6 +919,10 @@ class _BoardScreen extends StatelessWidget {
     required this.celebrating,
     required this.streak,
     required this.showStreakBadge,
+    required this.inUndoWindow,
+    required this.canUndo,
+    required this.onUndo,
+    required this.onUndoExpired,
     required this.onCellTap,
     required this.onBack,
     required this.onRestart,
@@ -887,7 +934,7 @@ class _BoardScreen extends StatelessWidget {
     //   X turn → warm coral
     //   O turn → cool cyan
     //   Game over (no clear current turn) → neutral.
-    final isXTurn = currentPlayer == 'X';
+    final isXTurn = currentPlayer == 'X' || inUndoWindow;
     final topColor = (bannerLabel != null)
         ? _kTintNeutralTop
         : (isXTurn ? _kTintWarmTop : _kTintCoolTop);
@@ -919,10 +966,7 @@ class _BoardScreen extends StatelessWidget {
               child: SafeArea(
                 child: Column(
                   children: [
-                    // Reserve enough top space for the floating tab above
-                    // the score pill so it doesn't clip under SafeArea.
                     const SizedBox(height: 12),
-                    // Top bar: back button left + score pill centred + restart button right
                     GameHudBar(
                       padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                       leading: GameBackButton(onTap: onBack),
@@ -938,9 +982,6 @@ class _BoardScreen extends StatelessWidget {
                         onRestart: onRestart,
                       ),
                     ),
-                    // Streak badge appears inline with a small AnimatedSize
-                    // so it doesn't reserve space on cramped screens
-                    // (e.g. 320 px tall landscape devices).
                     AnimatedSize(
                       duration: const Duration(milliseconds: 260),
                       curve: Curves.easeOutCubic,
@@ -952,20 +993,18 @@ class _BoardScreen extends StatelessWidget {
                           : const SizedBox.shrink(),
                     ),
                     const SizedBox(height: 8),
-                    // ── Opponent strip (top) ─────────────────────────────────
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: PlayerStrip(
                         label: mode == _Mode.ai ? 'AI' : 'P2',
                         mark: 'O',
                         color: _kOColor,
-                        isActive: currentPlayer == 'O' && bannerLabel == null,
+                        isActive: currentPlayer == 'O' && !inUndoWindow && bannerLabel == null,
                         isThinking: aiThinking,
                         avatarIcon: mode == _Mode.ai ? Icons.smart_toy_rounded : null,
                       ),
                     ),
                     const SizedBox(height: 8),
-                    // ── Game board ────────────────────────────────────────────
                     Expanded(
                       child: Center(
                         child: AspectRatio(
@@ -1002,18 +1041,30 @@ class _BoardScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    // ── Local player strip (bottom) ───────────────────────────
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: PlayerStrip(
                         label: mode == _Mode.ai ? 'You' : 'P1',
                         mark: 'X',
                         color: _kXColor,
-                        isActive: currentPlayer == 'X' && bannerLabel == null,
+                        isActive: (currentPlayer == 'X' || inUndoWindow) && bannerLabel == null,
                         isThinking: false,
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 44,
+                      child: canUndo
+                          ? Center(
+                              child: RewardedUndoButton(
+                                key: ValueKey('undo_${board.join()}'),
+                                onUndo: onUndo,
+                                onExpired: onUndoExpired,
+                                accentColor: _kXColor,
+                              ),
+                            )
+                          : const SizedBox.shrink(),
+                    ),
+                    const SizedBox(height: 4),
                   ],
                 ),
               ),
