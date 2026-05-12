@@ -71,5 +71,23 @@
 		<string>https</string>
 		<string>http</string>
 	</array>
+	<!-- AdMob App ID. Currently set to Google's official iOS test App ID
+	     so dev builds work out of the box. Before shipping to TestFlight or
+	     App Store, replace with the iOS App ID from your AdMob console. -->
+	<key>GADApplicationIdentifier</key>
+	<string>ca-app-pub-3940256099942544~1458002511</string>
+	<!-- Required by AdMob: SKAdNetwork identifiers (Apple's privacy-preserving
+	     ad attribution). Keep this list current with AdMob's published list. -->
+	<key>SKAdNetworkItems</key>
+	<array>
+		<dict>
+			<key>SKAdNetworkIdentifier</key>
+			<string>cstr6suwn9.skadnetwork</string>
+		</dict>
+	</array>
+	<!-- Required for personalized ads on iOS 14.5+ (App Tracking Transparency).
+	     Shown the first time the consent flow asks for tracking permission. -->
+	<key>NSUserTrackingUsageDescription</key>
+	<string>Your data will be used to show ads that are more relevant to you.</string>
 </dict>
 </plist>

@@ -8,8 +8,11 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'config/ad_config.dart';
 import 'core/constants/app_theme.dart';
+import 'core/services/ads_service.dart';
 import 'core/services/analytics_service.dart';
+import 'core/services/consent_service.dart';
 import 'core/services/crash_reporter.dart';
 import 'core/services/score_service.dart';
 import 'games/game_stats_bootstrap.dart';
@@ -18,6 +21,7 @@ import 'utils/perf_logger.dart';
 
 Future<void> bootstrap({
   required FirebaseOptions firebaseOptions,
+  required AdConfig adConfig,
   required bool isDev,
 }) async {
   // runZonedGuarded catches anything that escapes Flutter's own error path —
@@ -99,6 +103,14 @@ Future<void> bootstrap({
         await FirebaseAnalytics.instance.logAppOpen();
         await CrashReporter().log('app_open');
       }
+
+      // Consent must complete before any ad request.
+      // Order: UMP info update → form (if EEA) → AdsService.init.
+      unawaited(() async {
+        await ConsentService().init();
+        await ConsentService().ready;
+        await AdsService().init(config: adConfig);
+      }());
     });
   }, (error, stack) {
     // Anything that escaped runZonedGuarded — report fatal.

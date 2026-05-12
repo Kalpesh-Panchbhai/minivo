@@ -17,9 +17,19 @@ class AnalyticsService {
 
   Future<void> _log(String name, [Map<String, Object?>? params]) async {
     if (!_enabled) return;
+    // Firebase Analytics rejects everything except String and num. Coerce
+    // bools to int (1/0) and any other type to its `toString()` so callers
+    // can pass natural Dart values without hitting an assertion.
     final clean = <String, Object>{};
     params?.forEach((k, v) {
-      if (v != null) clean[k] = v;
+      if (v == null) return;
+      if (v is String || v is num) {
+        clean[k] = v;
+      } else if (v is bool) {
+        clean[k] = v ? 1 : 0;
+      } else {
+        clean[k] = v.toString();
+      }
     });
     try {
       await _fa.logEvent(name: name, parameters: clean);

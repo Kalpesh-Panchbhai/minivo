@@ -35,15 +35,20 @@ android {
     }
 
     // ── Flavors: `dev` for local runs, `prod` for store uploads ─────────────
-    // Same applicationId for both — Firebase credentials are selected at the
-    // Dart level via main_dev.dart / main_prod.dart.
+    // Same applicationId for both — Firebase credentials and AdMob unit IDs
+    // are selected at the Dart level via main_dev.dart / main_prod.dart.
+    // The AdMob *App ID* (manifest meta-data) does need a per-flavor value
+    // since it's read by the Mobile Ads SDK from the manifest at startup.
     flavorDimensions += "env"
     productFlavors {
         create("dev") {
             dimension = "env"
+            // Google's official test App ID — safe for dev builds.
+            manifestPlaceholders["admobAppId"] = "ca-app-pub-3940256099942544~3347511713"
         }
         create("prod") {
             dimension = "env"
+            manifestPlaceholders["admobAppId"] = "ca-app-pub-6010707433076438~1574283221"
         }
     }
 }

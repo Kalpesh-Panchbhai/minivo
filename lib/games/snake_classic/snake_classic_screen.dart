@@ -16,6 +16,7 @@ import '../shared/game_control_buttons.dart';
 import '../shared/game_hud_bar.dart';
 import '../shared/game_difficulty_picker.dart';
 import '../shared/generic_game_result_screen.dart' as game_result;
+import '../shared/rewarded_continue_action.dart';
 import 'snake_classic_stats.dart';
 import 'snake_classic_tutorial.dart';
 
@@ -240,6 +241,31 @@ class _SnakeClassicScreenState extends State<SnakeClassicScreen>
   }
 
   void _newGame() => _startGame(_activeDifficulty ?? _pickerDifficulty);
+
+  /// Resume after a rewarded "Continue" — respawn snake at center with the
+  /// initial length, but keep the player's current score and apple count.
+  void _continueGame() {
+    final diff = _activeDifficulty;
+    if (diff == null) return;
+    final mid = _kBoardN ~/ 2;
+    final initial = <math.Point<int>>[
+      for (int i = 0; i < _kInitialLen; i++)
+        math.Point(mid + (_kInitialLen - 1 - i), mid),
+    ];
+    setState(() {
+      _snake = initial;
+      _prevSnake = List<math.Point<int>>.from(initial);
+      _dir = _Dir.right;
+      _pendingDir = null;
+      _foods = _spawnFoods(initial, []);
+      _gameOver = false;
+      _eatEffects.clear();
+      _lastEatTimeMs = null;
+    });
+    _tickCtrl.duration = Duration(milliseconds: diff.tickMsForApples(_applesEaten));
+    _tickCtrl.forward(from: 0);
+    GameWrapper.of(context).continueAfterGameOver();
+  }
 
   void _backToPicker() {
     _tickCtrl.stop();
@@ -581,17 +607,24 @@ class _SnakeClassicScreenState extends State<SnakeClassicScreen>
 
   Widget _buildGameOverScreen() {
     final difficulty = _activeDifficulty!;
+    final continueAction = rewardedContinueAction(
+      context: context,
+      label: 'Watch Ad to Continue',
+      color: difficulty.color,
+      onRewarded: _continueGame,
+    );
     return game_result.GenericGameResultScreen(
       headline: 'Game Over',
       badgeContent: '🐍',
       badgeColor: difficulty.color,
       showNewBestBadge: _isNewBestScore,
       actions: [
+        ?continueAction,
         game_result.GameResultAction(
           label: 'Play Again',
           icon: Icons.refresh_rounded,
           onTap: _newGame,
-          filled: true,
+          filled: continueAction == null,
           color: difficulty.color,
         ),
         game_result.GameResultAction(

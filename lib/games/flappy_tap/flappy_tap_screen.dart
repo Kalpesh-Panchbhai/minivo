@@ -16,6 +16,7 @@ import '../shared/game_control_buttons.dart';
 import '../shared/game_hud_bar.dart';
 import '../shared/game_difficulty_picker.dart';
 import '../shared/generic_game_result_screen.dart' as game_result;
+import '../shared/rewarded_continue_action.dart';
 import 'flappy_tap_stats.dart';
 import 'flappy_tap_tutorial.dart';
 
@@ -290,6 +291,22 @@ class _FlappyTapScreenState extends State<FlappyTapScreen>
   }
 
   void _newGame() => _startGame(_activeDifficulty ?? _pickerDifficulty);
+
+  /// Resume after a rewarded "Continue" — clear pipes near the bird and
+  /// respawn at center with zero velocity, keeping the score.
+  void _continueGame() {
+    if (_activeDifficulty == null) return;
+    final startY = _canvasH > 0 ? (_canvasH - _kGroundH) / 2.0 : 300.0;
+    setState(() {
+      _pipes.clear();
+      _birdY = startY;
+      _birdVy = 0.0;
+      _gameOver = false;
+      _sinceLastSpawn = 0.0;
+    });
+    GameWrapper.of(context).continueAfterGameOver();
+    _startTicker();
+  }
 
   void _backToPicker() {
     _stopTicker();
@@ -581,17 +598,24 @@ class _FlappyTapScreenState extends State<FlappyTapScreen>
 
   Widget _buildGameOverScreen() {
     final difficulty = _activeDifficulty!;
+    final continueAction = rewardedContinueAction(
+      context: context,
+      label: 'Watch Ad to Continue',
+      color: difficulty.color,
+      onRewarded: _continueGame,
+    );
     return game_result.GenericGameResultScreen(
       headline: 'Game Over',
       badgeContent: '🐦',
       badgeColor: difficulty.color,
       showNewBestBadge: _isNewBestScore,
       actions: [
+        ?continueAction,
         game_result.GameResultAction(
           label: 'Play Again',
           icon: Icons.refresh_rounded,
           onTap: _newGame,
-          filled: true,
+          filled: continueAction == null,
           color: difficulty.color,
         ),
         game_result.GameResultAction(

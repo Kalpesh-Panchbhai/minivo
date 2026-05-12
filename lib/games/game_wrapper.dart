@@ -7,6 +7,7 @@ import '../core/constants/app_strings.dart';
 import '../core/services/analytics_service.dart';
 import '../core/services/audio_service.dart';
 import '../core/services/crash_reporter.dart';
+import '../core/services/ads_service.dart';
 import '../core/services/score_service.dart';
 
 enum GameState { ready, playing, paused, gameOver }
@@ -85,42 +86,52 @@ class GameWrapperState extends State<GameWrapper> {
   }
 
   void endGame() {
-    if (_state == GameState.gameOver) return;
+    final wasAlreadyOver = _state == GameState.gameOver;
     AudioService().playGameOver();
     final isNew = _score > _highScore;
     if (isNew) {
       _highScore = _score;
       ScoreService().saveScore(widget.gameId, _score);
     }
-    ScoreService().incrementGamesPlayed();
-    ScoreService().incrementGamePlayCount(widget.gameId);
-    ScoreService().addRecentlyPlayed(widget.gameId);
+    // Per-session bookkeeping (counts, coins, recents, analytics) only fires
+    // on the FIRST death of a session. A continued run that ends again still
+    // updates the high score above but does not double-count.
+    if (!wasAlreadyOver) {
+      ScoreService().incrementGamesPlayed();
+      ScoreService().incrementGamePlayCount(widget.gameId);
+      ScoreService().addRecentlyPlayed(widget.gameId);
 
-    int coins = 5;
-    if (isNew) coins += 10;
-    if (_getStars() == 3) coins += 15;
-    ScoreService().addCoins(coins);
+      int coins = 5;
+      if (isNew) coins += 10;
+      if (_getStars() == 3) coins += 15;
+      ScoreService().addCoins(coins);
 
-    final duration =
-        _startedAt == null ? 0 : DateTime.now().difference(_startedAt!).inSeconds;
-    AnalyticsService().gameEnd(
-      gameId: widget.gameId,
-      result: 'loss',
-      score: _score,
-      durationSec: duration,
-      isHighScore: isNew,
-    );
-    CrashReporter().log('game_end', {
-      'game_id': widget.gameId,
-      'score': _score,
-      'duration_sec': duration,
-      'is_high_score': isNew,
+      final duration = _startedAt == null
+          ? 0
+          : DateTime.now().difference(_startedAt!).inSeconds;
+      AnalyticsService().gameEnd(
+        gameId: widget.gameId,
+        result: 'loss',
+        score: _score,
+        durationSec: duration,
+        isHighScore: isNew,
+      );
+      CrashReporter().log('game_end', {
+        'game_id': widget.gameId,
+        'score': _score,
+        'duration_sec': duration,
+        'is_high_score': isNew,
+      });
+    }
+    if (wasAlreadyOver) return;
+
+    AdsService().notifyGameOver();
+    AdsService().showInterstitial(onComplete: () {
+      _setGameOverState();
     });
+  }
 
-    // Defer state change if we're mid-build/layout, otherwise apply immediately.
-    // Using only addPostFrameCallback can fail to fire when the engine is idle
-    // (e.g. after a long Future.delayed window with no animations running),
-    // because addPostFrameCallback does not itself schedule a frame.
+  void _setGameOverState() {
     final phase = SchedulerBinding.instance.schedulerPhase;
     if (phase == SchedulerPhase.idle ||
         phase == SchedulerPhase.postFrameCallbacks) {
@@ -130,6 +141,20 @@ class GameWrapperState extends State<GameWrapper> {
         if (mounted) setState(() => _state = GameState.gameOver);
       });
     }
+  }
+
+  /// Resume a session that already ended (typical use: after a rewarded
+  /// "Watch ad to continue" button). Flips state from gameOver → playing
+  /// without resetting score. Counters and analytics for this session
+  /// already fired on the first death — see [endGame].
+  void continueAfterGameOver() {
+    if (_state != GameState.gameOver) return;
+    setState(() => _state = GameState.playing);
+    AnalyticsService().gameRestart(
+      gameId: widget.gameId,
+      from: 'rewarded_continue',
+    );
+    CrashReporter().log('game_continue', {'game_id': widget.gameId});
   }
 
   void restartGame() {

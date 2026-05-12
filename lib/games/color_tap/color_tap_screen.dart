@@ -17,6 +17,7 @@ import '../shared/game_control_buttons.dart';
 import '../shared/game_hud_bar.dart';
 import '../shared/game_difficulty_picker.dart';
 import '../shared/generic_game_result_screen.dart' as game_result;
+import '../shared/rewarded_continue_action.dart';
 import 'color_tap_stats.dart';
 import 'color_tap_tutorial.dart';
 
@@ -368,6 +369,21 @@ class _ColorTapScreenState extends State<ColorTapScreen>
 
   void _newGame() => _startGame(_activeDifficulty ?? _pickerDifficulty);
 
+  /// Resume after a rewarded "Continue" — restore the full 3-life pool and
+  /// resume rounds, keeping the current score. Granting only 1 extra life
+  /// here feels punishing because Hard mode rounds are 1.5s — players watch
+  /// a 30s ad and die again immediately.
+  void _continueGame() {
+    final diff = _activeDifficulty;
+    if (diff == null) return;
+    setState(() {
+      _lives = 3;
+      _gameOver = false;
+    });
+    GameWrapper.of(context).continueAfterGameOver();
+    _nextRound(diff);
+  }
+
   void _backToPicker() {
     _roundTimer?.cancel();
     _feedbackTimer?.cancel();
@@ -573,17 +589,24 @@ class _ColorTapScreenState extends State<ColorTapScreen>
 
   Widget _buildGameOver() {
     final diff = _activeDifficulty!;
+    final continueAction = rewardedContinueAction(
+      context: context,
+      label: 'Watch Ad to Continue',
+      color: diff.color,
+      onRewarded: _continueGame,
+    );
     return game_result.GenericGameResultScreen(
       headline: 'Game Over',
       badgeContent: '🎨',
       badgeColor: diff.color,
       showNewBestBadge: _isNewBest,
       actions: [
+        ?continueAction,
         game_result.GameResultAction(
           label: 'Play Again',
           icon: Icons.refresh_rounded,
           onTap: _newGame,
-          filled: true,
+          filled: continueAction == null,
           color: diff.color,
         ),
         game_result.GameResultAction(
