@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/services/ads_service.dart';
+import '../../core/services/audio_service.dart';
 import '../../core/services/score_service.dart';
 import '../../core/widgets/how_to_play_sheet.dart';
 import '../game_picker_scaffold.dart';
@@ -107,6 +109,9 @@ class _SudokuScreenState extends State<SudokuScreen> {
   Timer? _ticker;
   int _elapsedSeconds = 0;
 
+  // Hint support (1 per game)
+  bool _hintUsed = false;
+
   // Result
   bool _isNewBestScore = false;
 
@@ -175,6 +180,7 @@ class _SudokuScreenState extends State<SudokuScreen> {
         _elapsedSeconds = 0;
         _isNewBestScore = false;
         _isGenerating   = false;
+        _hintUsed       = false;
         _mode           = _Mode.playing;
         _animRow        = -1;
         _animCol        = -1;
@@ -284,6 +290,64 @@ class _SudokuScreenState extends State<SudokuScreen> {
     if (r == null || c == null) return;
     if (_given[r][c]) return;
     setState(() => _puzzle[r][c] = 0);
+  }
+
+  void _onHint() {
+    if (_hintUsed) return;
+    if (!AdsService().isRewardedReady) return;
+
+    AudioService().playTap();
+    bool earned = false;
+    AdsService().showRewarded(
+      rewardType: RewardType.hint,
+      onRewarded: (_) => earned = true,
+      onComplete: () {
+        if (!earned || !mounted) return;
+        int r, c;
+        if (_selRow != null && _selCol != null && !_given[_selRow!][_selCol!] && _puzzle[_selRow!][_selCol!] != _solution[_selRow!][_selCol!]) {
+          r = _selRow!;
+          c = _selCol!;
+        } else {
+          final empties = <(int, int)>[];
+          for (int row = 0; row < 9; row++) {
+            for (int col = 0; col < 9; col++) {
+              if (!_given[row][col] && _puzzle[row][col] != _solution[row][col]) {
+                empties.add((row, col));
+              }
+            }
+          }
+          if (empties.isEmpty) return;
+          final pick = empties[Random().nextInt(empties.length)];
+          r = pick.$1;
+          c = pick.$2;
+        }
+        setState(() {
+          _puzzle[r][c] = _solution[r][c];
+          _given[r][c] = true;
+          _hintUsed = true;
+          _selRow = r;
+          _selCol = c;
+          _animRow = r;
+          _animCol = c;
+          _animCorrect = true;
+        });
+        _recomputeCompletion(r, c);
+        Future.delayed(const Duration(milliseconds: 420), () {
+          if (mounted) setState(() { _animRow = -1; _animCol = -1; });
+        });
+        bool complete = true;
+        for (int row = 0; row < 9; row++) {
+          for (int col = 0; col < 9; col++) {
+            if (_puzzle[row][col] != _solution[row][col]) {
+              complete = false;
+              break;
+            }
+          }
+          if (!complete) break;
+        }
+        if (complete) _onGameComplete();
+      },
+    );
   }
 
   Future<void> _onGameComplete() async {
@@ -451,6 +515,8 @@ class _SudokuScreenState extends State<SudokuScreen> {
                   _NumberKeypad(
                     onNumber: _onNumberInput,
                     onErase: _onErase,
+                    onHint: _onHint,
+                    hintUsed: _hintUsed,
                     accentColor: diff.color,
                   ),
                   const SizedBox(height: 12),
@@ -988,36 +1054,60 @@ class _SudokuGridState extends State<_SudokuGrid> with TickerProviderStateMixin 
 class _NumberKeypad extends StatelessWidget {
   final void Function(int) onNumber;
   final VoidCallback onErase;
+  final VoidCallback onHint;
+  final bool hintUsed;
   final Color accentColor;
   const _NumberKeypad({
     required this.onNumber,
     required this.onErase,
+    required this.onHint,
+    required this.hintUsed,
     required this.accentColor,
   });
 
   @override
   Widget build(BuildContext context) {
+    final hintAvailable = !hintUsed && AdsService().isRewardedReady;
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          ...List.generate(9, (i) {
-            final digit = i + 1;
-            return Expanded(
-              child: _KeypadButton(
-                label: '$digit',
+          Row(
+            children: [
+              ...List.generate(9, (i) {
+                final digit = i + 1;
+                return Expanded(
+                  child: _KeypadButton(
+                    label: '$digit',
+                    accentColor: accentColor,
+                    onTap: () => onNumber(digit),
+                  ),
+                );
+              }),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _KeypadButton(
+                label: '⌫',
                 accentColor: accentColor,
-                onTap: () => onNumber(digit),
+                isErase: true,
+                fixedWidth: 52,
+                onTap: onErase,
               ),
-            );
-          }),
-          const SizedBox(width: 6),
-          _KeypadButton(
-            label: '⌫',
-            accentColor: accentColor,
-            isErase: true,
-            fixedWidth: 44,
-            onTap: onErase,
+              const SizedBox(width: 10),
+              _KeypadButton(
+                label: '💡',
+                accentColor: const Color(0xFFFFD43B),
+                isHint: true,
+                fixedWidth: 52,
+                onTap: hintAvailable ? onHint : null,
+                disabled: !hintAvailable,
+              ),
+            ],
           ),
         ],
       ),
@@ -1029,6 +1119,8 @@ class _KeypadButton extends StatefulWidget {
   final String label;
   final Color accentColor;
   final bool isErase;
+  final bool isHint;
+  final bool disabled;
   final double? fixedWidth;
   final VoidCallback? onTap;
 
@@ -1036,6 +1128,8 @@ class _KeypadButton extends StatefulWidget {
     required this.label,
     required this.accentColor,
     this.isErase = false,
+    this.isHint = false,
+    this.disabled = false,
     this.fixedWidth,
     required this.onTap,
   });
@@ -1049,54 +1143,75 @@ class _KeypadButtonState extends State<_KeypadButton> {
 
   @override
   Widget build(BuildContext context) {
-    final bg = widget.isErase
-        ? Colors.white
-        : widget.accentColor.withValues(alpha: 0.10);
-    final border = widget.isErase
-        ? const Color(0xFFEF4444).withValues(alpha: 0.30)
-        : widget.accentColor.withValues(alpha: 0.22);
-    final textColor = widget.isErase
-        ? const Color(0xFFEF4444)
-        : widget.accentColor;
+    final isDisabled = widget.disabled || widget.onTap == null;
+    final double opacity = isDisabled ? 0.35 : 1.0;
+
+    Color bg;
+    Color border;
+    Color textColor;
+
+    if (widget.isHint) {
+      bg = const Color(0xFFFFF9DB);
+      border = const Color(0xFFFFD43B).withValues(alpha: 0.50);
+      textColor = const Color(0xFFF59F00);
+    } else if (widget.isErase) {
+      bg = Colors.white;
+      border = const Color(0xFFEF4444).withValues(alpha: 0.30);
+      textColor = const Color(0xFFEF4444);
+    } else {
+      bg = widget.accentColor.withValues(alpha: 0.10);
+      border = widget.accentColor.withValues(alpha: 0.22);
+      textColor = widget.accentColor;
+    }
+
+    Widget child;
+    if (widget.isErase) {
+      child = Icon(Icons.backspace_rounded, size: 18, color: textColor);
+    } else if (widget.isHint) {
+      child = Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.lightbulb_rounded, size: 16, color: textColor),
+          const SizedBox(width: 3),
+          Icon(Icons.play_circle_filled_rounded, size: 12, color: textColor.withValues(alpha: 0.7)),
+        ],
+      );
+    } else {
+      child = Text(
+        widget.label,
+        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: textColor, height: 1),
+      );
+    }
 
     final inner = AnimatedScale(
       scale: _pressed ? 0.88 : 1.0,
       duration: const Duration(milliseconds: 70),
-      child: Container(
-        width: widget.fixedWidth,
-        height: 52,
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: border, width: 1.5),
-          boxShadow: [
-            BoxShadow(
-              color: textColor.withValues(alpha: 0.08),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Center(
-          child: widget.isErase
-              ? Icon(Icons.backspace_rounded, size: 18, color: textColor)
-              : Text(
-                  widget.label,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: textColor,
-                    height: 1,
-                  ),
-                ),
+      child: Opacity(
+        opacity: opacity,
+        child: Container(
+          width: widget.fixedWidth,
+          height: 52,
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: border, width: 1.5),
+            boxShadow: [
+              BoxShadow(
+                color: textColor.withValues(alpha: 0.08),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Center(child: child),
         ),
       ),
     );
 
     return GestureDetector(
-      onTapDown: widget.onTap != null ? (_) => setState(() => _pressed = true) : null,
-      onTapUp: widget.onTap != null ? (_) { setState(() => _pressed = false); widget.onTap!(); } : null,
-      onTapCancel: widget.onTap != null ? () => setState(() => _pressed = false) : null,
+      onTapDown: !isDisabled ? (_) => setState(() => _pressed = true) : null,
+      onTapUp: !isDisabled ? (_) { setState(() => _pressed = false); widget.onTap!(); } : null,
+      onTapCancel: !isDisabled ? () => setState(() => _pressed = false) : null,
       child: widget.fixedWidth != null ? inner : Padding(
         padding: const EdgeInsets.symmetric(horizontal: 2),
         child: inner,

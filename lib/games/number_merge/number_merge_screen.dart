@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/services/ads_service.dart';
 import '../../core/services/audio_service.dart';
 import '../../core/services/score_service.dart';
 import '../../core/widgets/how_to_play_sheet.dart';
@@ -16,6 +17,8 @@ import '../shared/game_control_buttons.dart';
 import '../shared/game_hud_bar.dart';
 import '../shared/game_difficulty_picker.dart';
 import '../shared/generic_game_result_screen.dart' as game_result;
+import '../shared/rewarded_continue_action.dart';
+import '../shared/rewarded_undo_button.dart';
 import 'number_merge_stats.dart';
 import 'number_merge_tutorial.dart';
 
@@ -137,6 +140,15 @@ class _NumberMergeScreenState extends State<NumberMergeScreen> {
   bool _continueAfterWin = false;
   bool _gameOver = false;
 
+  // Undo support (1 per game)
+  bool _undoUsed = false;
+  bool _inUndoWindow = false;
+  List<_Tile>? _prevTiles;
+  int? _prevScore;
+
+  // Continue support (1 per game)
+  bool _continueUsed = false;
+
   // Swipe gesture state — track BOTH velocity (fast flick) and cumulative
   // distance (slow drag) so deliberate touches register reliably.
   double _dragDx = 0;
@@ -186,6 +198,11 @@ class _NumberMergeScreenState extends State<NumberMergeScreen> {
       _won = false;
       _continueAfterWin = false;
       _gameOver = false;
+      _undoUsed = false;
+      _inUndoWindow = false;
+      _prevTiles = null;
+      _prevScore = null;
+      _continueUsed = false;
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -434,8 +451,15 @@ class _NumberMergeScreenState extends State<NumberMergeScreen> {
     return true;
   }
 
+  List<_Tile> _deepCopyTiles(List<_Tile> tiles) =>
+      tiles.map((t) => _Tile(id: t.id, value: t.value, row: t.row, col: t.col)).toList();
+
   void _handleSwipeDirection(String dir) {
     if (_activeDifficulty == null || _gameOver) return;
+    if (_inUndoWindow) _onUndoExpired();
+
+    final snapshotTiles = _deepCopyTiles(_tiles);
+    final snapshotScore = _score;
 
     final (slid, gained, moved) = switch (dir) {
       'left'  => _slideLeft(List.from(_tiles)),
@@ -480,8 +504,53 @@ class _NumberMergeScreenState extends State<NumberMergeScreen> {
       if (_isGameOver(_tiles)) {
         setState(() => _gameOver = true);
         GameWrapper.of(context).endGame();
+        return;
+      }
+      final undoAvailable = !_undoUsed && AdsService().isRewardedReady;
+      if (undoAvailable) {
+        setState(() {
+          _inUndoWindow = true;
+          _prevTiles = snapshotTiles;
+          _prevScore = snapshotScore;
+        });
       }
     });
+  }
+
+  void _onUndoExpired() {
+    if (!mounted || !_inUndoWindow) return;
+    setState(() {
+      _inUndoWindow = false;
+      _prevTiles = null;
+      _prevScore = null;
+    });
+  }
+
+  void _performUndo() {
+    final prev = _prevTiles;
+    final prevS = _prevScore;
+    if (prev == null || prevS == null) return;
+    setState(() {
+      _tiles = prev;
+      _score = prevS;
+      _undoUsed = true;
+      _inUndoWindow = false;
+      _prevTiles = null;
+      _prevScore = null;
+    });
+    GameWrapper.of(context).updateScore(prevS);
+  }
+
+  void _continueGame() {
+    final sorted = _tiles.where((t) => !t.mergedOut).toList()
+      ..sort((a, b) => a.value.compareTo(b.value));
+    final toRemove = sorted.take(math.min(4, sorted.length)).map((t) => t.id).toSet();
+    setState(() {
+      _tiles.removeWhere((t) => toRemove.contains(t.id));
+      _gameOver = false;
+      _continueUsed = true;
+    });
+    GameWrapper.of(context).continueAfterGameOver();
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────
@@ -554,6 +623,17 @@ class _NumberMergeScreenState extends State<NumberMergeScreen> {
                 const SizedBox(height: 4),
                 _buildGameHud(),
                 const SizedBox(height: 12),
+                SizedBox(
+                  height: 40,
+                  child: _inUndoWindow
+                      ? RewardedUndoButton(
+                          key: ValueKey('undo_$_prevScore'),
+                          onUndo: _performUndo,
+                          onExpired: _onUndoExpired,
+                          accentColor: _kGolden,
+                        )
+                      : const SizedBox.shrink(),
+                ),
                 Expanded(child: Center(child: _buildBoard())),
                 if (_won && !_continueAfterWin) _buildWinBanner(),
                 const SizedBox(height: 12),
@@ -657,17 +737,26 @@ class _NumberMergeScreenState extends State<NumberMergeScreen> {
 
   Widget _buildGameOverScreen() {
     final difficulty = _activeDifficulty!;
+    final continueAction = _continueUsed
+        ? null
+        : rewardedContinueAction(
+            context: context,
+            label: 'Watch Ad to Continue',
+            color: difficulty.color,
+            onRewarded: _continueGame,
+          );
     return game_result.GenericGameResultScreen(
       headline: 'Game Over',
       badgeContent: '😢',
       badgeColor: difficulty.color,
       showNewBestBadge: _isNewBestScore,
       actions: [
+        ?continueAction,
         game_result.GameResultAction(
           label: 'Play Again',
           icon: Icons.refresh_rounded,
           onTap: _newGame,
-          filled: true,
+          filled: continueAction == null,
           color: difficulty.color,
         ),
         game_result.GameResultAction(

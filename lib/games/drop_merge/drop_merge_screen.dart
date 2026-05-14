@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/services/ads_service.dart';
 import '../../core/services/audio_service.dart';
 import '../../core/services/score_service.dart';
 import '../../core/widgets/how_to_play_sheet.dart';
@@ -16,6 +17,8 @@ import '../shared/game_hud_bar.dart';
 import '../shared/animated_difficulty_icon.dart';
 import '../shared/game_difficulty_picker.dart';
 import '../shared/generic_game_result_screen.dart' as game_result;
+import '../shared/rewarded_continue_action.dart';
+import '../shared/rewarded_undo_button.dart';
 import 'drop_merge_logo.dart';
 import 'drop_merge_stats.dart';
 import 'drop_merge_tutorial.dart';
@@ -288,6 +291,16 @@ class _DropMergeScreenState extends State<DropMergeScreen> {
   bool        _dropping    = false;
   bool        _isFavorite  = false;
 
+  // Undo support (1 per game)
+  bool  _undoUsed = false;
+  bool  _inUndoWindow = false;
+  _Grid? _prevGrid;
+  int?   _prevScore;
+  int?   _prevCurrentTile;
+
+  // Continue support (1 per game)
+  bool _continueUsed = false;
+
   Set<String>       _flashingCells = {};
   Set<String>       _consumedCells = {};
   _FallingDrop?     _fallingDrop;
@@ -326,14 +339,29 @@ class _DropMergeScreenState extends State<DropMergeScreen> {
     _gravityMoves  = [];
     _stepTimer?.cancel();
     _fallTimer?.cancel();
-    _currentTile = _nextTile(_difficulty, _rng);
+    _currentTile   = _nextTile(_difficulty, _rng);
+    _undoUsed      = false;
+    _inUndoWindow  = false;
+    _prevGrid      = null;
+    _prevScore     = null;
+    _prevCurrentTile = null;
+    _continueUsed  = false;
   }
 
   void _onColumnTap(int col) {
     if (_gameOver || _dropping) return;
+    if (_inUndoWindow) _onUndoExpired();
 
     final (newGrid, landingRow, _) = _dropTile(_grid, col, _currentTile);
     if (landingRow == -1) return;
+
+    final snapshotGrid = _copyGrid(_grid);
+    final snapshotScore = _score;
+    final snapshotTile = _currentTile;
+
+    _prevGrid = snapshotGrid;
+    _prevScore = snapshotScore;
+    _prevCurrentTile = snapshotTile;
 
     _audio.playTap();
 
@@ -423,7 +451,55 @@ class _DropMergeScreenState extends State<DropMergeScreen> {
       Future.delayed(const Duration(milliseconds: 900), () {
         if (mounted) _wrapper.endGame();
       });
+      return;
     }
+
+    final undoAvailable = !_undoUsed && AdsService().isRewardedReady;
+    if (undoAvailable) {
+      setState(() => _inUndoWindow = true);
+    }
+  }
+
+  void _onUndoExpired() {
+    if (!mounted || !_inUndoWindow) return;
+    setState(() {
+      _inUndoWindow = false;
+      _prevGrid = null;
+      _prevScore = null;
+      _prevCurrentTile = null;
+    });
+  }
+
+  void _performUndo() {
+    final prev = _prevGrid;
+    final prevS = _prevScore;
+    final prevT = _prevCurrentTile;
+    if (prev == null || prevS == null || prevT == null) return;
+    setState(() {
+      _grid = prev;
+      _score = prevS;
+      _currentTile = prevT;
+      _undoUsed = true;
+      _inUndoWindow = false;
+      _prevGrid = null;
+      _prevScore = null;
+      _prevCurrentTile = null;
+    });
+    _wrapper.updateScore(prevS);
+  }
+
+  void _continueGame() {
+    final ng = _copyGrid(_grid);
+    for (int c = 0; c < 4; c++) {
+      ng[0][c] = 0;
+    }
+    final afterGravity = _applyGravity(ng);
+    setState(() {
+      _grid = afterGravity;
+      _gameOver = false;
+      _continueUsed = true;
+    });
+    _wrapper.continueAfterGameOver();
   }
 
   void _startGame() {
@@ -504,12 +580,28 @@ class _DropMergeScreenState extends State<DropMergeScreen> {
       onColumnTap:   _onColumnTap,
       onBack:        _backOrHome,
       onRestart:     _playAgain,
+      undoWidget: _inUndoWindow
+          ? RewardedUndoButton(
+              key: ValueKey('undo_$_prevScore'),
+              onUndo: _performUndo,
+              onExpired: _onUndoExpired,
+              accentColor: _kAccent,
+            )
+          : null,
     );
   }
 
   Widget _buildResult() {
     final best = ScoreService().getHighScore(kDropMergeGameId, subKey: _difficulty.subKey);
     final isNewBest = _score > 0 && _score >= best;
+    final continueAction = _continueUsed
+        ? null
+        : rewardedContinueAction(
+            context: context,
+            label: 'Watch Ad to Continue',
+            color: _kAccent,
+            onRewarded: _continueGame,
+          );
     return game_result.GenericGameResultScreen(
       headline:         'Game Over',
       badgeContent:     '🎯',
@@ -522,9 +614,10 @@ class _DropMergeScreenState extends State<DropMergeScreen> {
         ],
       ),
       actions: [
+        ?continueAction,
         game_result.GameResultAction(
           label: 'Play Again', icon: Icons.refresh_rounded,
-          onTap: _playAgain, filled: true, color: _kAccent,
+          onTap: _playAgain, filled: continueAction == null, color: _kAccent,
         ),
         game_result.GameResultAction(
           label: 'Change Mode', icon: Icons.tune_rounded,
@@ -621,6 +714,7 @@ class _BoardScreen extends StatelessWidget {
   final void Function(int) onColumnTap;
   final VoidCallback       onBack;
   final VoidCallback       onRestart;
+  final Widget?            undoWidget;
 
   const _BoardScreen({
     required this.difficulty,
@@ -636,6 +730,7 @@ class _BoardScreen extends StatelessWidget {
     required this.onColumnTap,
     required this.onBack,
     required this.onRestart,
+    this.undoWidget,
   });
 
   @override
@@ -660,8 +755,12 @@ class _BoardScreen extends StatelessWidget {
               onRestart:   onRestart,
             ),
           ),
-          const SizedBox(height: 16),
-          // Current tile + chain badge row
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 40,
+            child: undoWidget ?? const SizedBox.shrink(),
+          ),
+          const SizedBox(height: 8),
           _CurrentTile(value: currentTile),
           const SizedBox(height: 16),
           // Board
