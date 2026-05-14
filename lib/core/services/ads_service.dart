@@ -34,8 +34,8 @@ class AdsService {
   int _gameOversThisSession = 0;
 
   // Frequency caps. Tunable in one place.
-  static const _interstitialCooldown = Duration(minutes: 3);
-  static const _interstitialSkipFirstNGameOvers = 3;
+  static const _interstitialCooldown = Duration(seconds: 90);
+  static const _interstitialSkipFirstNGameOvers = 2;
 
   // ─── Rewarded ───────────────────────────────────────────────────────
   RewardedAd? _rewardedAd;
