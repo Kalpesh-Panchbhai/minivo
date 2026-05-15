@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
+import '../../core/utils/responsive.dart';
+
 class StatItem {
   final String label;
   final int value;
@@ -90,13 +92,17 @@ class GenericGameResultScreen extends StatelessWidget {
                 ],
               ),
               child: Center(
-                child: Text(
-                  badgeContent,
-                  style: TextStyle(
-                    color: badgeColor,
-                    fontSize: 92,
-                    fontWeight: FontWeight.w900,
-                    height: 1,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    badgeContent,
+                    maxLines: 1,
+                    style: TextStyle(
+                      color: badgeColor,
+                      fontSize: context.fontSize(92, max: 100),
+                      fontWeight: FontWeight.w900,
+                      height: 1,
+                    ),
                   ),
                 ),
               ),
@@ -113,9 +119,12 @@ class GenericGameResultScreen extends StatelessWidget {
             // Headline
             Text(
               headline,
-              style: const TextStyle(
-                color: Color(0xFF3A2D55),
-                fontSize: 30,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: const Color(0xFF3A2D55),
+                fontSize: context.fontSize(30, max: 36),
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0.4,
               ),
@@ -305,9 +314,11 @@ class _StatColumn extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           '$value',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: TextStyle(
             color: color,
-            fontSize: 24,
+            fontSize: context.fontSize(24, max: 30),
             fontWeight: FontWeight.w900,
             height: 1,
           ),

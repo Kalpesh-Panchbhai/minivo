@@ -8,6 +8,7 @@ import '../core/services/analytics_service.dart';
 import '../core/services/audio_service.dart';
 import '../core/services/crash_reporter.dart';
 import '../core/services/ads_service.dart';
+import '../core/utils/responsive.dart';
 import '../core/services/score_service.dart';
 
 enum GameState { ready, playing, paused, gameOver }
@@ -362,9 +363,10 @@ class GameWrapperState extends State<GameWrapper> {
               children: [
                 Text(
                   AppStrings.gameOver,
+                  textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w700,
-                        fontSize: 24,
+                        fontSize: context.fontSize(24, max: 30),
                       ),
                 ),
                 const SizedBox(height: 16),

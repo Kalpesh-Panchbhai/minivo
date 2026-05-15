@@ -18,6 +18,8 @@ import 'tic_tac_toe/tic_tac_toe_logo.dart';
 import 'tic_tac_toe/tic_tac_toe_screen.dart';
 import 'drop_merge/drop_merge_logo.dart';
 import 'drop_merge/drop_merge_screen.dart';
+import 'whack_a_mole/whack_a_mole_logo.dart';
+import 'whack_a_mole/whack_a_mole_screen.dart';
 
 typedef GameWidgetBuilder = Widget Function();
 
@@ -34,6 +36,7 @@ class GameRegistry {
     'sudoku': () => const SudokuScreen(),
     'tic_tac_toe': () => const TicTacToeScreen(),
     'drop_merge': () => const DropMergeScreen(),
+    'whack_a_mole': () => const WhackAMoleScreen(),
   };
 
   static Widget buildGame(String gameId) {
@@ -56,6 +59,7 @@ class GameRegistry {
     'snake_classic',
     'flappy_tap',
     'drop_merge',
+    'whack_a_mole',
   };
 
   static bool usesCustomOverlays(String gameId) =>
@@ -229,6 +233,25 @@ class GameRegistry {
       bgColor: Color(0xFFFFF3D9),
       playCount: 0,
       customLogo: buildDropMergeLogo,
+    ),
+    const GameInfo(
+      id: 'whack_a_mole',
+      name: 'Whack-a-Mole',
+      description: 'Moles pop up — whack them fast! Avoid the bombs!',
+      howToPlay:
+          'Choose your difficulty (Easy = 45s, Medium = 35s, Hard = 25s).\n'
+          'Moles pop up randomly from the 3×3 grid of holes.\n'
+          'Tap a mole to whack it and earn points (10/15/20 per mole on Easy/Medium/Hard).\n'
+          'Golden moles are rare and fast — they\'re worth 25 bonus points!\n'
+          'Bombs cost you 15 points and 3 seconds — don\'t tap them!\n'
+          'Build combos by whacking consecutive moles for bonus streaks.\n'
+          'Moles speed up as time passes — stay focused!',
+      category: GameCategory.arcade,
+      icon: Icons.pest_control_rounded,
+      color: Color(0xFF66BB6A),
+      bgColor: Color(0xFFE8F5E9),
+      playCount: 0,
+      customLogo: buildWhackAMoleLogo,
     ),
   ];
 

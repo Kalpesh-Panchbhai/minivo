@@ -7,6 +7,7 @@ import '../../core/constants/app_strings.dart';
 import '../../core/models/game_info.dart';
 import '../../core/services/analytics_service.dart';
 import '../../core/services/score_service.dart';
+import '../../core/utils/responsive.dart';
 import '../../core/widgets/category_chip.dart';
 import '../../core/widgets/mosaic_game_tile.dart';
 import '../../games/game_registry.dart';
@@ -194,31 +195,39 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                 ),
               ),
               const SizedBox(width: 12),
-              // Brand text
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    'MINIVO',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 24,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 2.5,
+              // Brand text — Flexible so it can shrink on narrow phones
+              // (320px) and respect large-font users without overflowing.
+              Flexible(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'MINIVO',
+                      maxLines: 1,
+                      overflow: TextOverflow.clip,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: context.fontSize(24, max: 26),
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: context.isCompactWidth ? 1.8 : 2.5,
+                      ),
                     ),
-                  ),
-                  Text(
-                    'Play • Explore • Win',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.50),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
+                    Text(
+                      'Play • Explore • Win',
+                      maxLines: 1,
+                      overflow: TextOverflow.fade,
+                      softWrap: false,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.50),
+                        fontSize: context.fontSize(11, max: 13),
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-              const Spacer(),
+              const SizedBox(width: 8),
               // Leaderboard button
               GestureDetector(
                 onTap: () {

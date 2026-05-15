@@ -6,7 +6,7 @@ import '../../lib/games/game_wrapper.dart';
 import '../helpers/screen_sizes.dart';
 import '../helpers/test_helpers.dart';
 
-// Block Fit uses long-running drag gesture timers and shape-spawn animations
+// Drop Merge uses long-running drag gesture timers and shape-spawn animations
 // that don't drain under fake-async time. Deep gameplay interaction is
 // covered by overflow regression in `test/screens/games_overflow_test.dart`;
 // this file pins the deterministic ready-state surface area.
@@ -20,12 +20,12 @@ const _device = TestDevice(
 );
 
 Widget _build() => GameWrapper(
-      gameId: 'block_fit',
-      child: GameRegistry.buildGame('block_fit'),
+      gameId: 'drop_merge',
+      child: GameRegistry.buildGame('drop_merge'),
     );
 
 void main() {
-  group('Block Fit — ready state', () {
+  group('Drop Merge — ready state', () {
     setUp(() async => initTestDependencies());
 
     testWidgets('ready overlay shows Tap to Start', (tester) async {
@@ -38,10 +38,10 @@ void main() {
       expect(find.byIcon(Icons.pause_rounded), findsNothing);
     });
 
-    testWidgets('block_fit is registered with a name and how-to-play text',
+    testWidgets('drop_merge is registered with a name and how-to-play text',
         (tester) async {
-      final game = GameRegistry.getById('block_fit')!;
-      expect(game.id, 'block_fit');
+      final game = GameRegistry.getById('drop_merge')!;
+      expect(game.id, 'drop_merge');
       expect(game.name.isNotEmpty, isTrue);
       expect(game.howToPlay.isNotEmpty, isTrue);
     });

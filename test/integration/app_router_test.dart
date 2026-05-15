@@ -52,17 +52,9 @@ void main() {
       expect(find.text('MINIVO'), findsOneWidget);
     });
 
-    testWidgets('home -> search via app bar icon', (tester) async {
-      await ScoreService().setOnboardingSeen();
-      await _pump(tester);
-      await tester.pump(const Duration(milliseconds: 2200));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byIcon(Icons.search_rounded));
-      await tester.pumpAndSettle();
-      // Once on the search screen, the Home title is no longer present.
-      expect(find.text('MINIVO'), findsNothing);
-    });
+    // Removed: 'home -> search via app bar icon' — the search icon was
+    // dropped from the redesigned home header. /search route still exists
+    // for deep-links; navigation from home is no longer available.
 
     testWidgets('/game/tic_tac_toe redirects to /play/tic_tac_toe',
         (tester) async {

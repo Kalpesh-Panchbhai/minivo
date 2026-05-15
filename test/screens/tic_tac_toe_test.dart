@@ -70,9 +70,12 @@ void main() {
     testWidgets('player can place X on empty cell', (tester) async {
       await pumpScreen(tester, _pixel6, _buildGame(), settle: false);
       await _startGame(tester);
+      // Header/score-strip also renders an X/O label, so count BEFORE
+      // and AFTER the tap and assert the delta is at least 1.
+      final beforeXs = find.text('X').evaluate().length;
       await tester.tap(_cell(0));
       await tester.pump(const Duration(milliseconds: 100));
-      expect(find.text('X'), findsOneWidget);
+      expect(find.text('X').evaluate().length, greaterThan(beforeXs));
       expectNoOverflow(_pixel6, 'place X');
       await tester.pump(const Duration(seconds: 1));
       cleanUp(tester);
@@ -81,11 +84,12 @@ void main() {
     testWidgets('AI responds after player move', (tester) async {
       await pumpScreen(tester, _pixel6, _buildGame(), settle: false);
       await _startGame(tester);
+      final beforeOs = find.text('O').evaluate().length;
       await tester.tap(_cell(0));
       // AI think delay is 700-1100 ms based on difficulty; pump comfortably
       // past that so the AI's move has settled.
       await tester.pump(const Duration(milliseconds: 1500));
-      expect(find.text('O'), findsOneWidget);
+      expect(find.text('O').evaluate().length, greaterThan(beforeOs));
       expectNoOverflow(_pixel6, 'AI responds');
       cleanUp(tester);
     });
@@ -106,12 +110,15 @@ void main() {
     testWidgets('cannot tap during AI turn', (tester) async {
       await pumpScreen(tester, _pixel6, _buildGame(), settle: false);
       await _startGame(tester);
+      final baseXs = find.text('X').evaluate().length;
       await tester.tap(_cell(0));
       await tester.pump(const Duration(milliseconds: 50));
+      final afterFirstX = find.text('X').evaluate().length;
+      // Second tap should be ignored because it's the AI's turn.
       await tester.tap(_cell(1));
       await tester.pump(const Duration(milliseconds: 50));
-      final xCount = find.text('X').evaluate().length;
-      expect(xCount, equals(1));
+      expect(find.text('X').evaluate().length, equals(afterFirstX));
+      expect(afterFirstX, greaterThan(baseXs));
       expectNoOverflow(_pixel6, 'AI turn block');
       await tester.pump(const Duration(seconds: 1));
       cleanUp(tester);
@@ -189,13 +196,9 @@ void main() {
   });
 
   group('Tic Tac Toe — Screen Overflow (all devices)', () {
-    const landscapeDevices = [
-      TestDevice(name: 'Pixel 6 Landscape', width: 915, height: 412, pixelRatio: 2.625, platform: TargetPlatform.android),
-      TestDevice(name: 'iPhone 14 Landscape', width: 844, height: 390, pixelRatio: 3.0, platform: TargetPlatform.iOS),
-      TestDevice(name: 'Small Landscape', width: 568, height: 320, pixelRatio: 2.0, platform: TargetPlatform.android),
-      TestDevice(name: 'iPad Landscape', width: 1366, height: 1024, pixelRatio: 2.0, platform: TargetPlatform.iOS),
-    ];
-    final devices = [...allTestDevices, ...landscapeDevices];
+    // Landscape omitted — app is portrait-locked at all three layers
+    // (Flutter, iOS plist, Android manifest). See `orientation_lock_test`.
+    final devices = allTestDevices;
 
     for (final device in devices) {
       group('on ${device.name} (${device.width}x${device.height})', () {

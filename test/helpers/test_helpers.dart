@@ -89,7 +89,15 @@ Future<void> pumpScreen(
   );
 
   if (settle) {
-    await tester.pumpAndSettle(const Duration(seconds: 3));
+    // Some screens have indefinite animations (animated backgrounds,
+    // glowing icons). pumpAndSettle never returns when an AnimationController
+    // is in `.repeat()`. Try to settle briefly, then fall through to a
+    // bounded pump so the test can still inspect the rendered tree.
+    try {
+      await tester.pumpAndSettle(const Duration(seconds: 1));
+    } catch (_) {
+      await tester.pump(const Duration(milliseconds: 500));
+    }
   } else {
     await tester.pump(const Duration(milliseconds: 500));
   }

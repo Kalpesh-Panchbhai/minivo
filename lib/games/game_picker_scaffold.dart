@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/utils/responsive.dart';
 
 /// A reusable scaffold for game entry/picker screens.
 /// Both TicTacToe and 2048 use it for consistent layout and styling.
@@ -77,8 +78,8 @@ class GamePickerScaffold extends StatelessWidget {
                       _buildHeader(context),
                       Expanded(
                         child: isTall
-                            ? _buildTallBody()
-                            : _buildScrollBody(),
+                            ? _buildTallBody(context)
+                            : _buildScrollBody(context),
                       ),
                     ],
                   );
@@ -122,24 +123,30 @@ class GamePickerScaffold extends StatelessWidget {
     );
   }
 
-  Widget _buildMascot() {
+  Widget _buildMascot(BuildContext context) {
+    // 110 fits comfortably on 360+ phones; 92 on narrow folds / Android Go
+    // gives breathing room around the icon (~30% of width instead of 40%).
+    final size = context.isCompactWidth ? 92.0 : 110.0;
     return _GamePickerIcon(
       ringColors: iconRingColors,
+      size: size,
       child: iconChild,
     );
   }
 
-  Widget _buildTitleArea() {
+  Widget _buildTitleArea(BuildContext context) {
     final textColor = const Color(0xFF1C1B1F);
     final mutedColor = const Color(0xFF9E9E9E);
     return Column(
       children: [
-        _buildMascot(),
+        _buildMascot(context),
         const SizedBox(height: 16),
         Text(
           title,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
           style: TextStyle(
-            fontSize: 28,
+            fontSize: context.fontSize(28, max: 34),
             fontWeight: FontWeight.w900,
             color: textColor,
             letterSpacing: -0.5,
@@ -150,8 +157,10 @@ class GamePickerScaffold extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             subtitle!,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 13,
+              fontSize: context.fontSize(13, max: 16),
               fontWeight: FontWeight.w500,
               color: mutedColor,
               letterSpacing: 0.2,
@@ -163,14 +172,14 @@ class GamePickerScaffold extends StatelessWidget {
     );
   }
 
-  Widget _buildTallBody() {
+  Widget _buildTallBody(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const Spacer(flex: 2),
-          _buildTitleArea(),
+          _buildTitleArea(context),
           const Spacer(flex: 3),
           body,
         ],
@@ -178,13 +187,13 @@ class GamePickerScaffold extends StatelessWidget {
     );
   }
 
-  Widget _buildScrollBody() {
+  Widget _buildScrollBody(BuildContext context) {
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildTitleArea(),
+          _buildTitleArea(context),
           const SizedBox(height: 22),
           body,
         ],
@@ -241,10 +250,12 @@ class _GameNavButton extends StatelessWidget {
 class _GamePickerIcon extends StatelessWidget {
   final List<Color> ringColors;
   final Widget child;
+  final double size;
 
   const _GamePickerIcon({
     required this.ringColors,
     required this.child,
+    this.size = 110,
   });
 
   @override
@@ -253,8 +264,8 @@ class _GamePickerIcon extends StatelessWidget {
         ? ringColors
         : [...ringColors, ringColors.first];
     return Container(
-      width: 110,
-      height: 110,
+      width: size,
+      height: size,
       decoration: BoxDecoration(
         gradient: SweepGradient(
           colors: colors,

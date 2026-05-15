@@ -6,24 +6,30 @@ import '../helpers/screen_sizes.dart';
 import '../helpers/test_helpers.dart';
 import '../helpers/overflow_detector.dart';
 
-const _landscapeDevices = [
-  TestDevice(name: 'Pixel 6 Landscape', width: 915, height: 412, pixelRatio: 2.625, platform: TargetPlatform.android),
-  TestDevice(name: 'iPhone 14 Landscape', width: 844, height: 390, pixelRatio: 3.0, platform: TargetPlatform.iOS),
-  TestDevice(name: 'Small Landscape', width: 568, height: 320, pixelRatio: 2.0, platform: TargetPlatform.android),
-  TestDevice(name: 'iPad Landscape', width: 1366, height: 1024, pixelRatio: 2.0, platform: TargetPlatform.iOS),
-];
+// Landscape devices intentionally omitted: the app is portrait-locked
+// across Flutter (setPreferredOrientations), iOS Info.plist, and the
+// Android manifest. Game canvases aren't designed for landscape — testing
+// landscape here would only enforce a layout requirement we don't need.
+// The orientation-lock guard test lives in `test/orientation_lock_test.dart`.
 
+// Every gameId registered in GameRegistry. Adding a new game and forgetting
+// to wire it here means we lose responsive coverage — keep this in sync.
 const _gameIds = [
+  'color_tap',
+  'dots_and_boxes',
+  'drop_merge',
   'flappy_tap',
+  'memory_match',
   'number_merge',
-  'block_fit',
+  'snake_classic',
+  'sudoku',
   'tic_tac_toe',
 ];
 
 void main() {
   for (final gameId in _gameIds) {
     final game = GameRegistry.allGames.firstWhere((g) => g.id == gameId);
-    final allDevices = [...allTestDevices, ..._landscapeDevices];
+    final allDevices = allTestDevices;
 
     for (final device in allDevices) {
       group('${game.name} on ${device.name} (${device.width}x${device.height})', () {
