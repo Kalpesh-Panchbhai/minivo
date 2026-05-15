@@ -40,6 +40,12 @@ class GameWrapperState extends State<GameWrapper> {
   int _score = 0;
   int _highScore = 0;
   DateTime? _startedAt;
+  // True after [endGame] has counted the current session (one fresh
+  // start → final death). [continueAfterGameOver] does NOT reset this,
+  // so a continued run that ends again won't double-count games-played
+  // or re-fire `game_end` analytics. Only [startGame]/[restartGame]
+  // begin a new session by clearing the flag.
+  bool _sessionCounted = false;
 
   GameState get state => _state;
   int get score => _score;
@@ -53,6 +59,7 @@ class GameWrapperState extends State<GameWrapper> {
 
   void startGame() {
     _startedAt = DateTime.now();
+    _sessionCounted = false;
     setState(() {
       _state = GameState.playing;
       _score = 0;
@@ -86,17 +93,18 @@ class GameWrapperState extends State<GameWrapper> {
   }
 
   void endGame() {
-    final wasAlreadyOver = _state == GameState.gameOver;
     AudioService().playGameOver();
     final isNew = _score > _highScore;
     if (isNew) {
       _highScore = _score;
       ScoreService().saveScore(widget.gameId, _score);
     }
-    // Per-session bookkeeping (counts, coins, recents, analytics) only fires
-    // on the FIRST death of a session. A continued run that ends again still
-    // updates the high score above but does not double-count.
-    if (!wasAlreadyOver) {
+    // Per-session bookkeeping (counts, coins, recents, analytics) fires
+    // ONCE per session. After `continueAfterGameOver`, _state flips back
+    // to playing — we use [_sessionCounted] instead of state inspection
+    // so a continued run that ends again doesn't double-count.
+    if (!_sessionCounted) {
+      _sessionCounted = true;
       ScoreService().incrementGamesPlayed();
       ScoreService().incrementGamePlayCount(widget.gameId);
       ScoreService().addRecentlyPlayed(widget.gameId);
@@ -123,8 +131,10 @@ class GameWrapperState extends State<GameWrapper> {
         'is_high_score': isNew,
       });
     }
-    if (wasAlreadyOver) return;
 
+    // Idempotent: if state is already gameOver, skip the interstitial flow
+    // and state-change (game-over UI is already showing).
+    if (_state == GameState.gameOver) return;
     AdsService().notifyGameOver();
     AdsService().showInterstitial(onComplete: () {
       _setGameOverState();
@@ -163,6 +173,7 @@ class GameWrapperState extends State<GameWrapper> {
         : (_state == GameState.paused ? 'pause' : 'mode_change');
     AnalyticsService().gameRestart(gameId: widget.gameId, from: from);
     _startedAt = null;
+    _sessionCounted = false;
     setState(() {
       _state = GameState.ready;
       _score = 0;
