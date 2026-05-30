@@ -170,28 +170,11 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
           child: Row(
             children: [
               // Game controller icon
-              Container(
+              SizedBox(
                 width: 48,
                 height: 48,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF7C3AED), Color(0xFF6C63FF)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x996C63FF),
-                      blurRadius: 20,
-                      offset: Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.videogame_asset_rounded,
-                  color: Colors.white,
-                  size: 26,
+                child: CustomPaint(
+                  painter: _AppLogoPainter(),
                 ),
               ),
               const SizedBox(width: 12),
@@ -872,4 +855,109 @@ class _HomeBgPainter extends AnimatedBgPainter {
     return path;
   }
 
+}
+
+class _AppLogoPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final s = size.width;
+    final cx = s / 2;
+    final cy = s / 2;
+
+    final bgRRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(0, 0, s, s),
+      Radius.circular(s * 0.27),
+    );
+    canvas.drawRRect(
+      bgRRect.shift(const Offset(0, 2)),
+      Paint()..color = Colors.black.withValues(alpha: 0.12),
+    );
+    canvas.drawRRect(
+      bgRRect,
+      Paint()
+        ..shader = const LinearGradient(
+          colors: [Color(0xFF7B73FF), Color(0xFF5248E0)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ).createShader(Rect.fromLTWH(0, 0, s, s)),
+    );
+
+    final bodyW = s * 0.54;
+    final bodyH = s * 0.24;
+    final bodyRect =
+        Rect.fromCenter(center: Offset(cx, cy), width: bodyW, height: bodyH);
+
+    final gripW = bodyW * 0.20;
+    final gripH = bodyH * 1.05;
+    for (final side in [-1.0, 1.0]) {
+      final gripCx = cx + side * bodyW * 0.40;
+      final gripCy = cy + bodyH * 0.20;
+      final gripRect = Rect.fromCenter(
+        center: Offset(gripCx, gripCy),
+        width: gripW,
+        height: gripH,
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(gripRect, Radius.circular(gripW * 0.45)),
+        Paint()..color = Colors.white,
+      );
+    }
+
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(bodyRect, Radius.circular(bodyH * 0.38)),
+      Paint()..color = Colors.white,
+    );
+
+    final dpadX = cx - bodyW * 0.18;
+    final dpadY = cy;
+    final dpadArm = bodyH * 0.14;
+    final dpadPaint = Paint()..color = const Color(0xFFCBCBDB);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromCenter(
+            center: Offset(dpadX, dpadY),
+            width: dpadArm,
+            height: dpadArm * 2.6),
+        Radius.circular(dpadArm * 0.25),
+      ),
+      dpadPaint,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromCenter(
+            center: Offset(dpadX, dpadY),
+            width: dpadArm * 2.6,
+            height: dpadArm),
+        Radius.circular(dpadArm * 0.25),
+      ),
+      dpadPaint,
+    );
+
+    final btnX = cx + bodyW * 0.18;
+    final btnY = cy;
+    final btnR = bodyH * 0.09;
+    final gap = btnR * 2.4;
+    const colors = [
+      Color(0xFFFF6B6B),
+      Color(0xFF51CF66),
+      Color(0xFFFFD43B),
+      Color(0xFF339AF0),
+    ];
+    final offsets = [
+      Offset(0, -gap),
+      Offset(gap, 0),
+      Offset(0, gap),
+      Offset(-gap, 0),
+    ];
+    for (var i = 0; i < 4; i++) {
+      canvas.drawCircle(
+        Offset(btnX, btnY) + offsets[i],
+        btnR,
+        Paint()..color = colors[i],
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _AppLogoPainter old) => false;
 }

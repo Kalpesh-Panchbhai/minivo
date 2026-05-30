@@ -30,7 +30,13 @@ void main() {
       testWidgets('can navigate to second page', (tester) async {
         await pumpScreen(tester, device, const OnboardingScreen());
         await tester.tap(find.byIcon(Icons.arrow_forward_rounded));
-        await tester.pumpAndSettle();
+        // Onboarding has indefinite repeat animations (float + particles);
+        // bounded pumps drain the 400ms PageView transition + the 200ms
+        // delayed title fadeIn without hanging on the never-settling
+        // controllers. Pump in chunks so onPageChanged → setState runs.
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pump(const Duration(milliseconds: 500));
         expect(find.text('Beat Your Best'), findsOneWidget);
         expectNoOverflow(device, 'OnboardingScreen');
         cleanUp(tester);
@@ -39,9 +45,13 @@ void main() {
       testWidgets('can navigate to third page', (tester) async {
         await pumpScreen(tester, device, const OnboardingScreen());
         await tester.tap(find.byIcon(Icons.arrow_forward_rounded));
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pump(const Duration(milliseconds: 500));
         await tester.tap(find.byIcon(Icons.arrow_forward_rounded));
-        await tester.pumpAndSettle();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pump(const Duration(milliseconds: 500));
         expect(find.text('Quick & Light'), findsOneWidget);
         expect(find.text('Get Started'), findsOneWidget);
         expectNoOverflow(device, 'OnboardingScreen');

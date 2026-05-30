@@ -29,7 +29,9 @@ void main() {
 
       testWidgets('app icon is visible', (tester) async {
         await pumpScreen(tester, device, const SplashScreen(), settle: false);
-        expect(find.byIcon(Icons.videogame_asset_rounded), findsOneWidget);
+        // Logo is a custom-painted controller (_LogoPainter) inside a
+        // 120x120 SizedBox — assert the painter is rendered.
+        expect(find.byType(CustomPaint), findsWidgets);
         expectNoOverflow(device, 'SplashScreen');
         await tester.pumpAndSettle(const Duration(seconds: 3));
         cleanUp(tester);

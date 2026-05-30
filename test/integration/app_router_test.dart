@@ -38,7 +38,10 @@ void main() {
         (tester) async {
       await _pump(tester);
       await tester.pump(const Duration(milliseconds: 2200));
-      await tester.pumpAndSettle();
+      // Onboarding mounts indefinite repeat animations; pump bounded
+      // frames instead of pumpAndSettle so the test doesn't hang.
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 500));
       // Onboarding screen exposes a Skip control.
       expect(find.text('Skip'), findsOneWidget);
     });
