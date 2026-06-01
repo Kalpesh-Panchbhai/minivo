@@ -1,7 +1,7 @@
 name: minivo
 description: "Minivo - Your Pocket Arcade. Play 100+ free mini games — puzzles, arcade, board & more!"
 publish_to: 'none'
-version: 1.6.0+20
+version: 1.7.0+21
 
 environment:
   sdk: ^3.11.4
