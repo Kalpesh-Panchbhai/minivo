@@ -10,6 +10,8 @@ import '../core/services/crash_reporter.dart';
 import '../core/services/ads_service.dart';
 import '../core/utils/responsive.dart';
 import '../core/services/score_service.dart';
+import '../core/services/share_service.dart';
+import 'game_registry.dart';
 
 enum GameState { ready, playing, paused, gameOver }
 
@@ -429,6 +431,27 @@ class GameWrapperState extends State<GameWrapper> {
                       action: 'play_again',
                     );
                     restartGame();
+                  },
+                ),
+                const SizedBox(height: 8),
+                _overlayButton(
+                  AppStrings.shareScore,
+                  Icons.share_rounded,
+                  AppColors.categorySports,
+                  () {
+                    AnalyticsService().resultAction(
+                      gameId: widget.gameId,
+                      action: 'share_score',
+                    );
+                    final gameName =
+                        GameRegistry.getById(widget.gameId)?.name ??
+                            widget.gameId;
+                    ShareService().shareScore(
+                      context: context,
+                      gameName: gameName,
+                      score: _score,
+                      stars: stars,
+                    );
                   },
                 ),
                 const SizedBox(height: 8),

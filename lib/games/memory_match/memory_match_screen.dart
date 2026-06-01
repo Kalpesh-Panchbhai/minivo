@@ -820,6 +820,8 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen>
     final showNewBest = _wasNewBest && isAiMode && _p1Matches > _p2Matches;
 
     return game_result.GenericGameResultScreen(
+      gameId: kMemoryMatchGameId,
+      score: _p1Matches,
       headline: headline,
       subtitle: '${diff.cols}×${diff.rows} grid • $total pairs',
       badgeContent: badge,

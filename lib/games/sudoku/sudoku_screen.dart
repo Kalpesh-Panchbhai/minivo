@@ -536,6 +536,8 @@ class _SudokuScreenState extends State<SudokuScreen> {
     final bestSecs   = bestStored > 0 ? kSudokuMaxScore - bestStored : null;
 
     return game_result.GenericGameResultScreen(
+      gameId: kSudokuGameId,
+      score: _elapsedSeconds,
       headline: _isNewBestScore ? 'New Best! 🎉' : 'Solved! ✅',
       subtitle: '${diff.label} • ${_formatTime(_elapsedSeconds)}',
       badgeContent: '🧩',

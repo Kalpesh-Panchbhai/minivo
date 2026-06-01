@@ -614,6 +614,8 @@ class _SnakeClassicScreenState extends State<SnakeClassicScreen>
       onRewarded: _continueGame,
     );
     return game_result.GenericGameResultScreen(
+      gameId: kSnakeClassicGameId,
+      score: _score,
       headline: 'Game Over',
       badgeContent: '🐍',
       badgeColor: difficulty.color,

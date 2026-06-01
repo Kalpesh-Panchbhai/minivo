@@ -32,50 +32,25 @@ void main() {
         cleanUp(tester);
       });
 
-      testWidgets('profile section visible', (tester) async {
+      testWidgets('player name visible', (tester) async {
         await pumpScreen(tester, device, const SettingsScreen());
-        expect(find.text('Display Name'), findsOneWidget);
+        expect(find.byIcon(Icons.person_rounded), findsOneWidget);
         expectNoOverflow(device, 'SettingsScreen');
         cleanUp(tester);
       });
 
-      testWidgets('sound toggle visible', (tester) async {
-        await pumpScreen(tester, device, const SettingsScreen());
-        expect(find.text('Sound'), findsOneWidget);
-        expect(find.byType(Switch), findsWidgets);
-        expectNoOverflow(device, 'SettingsScreen');
-        cleanUp(tester);
-      });
-
-      testWidgets('vibration toggle visible', (tester) async {
-        await pumpScreen(tester, device, const SettingsScreen());
-        expect(find.text('Vibration'), findsOneWidget);
-        expectNoOverflow(device, 'SettingsScreen');
-        cleanUp(tester);
-      });
-
-      testWidgets('about section visible', (tester) async {
+      testWidgets('menu items visible', (tester) async {
         await pumpScreen(tester, device, const SettingsScreen());
         expect(find.text('Rate App'), findsOneWidget);
         expect(find.text('Share App'), findsOneWidget);
         expect(find.text('Privacy Policy'), findsOneWidget);
-        expect(find.text('Terms of Service'), findsOneWidget);
         expectNoOverflow(device, 'SettingsScreen');
         cleanUp(tester);
       });
 
       testWidgets('version string visible', (tester) async {
         await pumpScreen(tester, device, const SettingsScreen());
-        expect(find.text('Minivo v1.0.0'), findsOneWidget);
-        expectNoOverflow(device, 'SettingsScreen');
-        cleanUp(tester);
-      });
-
-      testWidgets('can toggle sound switch', (tester) async {
-        await pumpScreen(tester, device, const SettingsScreen());
-        final switches = find.byType(Switch);
-        await tester.tap(switches.first);
-        await tester.pumpAndSettle();
+        expect(find.textContaining('Minivo'), findsOneWidget);
         expectNoOverflow(device, 'SettingsScreen');
         cleanUp(tester);
       });

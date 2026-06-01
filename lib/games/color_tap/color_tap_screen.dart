@@ -596,6 +596,8 @@ class _ColorTapScreenState extends State<ColorTapScreen>
       onRewarded: _continueGame,
     );
     return game_result.GenericGameResultScreen(
+      gameId: kColorTapGameId,
+      score: _score,
       headline: 'Game Over',
       badgeContent: '🎨',
       badgeColor: diff.color,

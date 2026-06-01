@@ -557,6 +557,8 @@ class _WhackAMoleScreenState extends State<WhackAMoleScreen>
             onRewarded: _continueGame,
           );
     return game_result.GenericGameResultScreen(
+      gameId: kWhackAMoleGameId,
+      score: _score,
       headline: 'Time\'s Up!',
       badgeContent: '🔨',
       badgeColor: diff.color,

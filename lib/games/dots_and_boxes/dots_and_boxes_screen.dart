@@ -514,6 +514,8 @@ class _DotsAndBoxesScreenState extends State<DotsAndBoxesScreen>
     }
 
     return game_result.GenericGameResultScreen(
+      gameId: kDotsAndBoxesGameId,
+      score: _p1Score,
       headline: headline,
       badgeContent: badge,
       badgeColor: badgeColor,

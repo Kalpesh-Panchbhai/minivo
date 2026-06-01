@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_colors.dart';
@@ -6,6 +8,7 @@ import '../../core/constants/app_strings.dart';
 import '../../core/services/analytics_service.dart';
 import '../../core/services/crash_reporter.dart';
 import '../../core/services/score_service.dart';
+import '../../core/services/share_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -15,254 +18,189 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  late bool _sound;
-  late bool _vibration;
+  String _version = '';
 
   @override
   void initState() {
     super.initState();
-    _sound = ScoreService().isSoundEnabled();
-    _vibration = ScoreService().isVibrationEnabled();
+    _loadVersion();
+  }
+
+  Future<void> _loadVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (mounted) setState(() => _version = info.version);
+    } catch (_) {}
   }
 
   @override
   Widget build(BuildContext context) {
+    final name = ScoreService().getDisplayName();
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    GestureDetector(
-                      onTap: () => context.pop(),
-                      child: Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceVariant,
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: const Icon(
-                          Icons.arrow_back_rounded,
-                          color: AppColors.textPrimary,
-                        ),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: () => context.pop(),
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                            color: AppColors.divider, width: 1),
+                      ),
+                      child: const Icon(
+                        Icons.arrow_back_rounded,
+                        color: AppColors.textPrimary,
+                        size: 22,
                       ),
                     ),
-                    const SizedBox(width: 14),
-                    Text(
-                      AppStrings.settings,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 28),
-
-                // Profile name
-                _sectionTitle(context, 'Profile'),
-                const SizedBox(height: 10),
-                _tile(
-                  context,
-                  icon: Icons.person_rounded,
-                  title: 'Display Name',
-                  subtitle: ScoreService().getDisplayName(),
-                  onTap: () => _editName(context),
-                ),
-
-                const SizedBox(height: 24),
-                _sectionTitle(context, 'Preferences'),
-                const SizedBox(height: 10),
-                _switchTile(
-                  context,
-                  icon: Icons.volume_up_rounded,
-                  title: AppStrings.sound,
-                  value: _sound,
-                  onChanged: (v) {
-                    setState(() => _sound = v);
-                    ScoreService().setSoundEnabled(v);
-                    AnalyticsService()
-                        .settingChanged(key: 'sound', value: v);
-                  },
-                ),
-                const SizedBox(height: 8),
-                _switchTile(
-                  context,
-                  icon: Icons.vibration_rounded,
-                  title: AppStrings.vibration,
-                  value: _vibration,
-                  onChanged: (v) {
-                    setState(() => _vibration = v);
-                    ScoreService().setVibrationEnabled(v);
-                    AnalyticsService()
-                        .settingChanged(key: 'vibration', value: v);
-                  },
-                ),
-
-                const SizedBox(height: 24),
-                _sectionTitle(context, 'About'),
-                const SizedBox(height: 10),
-                _tile(
-                  context,
-                  icon: Icons.star_rounded,
-                  title: AppStrings.rateApp,
-                  onTap: () {},
-                ),
-                const SizedBox(height: 8),
-                _tile(
-                  context,
-                  icon: Icons.share_rounded,
-                  title: AppStrings.shareApp,
-                  onTap: () {},
-                ),
-                const SizedBox(height: 8),
-                _tile(
-                  context,
-                  icon: Icons.privacy_tip_rounded,
-                  title: AppStrings.privacyPolicy,
-                  onTap: () {
-                    AnalyticsService()
-                        .externalLinkOpened(link: 'privacy_policy');
-                    launchUrl(
-                      Uri.parse(
-                          'https://kalpesh-panchbhai.github.io/puzzloragames/minivo/privacy.html'),
-                      mode: LaunchMode.externalApplication,
-                    );
-                  },
-                ),
-                const SizedBox(height: 8),
-                _tile(
-                  context,
-                  icon: Icons.description_rounded,
-                  title: AppStrings.termsOfService,
-                  onTap: () {},
-                ),
-
-                const SizedBox(height: 32),
-                Center(
-                  child: Text(
-                    'Minivo v1.0.0',
-                    style: Theme.of(context).textTheme.bodySmall,
                   ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _sectionTitle(BuildContext context, String title) {
-    return Text(
-      title,
-      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            fontWeight: FontWeight.w600,
-            color: AppColors.textHint,
-            letterSpacing: 0.5,
-          ),
-    );
-  }
-
-  Widget _tile(
-    BuildContext context, {
-    required IconData icon,
-    required String title,
-    String? subtitle,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: AppColors.surfaceVariant,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, size: 20, color: AppColors.textPrimary),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+                  const SizedBox(width: 14),
                   Text(
-                    title,
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          fontWeight: FontWeight.w500,
-                        ),
+                    AppStrings.settings,
+                    style:
+                        Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
                   ),
-                  if (subtitle != null)
-                    Text(subtitle,
-                        style: Theme.of(context).textTheme.bodySmall),
                 ],
               ),
             ),
-            const Icon(
-              Icons.chevron_right_rounded,
-              color: AppColors.textHint,
+            const SizedBox(height: 32),
+            Expanded(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+                child: Column(
+                  children: [
+                    GestureDetector(
+                      onTap: () => _editName(context),
+                      child: Container(
+                        width: 80,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [
+                              AppColors.primary,
+                              AppColors.primaryLight
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color:
+                                  AppColors.primary.withValues(alpha: 0.2),
+                              blurRadius: 16,
+                              offset: const Offset(0, 6),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.person_rounded,
+                          size: 38,
+                          color: Colors.white,
+                        ),
+                      ),
+                    )
+                        .animate()
+                        .scale(
+                          begin: const Offset(0.8, 0.8),
+                          end: const Offset(1, 1),
+                          duration: 500.ms,
+                          curve: Curves.easeOutBack,
+                        ),
+                    const SizedBox(height: 12),
+                    GestureDetector(
+                      onTap: () => _editName(context),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            name,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                          const SizedBox(width: 6),
+                          Icon(Icons.edit_rounded,
+                              size: 16, color: AppColors.textHint),
+                        ],
+                      ),
+                    ).animate().fadeIn(delay: 200.ms, duration: 400.ms),
+                    const SizedBox(height: 36),
+                    _SettingsGroup(
+                      children: [
+                        _SettingsTile(
+                          icon: Icons.star_rounded,
+                          iconColor: AppColors.starFilled,
+                          label: AppStrings.rateApp,
+                          onTap: () {},
+                        ),
+                        _SettingsTile(
+                          icon: Icons.share_rounded,
+                          iconColor: AppColors.categorySports,
+                          label: AppStrings.shareApp,
+                          onTap: () => ShareService().shareApp(context),
+                        ),
+                      ],
+                    )
+                        .animate()
+                        .fadeIn(delay: 100.ms, duration: 400.ms)
+                        .slideY(
+                            begin: 0.06,
+                            delay: 100.ms,
+                            duration: 400.ms),
+                    const SizedBox(height: 16),
+                    _SettingsGroup(
+                      children: [
+                        _SettingsTile(
+                          icon: Icons.shield_rounded,
+                          iconColor: AppColors.categoryBoard,
+                          label: AppStrings.privacyPolicy,
+                          onTap: () {
+                            AnalyticsService()
+                                .externalLinkOpened(link: 'privacy_policy');
+                            launchUrl(
+                              Uri.parse(
+                                  'https://kalpesh-panchbhai.github.io/puzzloragames/minivo/privacy.html'),
+                              mode: LaunchMode.externalApplication,
+                            );
+                          },
+                        ),
+                      ],
+                    )
+                        .animate()
+                        .fadeIn(delay: 200.ms, duration: 400.ms)
+                        .slideY(
+                            begin: 0.06,
+                            delay: 200.ms,
+                            duration: 400.ms),
+                    const SizedBox(height: 36),
+                    Text(
+                      '${AppStrings.appName}${_version.isNotEmpty ? ' v$_version' : ''}',
+                      style:
+                          Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: AppColors.textHint,
+                              ),
+                    ).animate().fadeIn(delay: 300.ms, duration: 400.ms),
+                  ],
+                ),
+              ),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _switchTile(
-    BuildContext context, {
-    required IconData icon,
-    required String title,
-    required bool value,
-    required ValueChanged<bool> onChanged,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: AppColors.surfaceVariant,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, size: 20, color: AppColors.textPrimary),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Text(
-              title,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    fontWeight: FontWeight.w500,
-                  ),
-            ),
-          ),
-          Switch.adaptive(
-            value: value,
-            onChanged: onChanged,
-            activeTrackColor: AppColors.primary,
-            thumbColor: WidgetStateProperty.all(Colors.white),
-          ),
-        ],
       ),
     );
   }
@@ -272,24 +210,111 @@ class _SettingsScreenState extends State<SettingsScreen> {
         TextEditingController(text: ScoreService().getDisplayName());
     final result = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Edit Name'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(hintText: 'Enter your name'),
+      builder: (ctx) => Dialog(
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [AppColors.primary, AppColors.primaryLight],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.person_rounded,
+                  color: Colors.white,
+                  size: 26,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Edit Name',
+                style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Enter your name',
+                  hintStyle: TextStyle(color: AppColors.textHint),
+                  filled: true,
+                  fillColor: AppColors.surfaceVariant,
+                  contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 14),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 48,
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(color: AppColors.divider),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        child: Text(
+                          'Cancel',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: SizedBox(
+                      height: 48,
+                      child: ElevatedButton(
+                        onPressed: () =>
+                            Navigator.pop(ctx, controller.text.trim()),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        child: const Text(
+                          'Save',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-            child: const Text('Save'),
-          ),
-        ],
       ),
     );
     if (result != null && result.isNotEmpty) {
@@ -299,5 +324,84 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await CrashReporter().setUserIdentifier(result);
       setState(() {});
     }
+  }
+}
+
+class _SettingsGroup extends StatelessWidget {
+  final List<_SettingsTile> children;
+
+  const _SettingsGroup({required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.divider, width: 1),
+      ),
+      child: Column(
+        children: [
+          for (int i = 0; i < children.length; i++) ...[
+            children[i],
+            if (i < children.length - 1)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 58),
+                child: Divider(
+                    height: 1, thickness: 1, color: AppColors.divider),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _SettingsTile extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final String label;
+  final VoidCallback onTap;
+
+  const _SettingsTile({
+    required this.icon,
+    required this.iconColor,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: iconColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, size: 20, color: iconColor),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                label,
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w500,
+                    ),
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded,
+                size: 22, color: AppColors.textHint),
+          ],
+        ),
+      ),
+    );
   }
 }

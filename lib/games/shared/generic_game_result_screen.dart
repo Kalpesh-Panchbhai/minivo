@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
+import '../../core/services/share_service.dart';
 import '../../core/utils/responsive.dart';
+import '../game_registry.dart';
 
 class StatItem {
   final String label;
@@ -41,6 +43,9 @@ class GenericGameResultScreen extends StatelessWidget {
   final List<Color>? gradientColors;
   final bool showNewBestBadge;
   final List<Widget> extraBadges;
+  final String? gameId;
+  final int? score;
+  final int? stars;
 
   const GenericGameResultScreen({
     super.key,
@@ -53,6 +58,9 @@ class GenericGameResultScreen extends StatelessWidget {
     this.gradientColors,
     this.showNewBestBadge = false,
     this.extraBadges = const [],
+    this.gameId,
+    this.score,
+    this.stars,
   });
 
   @override
@@ -214,19 +222,41 @@ class GenericGameResultScreen extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: List.generate(
-                  actions.length,
-                  (i) => [
+                children: [
+                  ...List.generate(
+                    actions.length,
+                    (i) => [
+                      _ActionButton(
+                        label: actions[i].label,
+                        icon: actions[i].icon,
+                        onTap: actions[i].onTap,
+                        filled: actions[i].filled,
+                        color: actions[i].color ?? badgeColor,
+                      ),
+                      if (i < actions.length - 1) const SizedBox(height: 10),
+                    ],
+                  ).expand((e) => e),
+                  if (gameId != null) ...[
+                    const SizedBox(height: 16),
                     _ActionButton(
-                      label: actions[i].label,
-                      icon: actions[i].icon,
-                      onTap: actions[i].onTap,
-                      filled: actions[i].filled,
-                      color: actions[i].color ?? badgeColor,
+                      label: '📤 Share Score',
+                      icon: Icons.share_rounded,
+                      onTap: () {
+                        final gameName =
+                            GameRegistry.getById(gameId!)?.name ?? gameId!;
+                        ShareService().shareScore(
+                          context: context,
+                          gameName: gameName,
+                          score: score ?? 0,
+                          stars: stars ?? 0,
+                          emoji: badgeContent,
+                        );
+                      },
+                      filled: true,
+                      color: badgeColor,
                     ),
-                    if (i < actions.length - 1) const SizedBox(height: 10),
                   ],
-                ).expand((e) => e).toList(),
+                ],
               ),
             ),
             const SizedBox(height: 20),

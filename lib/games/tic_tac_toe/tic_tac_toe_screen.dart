@@ -628,6 +628,8 @@ class _TicTacToeScreenState extends State<TicTacToeScreen>
     ];
 
     return game_result.GenericGameResultScreen(
+      gameId: kTicTacToeGameId,
+      score: _streak,
       headline: headline,
       badgeContent: big,
       badgeColor: bigColor,

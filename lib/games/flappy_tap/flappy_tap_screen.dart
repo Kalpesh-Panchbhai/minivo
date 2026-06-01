@@ -605,6 +605,8 @@ class _FlappyTapScreenState extends State<FlappyTapScreen>
       onRewarded: _continueGame,
     );
     return game_result.GenericGameResultScreen(
+      gameId: kFlappyTapGameId,
+      score: _score,
       headline: 'Game Over',
       badgeContent: '🐦',
       badgeColor: difficulty.color,

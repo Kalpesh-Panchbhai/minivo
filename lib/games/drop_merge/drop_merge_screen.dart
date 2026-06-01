@@ -603,6 +603,8 @@ class _DropMergeScreenState extends State<DropMergeScreen> {
             onRewarded: _continueGame,
           );
     return game_result.GenericGameResultScreen(
+      gameId:           kDropMergeGameId,
+      score:            _score,
       headline:         'Game Over',
       badgeContent:     '🎯',
       badgeColor:       _kAccent,

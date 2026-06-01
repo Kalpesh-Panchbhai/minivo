@@ -746,6 +746,8 @@ class _NumberMergeScreenState extends State<NumberMergeScreen> {
             onRewarded: _continueGame,
           );
     return game_result.GenericGameResultScreen(
+      gameId: kNumberMergeGameId,
+      score: _score,
       headline: 'Game Over',
       badgeContent: '😢',
       badgeColor: difficulty.color,
