@@ -1,4 +1,7 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
+import 'package:in_app_review/in_app_review.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:go_router/go_router.dart';
@@ -146,7 +149,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           icon: Icons.star_rounded,
                           iconColor: AppColors.starFilled,
                           label: AppStrings.rateApp,
-                          onTap: () {},
+                          onTap: () async {
+                            AnalyticsService()
+                                .externalLinkOpened(link: 'rate_app');
+                            final review = InAppReview.instance;
+                            if (await review.isAvailable()) {
+                              await review.requestReview();
+                            } else {
+                              final url = Platform.isIOS
+                                  ? 'https://apps.apple.com/app/minivo/id0000000000' // TODO: replace with real App Store ID
+                                  : 'https://play.google.com/store/apps/details?id=com.puzzloragames.dropzy';
+                              launchUrl(
+                                Uri.parse(url),
+                                mode: LaunchMode.externalApplication,
+                              );
+                            }
+                          },
                         ),
                         _SettingsTile(
                           icon: Icons.share_rounded,

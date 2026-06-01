@@ -7,6 +7,7 @@ import '../core/constants/app_strings.dart';
 import '../core/services/analytics_service.dart';
 import '../core/services/audio_service.dart';
 import '../core/services/crash_reporter.dart';
+import '../core/services/review_service.dart';
 import '../core/services/ads_service.dart';
 import '../core/utils/responsive.dart';
 import '../core/services/score_service.dart';
@@ -101,6 +102,7 @@ class GameWrapperState extends State<GameWrapper> {
     if (isNew) {
       _highScore = _score;
       ScoreService().saveScore(widget.gameId, _score);
+      ReviewService().maybeRequestReview();
     }
     // Per-session bookkeeping (counts, coins, recents, analytics) fires
     // ONCE per session. After `continueAfterGameOver`, _state flips back
