@@ -16,6 +16,8 @@ import 'dots_and_boxes/dots_and_boxes_logo.dart';
 import 'dots_and_boxes/dots_and_boxes_screen.dart';
 import 'tic_tac_toe/tic_tac_toe_logo.dart';
 import 'tic_tac_toe/tic_tac_toe_screen.dart';
+import 'dino_run/dino_run_logo.dart';
+import 'dino_run/dino_run_screen.dart';
 import 'drop_merge/drop_merge_logo.dart';
 import 'drop_merge/drop_merge_screen.dart';
 import 'whack_a_mole/whack_a_mole_logo.dart';
@@ -28,6 +30,7 @@ class GameRegistry {
 
   static final Map<String, GameWidgetBuilder> _builders = {
     'color_tap': () => const ColorTapScreen(),
+    'dino_run': () => const DinoRunScreen(),
     'dots_and_boxes': () => const DotsAndBoxesScreen(),
     'flappy_tap': () => const FlappyTapScreen(),
     'memory_match': () => const MemoryMatchScreen(),
@@ -51,6 +54,7 @@ class GameRegistry {
 
   static const Set<String> _customOverlayGames = {
     'color_tap',
+    'dino_run',
     'dots_and_boxes',
     'memory_match',
     'sudoku',
@@ -233,6 +237,24 @@ class GameRegistry {
       bgColor: Color(0xFFFFF3D9),
       playCount: 0,
       customLogo: buildDropMergeLogo,
+    ),
+    const GameInfo(
+      id: 'dino_run',
+      name: 'Dino Run',
+      description: 'Run through the desert — jump over cacti and survive!',
+      howToPlay:
+          'Choose your difficulty (Easy, Medium, Hard) — speed ramp and gap timing differ by level.\n'
+          'The dino runs automatically. Tap the screen to jump over cacti.\n'
+          'Speed increases the longer you survive — stay alert!\n'
+          'Every 100 points the landscape switches between day and night.\n'
+          'The game ends if you hit any obstacle. How far can you go?',
+      category: GameCategory.action,
+      icon: Icons.directions_run_rounded,
+      color: Color(0xFF535353),
+      bgColor: Color(0xFFF7F7F7),
+      playCount: 0,
+      isFeatured: false,
+      customLogo: buildDinoRunLogo,
     ),
     const GameInfo(
       id: 'whack_a_mole',
