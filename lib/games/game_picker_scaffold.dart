@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import '../core/services/score_service.dart';
 import '../core/utils/responsive.dart';
 
 /// A reusable scaffold for game entry/picker screens.
 /// Both TicTacToe and 2048 use it for consistent layout and styling.
-class GamePickerScaffold extends StatelessWidget {
+class GamePickerScaffold extends StatefulWidget {
   final Color bgColorTop;
   final Color bgColorBottom;
   /// Optional fully-formed background widget (typically [AnimatedBackground]).
@@ -33,6 +34,11 @@ class GamePickerScaffold extends StatelessWidget {
   /// If null, the icon is hidden.
   final VoidCallback? onHowToPlay;
 
+  /// Game ID for first-visit tutorial auto-trigger.
+  /// When set and the user has never seen this game's tutorial,
+  /// [onHowToPlay] fires automatically after the first frame.
+  final String? gameId;
+
   // Layout threshold
   final double tallThreshold;
 
@@ -50,8 +56,32 @@ class GamePickerScaffold extends StatelessWidget {
     required this.onFavoriteToggle,
     required this.body,
     this.onHowToPlay,
+    this.gameId,
     this.tallThreshold = 800,
   });
+
+  @override
+  State<GamePickerScaffold> createState() => _GamePickerScaffoldState();
+}
+
+class _GamePickerScaffoldState extends State<GamePickerScaffold> {
+  @override
+  void initState() {
+    super.initState();
+    _maybeShowTutorial();
+  }
+
+  void _maybeShowTutorial() {
+    final id = widget.gameId;
+    final callback = widget.onHowToPlay;
+    if (id == null || callback == null) return;
+    if (ScoreService().hasTutorialSeen(id)) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ScoreService().setTutorialSeen(id);
+      callback();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -61,17 +91,17 @@ class GamePickerScaffold extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [bgColorTop, bgColorBottom],
+            colors: [widget.bgColorTop, widget.bgColorBottom],
           ),
         ),
         child: Stack(
           children: [
-            if (animatedBg != null)
-              Positioned.fill(child: animatedBg!),
+            if (widget.animatedBg != null)
+              Positioned.fill(child: widget.animatedBg!),
             SafeArea(
               child: LayoutBuilder(
                 builder: (context, constraints) {
-                  final isTall = constraints.maxHeight >= tallThreshold;
+                  final isTall = constraints.maxHeight >= widget.tallThreshold;
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -93,30 +123,30 @@ class GamePickerScaffold extends StatelessWidget {
   }
 
   Widget _buildHeader(BuildContext context) {
-    final ringColor = iconRingColors.isNotEmpty ? iconRingColors[0] : Colors.grey;
+    final ringColor = widget.iconRingColors.isNotEmpty ? widget.iconRingColors[0] : Colors.grey;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       child: Row(
         children: [
           _GameNavButton(
             icon: Icons.arrow_back_ios_new_rounded,
-            onTap: onBack,
+            onTap: widget.onBack,
             ringColor: ringColor,
           ),
           const Spacer(),
-          if (onHowToPlay != null) ...[
+          if (widget.onHowToPlay != null) ...[
             _GameNavButton(
               icon: Icons.help_outline_rounded,
-              onTap: onHowToPlay!,
+              onTap: widget.onHowToPlay!,
               ringColor: ringColor,
             ),
             const SizedBox(width: 10),
           ],
           _GameNavButton(
-            icon: isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-            onTap: onFavoriteToggle,
+            icon: widget.isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+            onTap: widget.onFavoriteToggle,
             ringColor: ringColor,
-            iconColor: isFavorite ? const Color(0xFFE85D75) : null,
+            iconColor: widget.isFavorite ? const Color(0xFFE85D75) : null,
           ),
         ],
       ),
@@ -124,13 +154,11 @@ class GamePickerScaffold extends StatelessWidget {
   }
 
   Widget _buildMascot(BuildContext context) {
-    // 110 fits comfortably on 360+ phones; 92 on narrow folds / Android Go
-    // gives breathing room around the icon (~30% of width instead of 40%).
     final size = context.isCompactWidth ? 92.0 : 110.0;
     return _GamePickerIcon(
-      ringColors: iconRingColors,
+      ringColors: widget.iconRingColors,
       size: size,
-      child: iconChild,
+      child: widget.iconChild,
     );
   }
 
@@ -142,7 +170,7 @@ class GamePickerScaffold extends StatelessWidget {
         _buildMascot(context),
         const SizedBox(height: 16),
         Text(
-          title,
+          widget.title,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
@@ -153,10 +181,10 @@ class GamePickerScaffold extends StatelessWidget {
           ),
           textAlign: TextAlign.center,
         ),
-        if (subtitle != null) ...[
+        if (widget.subtitle != null) ...[
           const SizedBox(height: 6),
           Text(
-            subtitle!,
+            widget.subtitle!,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
@@ -181,7 +209,7 @@ class GamePickerScaffold extends StatelessWidget {
           const Spacer(flex: 2),
           _buildTitleArea(context),
           const Spacer(flex: 3),
-          body,
+          widget.body,
         ],
       ),
     );
@@ -195,7 +223,7 @@ class GamePickerScaffold extends StatelessWidget {
         children: [
           _buildTitleArea(context),
           const SizedBox(height: 22),
-          body,
+          widget.body,
         ],
       ),
     );

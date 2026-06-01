@@ -133,7 +133,7 @@ class WhackAMoleScreen extends StatefulWidget {
 class _WhackAMoleScreenState extends State<WhackAMoleScreen>
     with TickerProviderStateMixin {
   _Difficulty? _activeDifficulty;
-  _Difficulty  _pickerDifficulty = _Difficulty.medium;
+  _Difficulty  _pickerDifficulty = _Difficulty.values[DifficultyKind.defaultIndex];
 
   bool _isFavorite = false;
 
@@ -459,6 +459,7 @@ class _WhackAMoleScreenState extends State<WhackAMoleScreen>
       isFavorite: _isFavorite,
       onFavoriteToggle: _toggleFavorite,
       onHowToPlay: _showHelp,
+      gameId: kWhackAMoleGameId,
       body: _PickerSection(
         difficulty: _pickerDifficulty,
         onDifficultyChanged: (d) => setState(() => _pickerDifficulty = d),

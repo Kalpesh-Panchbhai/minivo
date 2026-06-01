@@ -77,7 +77,7 @@ class SudokuScreen extends StatefulWidget {
 
 class _SudokuScreenState extends State<SudokuScreen> {
   _Mode _mode = _Mode.picker;
-  _Difficulty _pickerDiff = _Difficulty.easy;
+  _Difficulty _pickerDiff = _Difficulty.values[DifficultyKind.defaultIndex];
   _Difficulty? _activeDiff;
   bool _isFavorite = false;
 
@@ -431,6 +431,7 @@ class _SudokuScreenState extends State<SudokuScreen> {
       isFavorite: _isFavorite,
       onFavoriteToggle: _toggleFavorite,
       onHowToPlay: _showHelp,
+      gameId: kSudokuGameId,
       body: _PickerSection(
         difficulty: _pickerDiff,
         onDifficultyChanged: (d) => setState(() => _pickerDiff = d),

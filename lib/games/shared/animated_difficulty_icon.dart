@@ -4,7 +4,12 @@ import 'package:flutter/material.dart';
 
 /// Difficulty levels that the icon system understands. Independent of any
 /// per-game difficulty enum so it can be reused everywhere.
-enum DifficultyKind { easy, medium, hard }
+enum DifficultyKind {
+  easy, medium, hard;
+
+  static const DifficultyKind defaultDifficulty = medium;
+  static int get defaultIndex => defaultDifficulty.index;
+}
 
 /// A self-animated icon that visually represents a difficulty level.
 ///

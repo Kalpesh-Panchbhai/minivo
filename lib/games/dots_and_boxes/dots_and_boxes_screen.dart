@@ -59,7 +59,7 @@ class _DotsAndBoxesScreenState extends State<DotsAndBoxesScreen>
     with TickerProviderStateMixin {
 
   _Mode?      _mode;
-  _Difficulty _difficulty = _Difficulty.medium;
+  _Difficulty _difficulty = _Difficulty.values[DifficultyKind.defaultIndex];
 
   // -1 = undrawn, 0 = P1, 1 = P2
   late List<List<int>> _hOwner;
@@ -594,6 +594,7 @@ class _ModePickerScreen extends StatelessWidget {
       isFavorite:        isFavorite,
       onFavoriteToggle:  onFavoriteToggle,
       onHowToPlay:       onHelp,
+      gameId:            kDotsAndBoxesGameId,
       tallThreshold:     860,
       body: GameAiPickerBody(
         difficulties: _Difficulty.values.map((d) {

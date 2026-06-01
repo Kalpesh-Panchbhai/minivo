@@ -60,7 +60,7 @@ class _TicTacToeScreenState extends State<TicTacToeScreen>
     with TickerProviderStateMixin {
   // Mode + difficulty
   _Mode? _mode;
-  _Difficulty _difficulty = _Difficulty.medium;
+  _Difficulty _difficulty = _Difficulty.values[DifficultyKind.defaultIndex];
 
   // ────────────────────────────────────────────────────────
   // Per-round state
@@ -717,6 +717,7 @@ class _ModePickerScreen extends StatelessWidget {
       isFavorite: isFavorite,
       onFavoriteToggle: onFavoriteToggle,
       onHowToPlay: onHelp,
+      gameId: kTicTacToeGameId,
       tallThreshold: 860,
       body: GameAiPickerBody(
         difficulties: _Difficulty.values.map((d) {

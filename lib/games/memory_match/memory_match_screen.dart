@@ -148,7 +148,7 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen>
 
   // ── Mode / difficulty selection ──────────────────────────────────────────
   _Mode? _mode;
-  _Difficulty _pickerDiff = _Difficulty.medium;
+  _Difficulty _pickerDiff = _Difficulty.values[DifficultyKind.defaultIndex];
   _Difficulty? _activeDiff;
 
   bool _isFavorite = false;
@@ -640,6 +640,7 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen>
       isFavorite: _isFavorite,
       onFavoriteToggle: _toggleFavorite,
       onHowToPlay: _showHelp,
+      gameId: kMemoryMatchGameId,
       tallThreshold: 860,
       body: _ModePickerBody(
         difficulty: _pickerDiff,

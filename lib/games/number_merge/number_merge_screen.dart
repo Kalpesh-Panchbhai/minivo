@@ -125,7 +125,7 @@ class NumberMergeScreen extends StatefulWidget {
 
 class _NumberMergeScreenState extends State<NumberMergeScreen> {
   _Difficulty? _activeDifficulty;
-  _Difficulty _pickerDifficulty = _Difficulty.medium;
+  _Difficulty _pickerDifficulty = _Difficulty.values[DifficultyKind.defaultIndex];
 
   bool _isFavorite = false;
 
@@ -585,6 +585,7 @@ class _NumberMergeScreenState extends State<NumberMergeScreen> {
       isFavorite: _isFavorite,
       onFavoriteToggle: _toggleFavorite,
       onHowToPlay: _showHelp,
+      gameId: kNumberMergeGameId,
       tallThreshold: 860,
       body: _ClassicSection(
         difficulty: _pickerDifficulty,

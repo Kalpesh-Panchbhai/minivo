@@ -281,7 +281,7 @@ class DropMergeScreen extends StatefulWidget {
 }
 
 class _DropMergeScreenState extends State<DropMergeScreen> {
-  _Difficulty _difficulty  = _Difficulty.medium;
+  _Difficulty _difficulty  = _Difficulty.values[DifficultyKind.defaultIndex];
   _Grid       _grid        = _emptyGrid();
   int         _score       = 0;
   int         _currentTile = 2;
@@ -677,6 +677,7 @@ class _ModePickerScreen extends StatelessWidget {
       isFavorite:       isFavorite,
       onFavoriteToggle: onFavoriteToggle,
       onHowToPlay:      onHelp,
+      gameId:           kDropMergeGameId,
       tallThreshold:    860,
       body: GameSinglePickerBody(
         difficulties: _Difficulty.values.map((d) => GameDifficultyData(

@@ -86,7 +86,7 @@ class ColorTapScreen extends StatefulWidget {
 class _ColorTapScreenState extends State<ColorTapScreen>
     with TickerProviderStateMixin {
   _Difficulty? _activeDifficulty;
-  _Difficulty _pickerDifficulty = _Difficulty.medium;
+  _Difficulty _pickerDifficulty = _Difficulty.values[DifficultyKind.defaultIndex];
 
   bool _isFavorite = false;
 
@@ -432,6 +432,7 @@ class _ColorTapScreenState extends State<ColorTapScreen>
       isFavorite: _isFavorite,
       onFavoriteToggle: _toggleFavorite,
       onHowToPlay: _showHelp,
+      gameId: kColorTapGameId,
       tallThreshold: 860,
       body: _PickerSection(
         difficulty: _pickerDifficulty,

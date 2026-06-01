@@ -106,7 +106,7 @@ class SnakeClassicScreen extends StatefulWidget {
 class _SnakeClassicScreenState extends State<SnakeClassicScreen>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   _Difficulty? _activeDifficulty;
-  _Difficulty _pickerDifficulty = _Difficulty.medium;
+  _Difficulty _pickerDifficulty = _Difficulty.values[DifficultyKind.defaultIndex];
 
   bool _isFavorite = false;
 
@@ -462,6 +462,7 @@ class _SnakeClassicScreenState extends State<SnakeClassicScreen>
       isFavorite: _isFavorite,
       onFavoriteToggle: _toggleFavorite,
       onHowToPlay: _showHelp,
+      gameId: kSnakeClassicGameId,
       tallThreshold: 860,
       body: _PickerSection(
         difficulty: _pickerDifficulty,

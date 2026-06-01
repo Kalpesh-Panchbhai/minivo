@@ -115,7 +115,7 @@ class _FlappyTapScreenState extends State<FlappyTapScreen>
     with TickerProviderStateMixin, WidgetsBindingObserver {
   // ── Picker state ──────────────────────────────────────────────────────────
   _Difficulty? _activeDifficulty;
-  _Difficulty _pickerDifficulty = _Difficulty.medium;
+  _Difficulty _pickerDifficulty = _Difficulty.values[DifficultyKind.defaultIndex];
   bool _isFavorite = false;
 
   // ── Bird state ────────────────────────────────────────────────────────────
@@ -479,6 +479,7 @@ class _FlappyTapScreenState extends State<FlappyTapScreen>
       isFavorite: _isFavorite,
       onFavoriteToggle: _toggleFavorite,
       onHowToPlay: _showHelp,
+      gameId: kFlappyTapGameId,
       tallThreshold: 860,
       body: _PickerSection(
         difficulty: _pickerDifficulty,
