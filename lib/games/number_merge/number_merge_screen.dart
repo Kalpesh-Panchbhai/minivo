@@ -146,9 +146,6 @@ class _NumberMergeScreenState extends State<NumberMergeScreen> {
   List<_Tile>? _prevTiles;
   int? _prevScore;
 
-  // Continue support (1 per game)
-  bool _continueUsed = false;
-
   // Swipe gesture state — track BOTH velocity (fast flick) and cumulative
   // distance (slow drag) so deliberate touches register reliably.
   double _dragDx = 0;
@@ -202,7 +199,6 @@ class _NumberMergeScreenState extends State<NumberMergeScreen> {
       _inUndoWindow = false;
       _prevTiles = null;
       _prevScore = null;
-      _continueUsed = false;
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -548,7 +544,6 @@ class _NumberMergeScreenState extends State<NumberMergeScreen> {
     setState(() {
       _tiles.removeWhere((t) => toRemove.contains(t.id));
       _gameOver = false;
-      _continueUsed = true;
     });
     GameWrapper.of(context).continueAfterGameOver();
   }
@@ -738,14 +733,12 @@ class _NumberMergeScreenState extends State<NumberMergeScreen> {
 
   Widget _buildGameOverScreen() {
     final difficulty = _activeDifficulty!;
-    final continueAction = _continueUsed
-        ? null
-        : rewardedContinueAction(
-            context: context,
-            label: 'Watch Ad to Continue',
-            color: difficulty.color,
-            onRewarded: _continueGame,
-          );
+    final continueAction = rewardedContinueAction(
+      context: context,
+      label: 'Watch Ad to Continue',
+      color: difficulty.color,
+      onRewarded: _continueGame,
+    );
     return game_result.GenericGameResultScreen(
       gameId: kNumberMergeGameId,
       score: _score,

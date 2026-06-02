@@ -146,7 +146,6 @@ class _WhackAMoleScreenState extends State<WhackAMoleScreen>
   bool _gameOver  = false;
 
   int  _timeLeftMs   = 0;
-  bool _continueUsed = false;
 
   int  _combo         = 0;
   bool _showCombo     = false;
@@ -219,7 +218,6 @@ class _WhackAMoleScreenState extends State<WhackAMoleScreen>
       _gameOver         = false;
       _timeLeftMs       = diff.seconds * 1000;
       _totalElapsedMs   = 0;
-      _continueUsed     = false;
       _combo            = 0;
       _showCombo        = false;
       _showScorePopup   = false;
@@ -410,7 +408,6 @@ class _WhackAMoleScreenState extends State<WhackAMoleScreen>
     setState(() {
       _timeLeftMs = 15000;
       _gameOver = false;
-      _continueUsed = true;
       for (int i = 0; i < count; i++) {
         _holes[i] = null;
       }
@@ -549,14 +546,12 @@ class _WhackAMoleScreenState extends State<WhackAMoleScreen>
 
   Widget _buildGameOver() {
     final diff = _activeDifficulty!;
-    final continueAction = _continueUsed
-        ? null
-        : rewardedContinueAction(
-            context: context,
-            label: 'Watch Ad for +15s',
-            color: diff.color,
-            onRewarded: _continueGame,
-          );
+    final continueAction = rewardedContinueAction(
+      context: context,
+      label: 'Watch Ad for +15s',
+      color: diff.color,
+      onRewarded: _continueGame,
+    );
     return game_result.GenericGameResultScreen(
       gameId: kWhackAMoleGameId,
       score: _score,

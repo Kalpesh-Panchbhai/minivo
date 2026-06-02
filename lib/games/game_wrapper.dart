@@ -50,10 +50,12 @@ class GameWrapperState extends State<GameWrapper> {
   // or re-fire `game_end` analytics. Only [startGame]/[restartGame]
   // begin a new session by clearing the flag.
   bool _sessionCounted = false;
+  bool _hasContinued = false;
 
   GameState get state => _state;
   int get score => _score;
   int get highScore => _highScore;
+  bool get hasContinued => _hasContinued;
 
   @override
   void initState() {
@@ -64,6 +66,7 @@ class GameWrapperState extends State<GameWrapper> {
   void startGame() {
     _startedAt = DateTime.now();
     _sessionCounted = false;
+    _hasContinued = false;
     setState(() {
       _state = GameState.playing;
       _score = 0;
@@ -164,6 +167,7 @@ class GameWrapperState extends State<GameWrapper> {
   /// already fired on the first death — see [endGame].
   void continueAfterGameOver() {
     if (_state != GameState.gameOver) return;
+    _hasContinued = true;
     setState(() => _state = GameState.playing);
     AnalyticsService().gameRestart(
       gameId: widget.gameId,
@@ -179,6 +183,7 @@ class GameWrapperState extends State<GameWrapper> {
     AnalyticsService().gameRestart(gameId: widget.gameId, from: from);
     _startedAt = null;
     _sessionCounted = false;
+    _hasContinued = false;
     setState(() {
       _state = GameState.ready;
       _score = 0;

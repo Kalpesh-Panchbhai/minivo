@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../../core/services/ads_service.dart';
+import '../game_wrapper.dart';
 import 'generic_game_result_screen.dart';
 
 /// Builds the "Watch ad to continue" [GameResultAction] for any game's
 /// game-over result screen.
 ///
-/// Returns `null` when there's no rewarded ad ready — callers should drop
+/// Returns `null` when the player has already used their one continue this
+/// session, or when there's no rewarded ad ready — callers should drop
 /// the button entirely in that case rather than show a disabled tile (the
 /// player should never see "watch ad" and have nothing happen).
 ///
@@ -22,6 +24,7 @@ GameResultAction? rewardedContinueAction({
   required Color color,
   required VoidCallback onRewarded,
 }) {
+  if (GameWrapper.of(context).hasContinued) return null;
   if (!AdsService().isRewardedReady) return null;
   return GameResultAction(
     label: label,

@@ -298,9 +298,6 @@ class _DropMergeScreenState extends State<DropMergeScreen> {
   int?   _prevScore;
   int?   _prevCurrentTile;
 
-  // Continue support (1 per game)
-  bool _continueUsed = false;
-
   Set<String>       _flashingCells = {};
   Set<String>       _consumedCells = {};
   _FallingDrop?     _fallingDrop;
@@ -345,7 +342,6 @@ class _DropMergeScreenState extends State<DropMergeScreen> {
     _prevGrid      = null;
     _prevScore     = null;
     _prevCurrentTile = null;
-    _continueUsed  = false;
   }
 
   void _onColumnTap(int col) {
@@ -497,7 +493,6 @@ class _DropMergeScreenState extends State<DropMergeScreen> {
     setState(() {
       _grid = afterGravity;
       _gameOver = false;
-      _continueUsed = true;
     });
     _wrapper.continueAfterGameOver();
   }
@@ -594,14 +589,12 @@ class _DropMergeScreenState extends State<DropMergeScreen> {
   Widget _buildResult() {
     final best = ScoreService().getHighScore(kDropMergeGameId, subKey: _difficulty.subKey);
     final isNewBest = _score > 0 && _score >= best;
-    final continueAction = _continueUsed
-        ? null
-        : rewardedContinueAction(
-            context: context,
-            label: 'Watch Ad to Continue',
-            color: _kAccent,
-            onRewarded: _continueGame,
-          );
+    final continueAction = rewardedContinueAction(
+      context: context,
+      label: 'Watch Ad to Continue',
+      color: _kAccent,
+      onRewarded: _continueGame,
+    );
     return game_result.GenericGameResultScreen(
       gameId:           kDropMergeGameId,
       score:            _score,
