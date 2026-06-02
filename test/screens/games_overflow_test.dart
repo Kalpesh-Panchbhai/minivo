@@ -16,6 +16,8 @@ import '../helpers/overflow_detector.dart';
 // to wire it here means we lose responsive coverage — keep this in sync.
 const _gameIds = [
   'color_tap',
+  'dino_run',
+  'dodge_ball',
   'dots_and_boxes',
   'drop_merge',
   'flappy_tap',
@@ -24,7 +26,21 @@ const _gameIds = [
   'snake_classic',
   'sudoku',
   'tic_tac_toe',
+  'whack_a_mole',
 ];
+
+String _playButtonText(String gameId) => switch (gameId) {
+  'color_tap'    => 'Play Color Tap',
+  'dino_run'     => 'Play Dino Run',
+  'dodge_ball'   => 'Play Dodge Ball',
+  'drop_merge'   => 'Play Drop Merge',
+  'flappy_tap'   => 'Play Flappy Tap',
+  'number_merge' => 'Play Classic',
+  'snake_classic' => 'Play Snake',
+  'sudoku'       => 'Play Sudoku',
+  'whack_a_mole' => 'Play Whack-a-Mole',
+  _              => 'Tap to Start',
+};
 
 void main() {
   for (final gameId in _gameIds) {
@@ -56,7 +72,7 @@ void main() {
             settle: false,
           );
           // Games with a difficulty picker use a named play button; others use 'Tap to Start'.
-          final playText = gameId == 'flappy_tap' ? 'Play Flappy Tap' : 'Tap to Start';
+          final playText = _playButtonText(gameId);
           final playFinder = find.text(playText);
           if (tester.any(playFinder)) await tester.tap(playFinder, warnIfMissed: false);
           await tester.pump(const Duration(milliseconds: 200));
@@ -72,7 +88,7 @@ void main() {
             GameWrapper(gameId: gameId, child: GameRegistry.buildGame(gameId)),
             settle: false,
           );
-          final playText = gameId == 'flappy_tap' ? 'Play Flappy Tap' : 'Tap to Start';
+          final playText = _playButtonText(gameId);
           final playFinder = find.text(playText);
           if (tester.any(playFinder)) {
             await tester.tap(playFinder, warnIfMissed: false);

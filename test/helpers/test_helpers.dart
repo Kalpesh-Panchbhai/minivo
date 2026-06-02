@@ -8,7 +8,20 @@ import 'screen_sizes.dart';
 import 'overflow_detector.dart';
 
 Future<void> initTestDependencies() async {
-  SharedPreferences.setMockInitialValues({});
+  SharedPreferences.setMockInitialValues({
+    'tutorial_seen_color_tap': true,
+    'tutorial_seen_dino_run': true,
+    'tutorial_seen_dodge_ball': true,
+    'tutorial_seen_dots_and_boxes': true,
+    'tutorial_seen_drop_merge': true,
+    'tutorial_seen_flappy_tap': true,
+    'tutorial_seen_memory_match': true,
+    'tutorial_seen_number_merge': true,
+    'tutorial_seen_snake_classic': true,
+    'tutorial_seen_sudoku': true,
+    'tutorial_seen_tic_tac_toe': true,
+    'tutorial_seen_whack_a_mole': true,
+  });
   await ScoreService().init();
 }
 

@@ -19,6 +19,8 @@ class GamePickerScaffold extends StatefulWidget {
   // Title area
   final String title;
   final String? subtitle;
+  final Color? titleColor;
+  final Color? subtitleColor;
 
   // Nav
   final VoidCallback onBack;
@@ -51,6 +53,8 @@ class GamePickerScaffold extends StatefulWidget {
     required this.iconChild,
     required this.title,
     this.subtitle,
+    this.titleColor,
+    this.subtitleColor,
     required this.onBack,
     required this.isFavorite,
     required this.onFavoriteToggle,
@@ -163,8 +167,8 @@ class _GamePickerScaffoldState extends State<GamePickerScaffold> {
   }
 
   Widget _buildTitleArea(BuildContext context) {
-    final textColor = const Color(0xFF1C1B1F);
-    final mutedColor = const Color(0xFF9E9E9E);
+    final textColor = widget.titleColor ?? const Color(0xFF1C1B1F);
+    final mutedColor = widget.subtitleColor ?? const Color(0xFF9E9E9E);
     return Column(
       children: [
         _buildMascot(context),

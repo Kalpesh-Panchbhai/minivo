@@ -172,7 +172,7 @@ class _HowToPlaySheetState extends State<HowToPlaySheet> {
                       onClose: () => Navigator.of(context).pop(),
                     ),
                     SizedBox(
-                      height: 320,
+                      height: MediaQuery.sizeOf(context).height < 600 ? 240 : 320,
                       child: PageView.builder(
                         controller: _pageCtrl,
                         onPageChanged: (i) => setState(() => _page = i),
@@ -345,16 +345,17 @@ class _StepPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
+    final shortScreen = MediaQuery.sizeOf(context).height < 600;
+    return SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(24, shortScreen ? 4 : 8, 24, shortScreen ? 4 : 8),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
           // Hero art: animated demo or generic icon.
           if (demo != null)
             Container(
-              width: 180,
-              height: 160,
+              width: shortScreen ? 150 : 180,
+              height: shortScreen ? 110 : 160,
               decoration: BoxDecoration(
                 color: accent.withValues(alpha: 0.10),
                 borderRadius: BorderRadius.circular(16),
@@ -396,7 +397,7 @@ class _StepPage extends StatelessWidget {
                 child: Icon(icon, color: accent, size: 44),
               ),
             ),
-          const SizedBox(height: 20),
+          SizedBox(height: shortScreen ? 10 : 20),
           // STEP X / Y eyebrow.
           Text(
             'STEP $index OF $total',
@@ -407,7 +408,7 @@ class _StepPage extends StatelessWidget {
               letterSpacing: 1.4,
             ),
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: shortScreen ? 6 : 10),
           // Step description.
           Text(
             text,

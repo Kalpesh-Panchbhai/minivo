@@ -22,6 +22,8 @@ import 'drop_merge/drop_merge_logo.dart';
 import 'drop_merge/drop_merge_screen.dart';
 import 'whack_a_mole/whack_a_mole_logo.dart';
 import 'whack_a_mole/whack_a_mole_screen.dart';
+import 'dodge_ball/dodge_ball_logo.dart';
+import 'dodge_ball/dodge_ball_screen.dart';
 
 typedef GameWidgetBuilder = Widget Function();
 
@@ -40,6 +42,7 @@ class GameRegistry {
     'tic_tac_toe': () => const TicTacToeScreen(),
     'drop_merge': () => const DropMergeScreen(),
     'whack_a_mole': () => const WhackAMoleScreen(),
+    'dodge_ball': () => const DodgeBallScreen(),
   };
 
   static Widget buildGame(String gameId) {
@@ -64,6 +67,7 @@ class GameRegistry {
     'flappy_tap',
     'drop_merge',
     'whack_a_mole',
+    'dodge_ball',
   };
 
   static bool usesCustomOverlays(String gameId) =>
@@ -274,6 +278,24 @@ class GameRegistry {
       bgColor: Color(0xFFE8F5E9),
       playCount: 0,
       customLogo: buildWhackAMoleLogo,
+    ),
+    const GameInfo(
+      id: 'dodge_ball',
+      name: 'Dodge Ball',
+      description: 'Dodge falling obstacles — drag left and right to survive!',
+      howToPlay:
+          'Choose your difficulty (Easy, Medium, Hard) — speed and obstacle count scale with the level.\n'
+          'Drag left and right to move your ball at the bottom of the screen.\n'
+          'Obstacles fall from the top — avoid them all to stay alive.\n'
+          'Speed increases over time — the longer you survive, the harder it gets.\n'
+          'Score points for every obstacle that passes you (5/10/20 pts on Easy/Medium/Hard).\n'
+          'One hit and it\'s game over — how long can you last?',
+      category: GameCategory.action,
+      icon: Icons.sports_baseball_rounded,
+      color: Color(0xFF00D4FF),
+      bgColor: Color(0xFF0F0F23),
+      playCount: 0,
+      customLogo: buildDodgeBallLogo,
     ),
   ];
 

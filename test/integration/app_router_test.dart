@@ -30,7 +30,10 @@ Future<void> _pump(WidgetTester tester) async {
 void main() {
   group('AppRouter end-to-end navigation', () {
     setUp(() async {
-      SharedPreferences.setMockInitialValues({});
+      SharedPreferences.setMockInitialValues({
+        'tutorial_seen_tic_tac_toe': true,
+        'tutorial_seen_flappy_tap': true,
+      });
       await ScoreService().init();
     });
 

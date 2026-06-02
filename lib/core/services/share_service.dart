@@ -49,11 +49,26 @@ class ShareService {
     );
   }
 
+  Rect _shareOrigin(BuildContext context) {
+    final box = context.findRenderObject() as RenderBox?;
+    if (box != null && box.hasSize) {
+      final pos = box.localToGlobal(Offset.zero);
+      return pos & box.size;
+    }
+    final size = MediaQuery.sizeOf(context);
+    return Rect.fromCenter(
+      center: Offset(size.width / 2, size.height / 2),
+      width: 1,
+      height: 1,
+    );
+  }
+
   Future<void> _shareImage({
     required BuildContext context,
     required ShareCard card,
     required String text,
   }) async {
+    final origin = _shareOrigin(context);
     try {
       final imageBytes = await _captureWidget(context, card);
       final dir = await getTemporaryDirectory();
@@ -64,10 +79,13 @@ class ShareService {
         ShareParams(
           files: [XFile(file.path, mimeType: 'image/png')],
           text: text,
+          sharePositionOrigin: origin,
         ),
       );
     } catch (_) {
-      await SharePlus.instance.share(ShareParams(text: text));
+      await SharePlus.instance.share(
+        ShareParams(text: text, sharePositionOrigin: origin),
+      );
     }
   }
 
