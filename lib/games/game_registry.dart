@@ -24,6 +24,8 @@ import 'whack_a_mole/whack_a_mole_logo.dart';
 import 'whack_a_mole/whack_a_mole_screen.dart';
 import 'dodge_ball/dodge_ball_logo.dart';
 import 'dodge_ball/dodge_ball_screen.dart';
+import 'tap_tap_dash/tap_tap_dash_logo.dart';
+import 'tap_tap_dash/tap_tap_dash_screen.dart';
 
 typedef GameWidgetBuilder = Widget Function();
 
@@ -43,6 +45,7 @@ class GameRegistry {
     'drop_merge': () => const DropMergeScreen(),
     'whack_a_mole': () => const WhackAMoleScreen(),
     'dodge_ball': () => const DodgeBallScreen(),
+    'tap_tap_dash': () => const TapTapDashScreen(),
   };
 
   static Widget buildGame(String gameId) {
@@ -68,6 +71,7 @@ class GameRegistry {
     'drop_merge',
     'whack_a_mole',
     'dodge_ball',
+    'tap_tap_dash',
   };
 
   static bool usesCustomOverlays(String gameId) =>
@@ -296,6 +300,25 @@ class GameRegistry {
       bgColor: Color(0xFF0F0F23),
       playCount: 0,
       customLogo: buildDodgeBallLogo,
+    ),
+    const GameInfo(
+      id: 'tap_tap_dash',
+      name: 'Tap Tap Dash',
+      description: 'Auto-running ball on a zigzag path — tap to turn at corners or fall off!',
+      howToPlay:
+          'Choose your difficulty (Easy, Medium, Hard) — speed and segment length vary by level.\n'
+          'Your ball runs forward automatically on a zigzag path.\n'
+          'Tap the screen when you reach a corner to turn — timing is key!\n'
+          'If you tap too late (or not at all), you run off the edge and fall.\n'
+          'Each successful turn scores a point. Speed increases over time.\n'
+          'One mistake and it\'s game over — how many turns can you make?',
+      category: GameCategory.action,
+      icon: Icons.directions_run_rounded,
+      color: Color(0xFF00D4FF),
+      bgColor: Color(0xFF1A1A2E),
+      playCount: 0,
+      isFeatured: false,
+      customLogo: buildTapTapDashLogo,
     ),
   ];
 

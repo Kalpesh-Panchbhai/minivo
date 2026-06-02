@@ -21,6 +21,7 @@ Future<void> initTestDependencies() async {
     'tutorial_seen_sudoku': true,
     'tutorial_seen_tic_tac_toe': true,
     'tutorial_seen_whack_a_mole': true,
+    'tutorial_seen_tap_tap_dash': true,
   });
   await ScoreService().init();
 }
