@@ -50,3 +50,4 @@ flutter:
     - assets/images/
     - assets/audio/
     - assets/games/tic_tac_toe/
+    - google_fonts/

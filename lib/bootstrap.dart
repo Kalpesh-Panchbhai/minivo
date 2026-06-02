@@ -8,6 +8,7 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'config/ad_config.dart';
 import 'core/constants/app_theme.dart';
 import 'core/services/ads_service.dart';
@@ -29,6 +30,7 @@ Future<void> bootstrap({
   await runZonedGuarded<Future<void>>(() async {
     PerfLogger.startOp('app-startup');
     WidgetsFlutterBinding.ensureInitialized();
+    GoogleFonts.config.allowRuntimeFetching = false;
 
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,

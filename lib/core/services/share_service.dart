@@ -83,9 +83,11 @@ class ShareService {
         ),
       );
     } catch (_) {
-      await SharePlus.instance.share(
-        ShareParams(text: text, sharePositionOrigin: origin),
-      );
+      try {
+        await SharePlus.instance.share(
+          ShareParams(text: text, sharePositionOrigin: origin),
+        );
+      } catch (_) {}
     }
   }
 
