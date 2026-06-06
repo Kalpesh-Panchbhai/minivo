@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
+import '../../core/services/analytics_service.dart';
 import '../../core/services/share_service.dart';
 import '../../core/utils/responsive.dart';
 import '../game_registry.dart';
@@ -23,6 +24,7 @@ class GameResultAction {
   final VoidCallback onTap;
   final bool filled;
   final Color? color;
+  final String? actionId;
 
   GameResultAction({
     required this.label,
@@ -30,6 +32,7 @@ class GameResultAction {
     required this.onTap,
     this.filled = false,
     this.color,
+    this.actionId,
   });
 }
 
@@ -229,7 +232,15 @@ class GenericGameResultScreen extends StatelessWidget {
                       _ActionButton(
                         label: actions[i].label,
                         icon: actions[i].icon,
-                        onTap: actions[i].onTap,
+                        onTap: () {
+                          if (gameId != null && actions[i].actionId != null) {
+                            AnalyticsService().resultAction(
+                              gameId: gameId!,
+                              action: actions[i].actionId!,
+                            );
+                          }
+                          actions[i].onTap();
+                        },
                         filled: actions[i].filled,
                         color: actions[i].color ?? badgeColor,
                       ),
@@ -242,6 +253,10 @@ class GenericGameResultScreen extends StatelessWidget {
                       label: '📤 Share Score',
                       icon: Icons.share_rounded,
                       onTap: () {
+                        AnalyticsService().resultAction(
+                          gameId: gameId!,
+                          action: 'share_score',
+                        );
                         final gameName =
                             GameRegistry.getById(gameId!)?.name ?? gameId!;
                         ShareService().shareScore(

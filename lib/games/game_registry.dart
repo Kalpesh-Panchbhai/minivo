@@ -58,25 +58,6 @@ class GameRegistry {
 
   static bool hasGame(String gameId) => _builders.containsKey(gameId);
 
-  static const Set<String> _customOverlayGames = {
-    'color_tap',
-    'dino_run',
-    'dots_and_boxes',
-    'memory_match',
-    'sudoku',
-    'tic_tac_toe',
-    'number_merge',
-    'snake_classic',
-    'flappy_tap',
-    'drop_merge',
-    'whack_a_mole',
-    'dodge_ball',
-    'tap_tap_dash',
-  };
-
-  static bool usesCustomOverlays(String gameId) =>
-      _customOverlayGames.contains(gameId);
-
   static final List<GameInfo> allGames = [
     const GameInfo(
       id: 'dots_and_boxes',

@@ -845,16 +845,19 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen>
           onTap: _newGame,
           filled: true,
           color: badgeColor,
+          actionId: 'play_again',
         ),
         game_result.GameResultAction(
           label: 'Change Mode',
           icon: Icons.tune_rounded,
           onTap: _backToPicker,
+          actionId: 'change_mode',
         ),
         game_result.GameResultAction(
           label: 'Home',
           icon: Icons.home_rounded,
           onTap: () => context.go('/home'),
+          actionId: 'home',
         ),
       ],
     );

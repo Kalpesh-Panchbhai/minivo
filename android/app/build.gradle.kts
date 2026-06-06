@@ -91,3 +91,21 @@ android {
 flutter {
     source = "../.."
 }
+
+tasks.register("enableAnalyticsDebugView") {
+    doLast {
+        exec {
+            commandLine(
+                "adb", "shell", "setprop",
+                "debug.firebase.analytics.app",
+                "com.puzzloragames.dropzy"
+            )
+        }
+    }
+}
+
+tasks.configureEach {
+    if (name.matches(Regex("install.*Dev.*"))) {
+        finalizedBy("enableAnalyticsDebugView")
+    }
+}

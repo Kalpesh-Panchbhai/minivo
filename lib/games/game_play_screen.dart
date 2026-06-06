@@ -33,7 +33,6 @@ class _GamePlayScreenState extends State<GamePlayScreen> {
   Widget build(BuildContext context) {
     return GameWrapper(
       gameId: widget.gameId,
-      customOverlays: GameRegistry.usesCustomOverlays(widget.gameId),
       child: GameRegistry.buildGame(widget.gameId),
     );
   }

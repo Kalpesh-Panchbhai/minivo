@@ -31,6 +31,7 @@ GameResultAction? rewardedContinueAction({
     icon: Icons.play_circle_fill_rounded,
     filled: true,
     color: color,
+    actionId: 'rewarded_continue',
     onTap: () {
       bool rewardEarned = false;
       AdsService().showRewarded(

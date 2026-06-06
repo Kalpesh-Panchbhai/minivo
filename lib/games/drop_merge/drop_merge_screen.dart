@@ -613,14 +613,17 @@ class _DropMergeScreenState extends State<DropMergeScreen> {
         game_result.GameResultAction(
           label: 'Play Again', icon: Icons.refresh_rounded,
           onTap: _playAgain, filled: continueAction == null, color: _kAccent,
+          actionId: 'play_again',
         ),
         game_result.GameResultAction(
           label: 'Change Mode', icon: Icons.tune_rounded,
           onTap: _backToPickerScreen, filled: false,
+          actionId: 'change_mode',
         ),
         game_result.GameResultAction(
           label: 'Home', icon: Icons.home_rounded,
           onTap: () => context.go('/home'), filled: false,
+          actionId: 'home',
         ),
       ],
     );

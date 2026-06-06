@@ -9,23 +9,18 @@ import '../core/services/audio_service.dart';
 import '../core/services/crash_reporter.dart';
 import '../core/services/review_service.dart';
 import '../core/services/ads_service.dart';
-import '../core/utils/responsive.dart';
 import '../core/services/score_service.dart';
-import '../core/services/share_service.dart';
-import 'game_registry.dart';
 
 enum GameState { ready, playing, paused, gameOver }
 
 class GameWrapper extends StatefulWidget {
   final String gameId;
   final Widget child;
-  final bool customOverlays;
 
   const GameWrapper({
     super.key,
     required this.gameId,
     required this.child,
-    this.customOverlays = false,
   });
 
   static GameWrapperState of(BuildContext context) {
@@ -215,76 +210,9 @@ class GameWrapperState extends State<GameWrapper> {
             ),
           ),
 
-          // Default HUD — skipped when the game uses a fully custom overlay
-          // and renders its own scoreboard / controls.
-          if (_state == GameState.playing && !widget.customOverlays)
-            _buildHUD(context),
-
-          // Ready overlay
-          if (!widget.customOverlays && _state == GameState.ready)
-            _buildReadyOverlay(context),
-
           // Pause overlay
           if (_state == GameState.paused) _buildPauseOverlay(context),
-
-          // Game over overlay
-          if (!widget.customOverlays && _state == GameState.gameOver)
-            _buildGameOverOverlay(context),
         ],
-      ),
-    );
-  }
-
-  Widget _buildHUD(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _SlideFadeIn(
-              child: _ScoreChip(score: _score, bestScore: _highScore),
-            ),
-            const _SlideFadeIn(child: GamePauseButton()),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildReadyOverlay(BuildContext context) {
-    return GestureDetector(
-      onTap: startGame,
-      child: Container(
-        color: Colors.black.withValues(alpha: 0.4),
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                Icons.touch_app_rounded,
-                size: 64,
-                color: Colors.white,
-              )
-                  .animate(onPlay: (c) => c.repeat(reverse: true))
-                  .scale(
-                    begin: const Offset(0.9, 0.9),
-                    end: const Offset(1.1, 1.1),
-                    duration: 800.ms,
-                  ),
-              const SizedBox(height: 20),
-              const Text(
-                AppStrings.tapToStart,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                ),
-              ).animate().fadeIn(duration: 500.ms),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -351,145 +279,6 @@ class GameWrapperState extends State<GameWrapper> {
     );
   }
 
-  Widget _buildGameOverOverlay(BuildContext context) {
-    final stars = _getStars();
-    final isNew = _score == _highScore && _score > 0;
-
-    return Container(
-      color: Colors.black.withValues(alpha: 0.6),
-      child: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(vertical: 24),
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 32),
-            padding: const EdgeInsets.all(28),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(28),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  AppStrings.gameOver,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        fontSize: context.fontSize(24, max: 30),
-                      ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(3, (i) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: Icon(
-                        Icons.star_rounded,
-                        size: 32,
-                        color: i < stars
-                            ? AppColors.starFilled
-                            : AppColors.starEmpty,
-                      ),
-                    );
-                  }),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  '${AppStrings.score}: $_score',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '${AppStrings.bestScore}: $_highScore',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                if (isNew) ...[
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.starFilled.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Text(
-                      '🎉 New High Score!',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12,
-                        color: AppColors.categoryAction,
-                      ),
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 20),
-                _overlayButton(
-                  AppStrings.playAgain,
-                  Icons.refresh_rounded,
-                  AppColors.primary,
-                  () {
-                    AnalyticsService().resultAction(
-                      gameId: widget.gameId,
-                      action: 'play_again',
-                    );
-                    restartGame();
-                  },
-                ),
-                const SizedBox(height: 8),
-                _overlayButton(
-                  AppStrings.shareScore,
-                  Icons.share_rounded,
-                  AppColors.categorySports,
-                  () {
-                    AnalyticsService().resultAction(
-                      gameId: widget.gameId,
-                      action: 'share_score',
-                    );
-                    final gameName =
-                        GameRegistry.getById(widget.gameId)?.name ??
-                            widget.gameId;
-                    ShareService().shareScore(
-                      context: context,
-                      gameName: gameName,
-                      score: _score,
-                      stars: stars,
-                    );
-                  },
-                ),
-                const SizedBox(height: 8),
-                _overlayButton(
-                  AppStrings.home,
-                  Icons.home_rounded,
-                  AppColors.textSecondary,
-                  () {
-                    AnalyticsService().resultAction(
-                      gameId: widget.gameId,
-                      action: 'home',
-                    );
-                    context.go('/home');
-                  },
-                ),
-              ],
-            ),
-          )
-            .animate()
-            .scale(
-              begin: const Offset(0.85, 0.85),
-              end: const Offset(1, 1),
-              duration: 400.ms,
-              curve: Curves.easeOutBack,
-            )
-            .fadeIn(duration: 300.ms),
-        ),
-      ),
-    );
-  }
-
   Widget _overlayButton(
     String label,
     IconData icon,
@@ -535,164 +324,6 @@ class _GameStateScope extends InheritedWidget {
       state != old.state ||
       score != old.score ||
       highScore != old.highScore;
-}
-
-// ════════════════════════════════════════════════════════════════
-// REUSABLE HUD COMPONENTS (used by every game via GameWrapper)
-// ════════════════════════════════════════════════════════════════
-
-/// One-shot slide-down + fade-in entrance using TweenAnimationBuilder.
-/// Self-disposing — leaves no pending timers when the widget is unmounted.
-class _SlideFadeIn extends StatelessWidget {
-  final Widget child;
-  const _SlideFadeIn({required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0.0, end: 1.0),
-      duration: const Duration(milliseconds: 420),
-      curve: Curves.easeOutCubic,
-      builder: (context, t, ch) {
-        return Opacity(
-          opacity: t,
-          child: Transform.translate(
-            offset: Offset(0, (1 - t) * -16),
-            child: ch,
-          ),
-        );
-      },
-      child: child,
-    );
-  }
-}
-
-class _ScoreChip extends StatelessWidget {
-  final int score;
-  final int bestScore;
-
-  const _ScoreChip({required this.score, required this.bestScore});
-
-  @override
-  Widget build(BuildContext context) {
-    final showBest = bestScore > 0;
-    return Container(
-      padding: EdgeInsets.fromLTRB(12, 8, showBest ? 14 : 12, 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.10),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Trophy badge
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFFFFC233), Color(0xFFFF8A00)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(10),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFFFF9500).withValues(alpha: 0.45),
-                  blurRadius: 8,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-            ),
-            child: const Icon(
-              Icons.emoji_events_rounded,
-              size: 18,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Score label
-              Text(
-                'SCORE',
-                style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.2,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 1),
-              // Animated score number
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 280),
-                transitionBuilder: (child, anim) => ScaleTransition(
-                  scale: CurvedAnimation(
-                    parent: anim,
-                    curve: Curves.easeOutBack,
-                  ),
-                  child: FadeTransition(opacity: anim, child: child),
-                ),
-                child: Text(
-                  '$score',
-                  key: ValueKey<int>(score),
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
-                    color: AppColors.textPrimary,
-                    height: 1,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          if (showBest) ...[
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 10),
-              width: 1,
-              height: 26,
-              color: AppColors.textPrimary.withValues(alpha: 0.10),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'BEST',
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.2,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 1),
-                Text(
-                  '$bestScore',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.textPrimary.withValues(alpha: 0.7),
-                    height: 1,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
-  }
 }
 
 /// Reusable, design-consistent pause button — same look across every game.

@@ -649,16 +649,19 @@ class _TicTacToeScreenState extends State<TicTacToeScreen>
           onTap: _playAgainSameMode,
           filled: true,
           color: _kAiColor,
+          actionId: 'play_again',
         ),
         game_result.GameResultAction(
           label: 'Change Mode',
           icon: Icons.swap_horiz_rounded,
           onTap: _changeMode,
+          actionId: 'change_mode',
         ),
         game_result.GameResultAction(
           label: 'Home',
           icon: Icons.home_rounded,
           onTap: _backOrHome,
+          actionId: 'home',
         ),
       ],
     );
