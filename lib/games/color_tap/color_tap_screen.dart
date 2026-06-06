@@ -168,6 +168,7 @@ class _ColorTapScreenState extends State<ColorTapScreen>
       howToPlay: info.howToPlay,
       accent: _kAccent,
       steps: colorTapSteps(),
+      gameId: kColorTapGameId,
     );
   }
 
@@ -208,6 +209,7 @@ class _ColorTapScreenState extends State<ColorTapScreen>
     ScoreService().incrementGamePlayCount(kColorTapGameId);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
+        GameWrapper.of(context).setDifficultyAndMode(difficulty: diff.label);
         GameWrapper.of(context).startGame();
         GameWrapper.of(context).updateScore(0);
       }

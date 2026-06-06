@@ -200,6 +200,7 @@ class _SnakeClassicScreenState extends State<SnakeClassicScreen>
       howToPlay: info.howToPlay,
       accent: _kSnakeGreen,
       steps: snakeClassicSteps(),
+      gameId: kSnakeClassicGameId,
     );
   }
 
@@ -234,6 +235,7 @@ class _SnakeClassicScreenState extends State<SnakeClassicScreen>
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
+        GameWrapper.of(context).setDifficultyAndMode(difficulty: diff.label);
         GameWrapper.of(context).startGame();
         GameWrapper.of(context).updateScore(0);
       }

@@ -222,6 +222,7 @@ class _DinoRunScreenState extends State<DinoRunScreen>
       howToPlay: info.howToPlay,
       accent: _kAccent,
       steps: dinoRunSteps(),
+      gameId: kDinoRunGameId,
     );
   }
 
@@ -265,6 +266,7 @@ class _DinoRunScreenState extends State<DinoRunScreen>
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
+        GameWrapper.of(context).setDifficultyAndMode(difficulty: diff.label);
         GameWrapper.of(context).startGame();
         GameWrapper.of(context).updateScore(0);
         _startTicker();

@@ -421,6 +421,10 @@ class _DotsAndBoxesScreenState extends State<DotsAndBoxesScreen>
 
   void _selectMode(_Mode mode) {
     setState(() { _mode = mode; _initBoard(notify: false); });
+    _wrapper.setDifficultyAndMode(
+      difficulty: _diffLabel(_difficulty),
+      mode: mode == _Mode.ai ? 'ai' : '2_player',
+    );
     _wrapper.startGame();
   }
 
@@ -431,6 +435,10 @@ class _DotsAndBoxesScreenState extends State<DotsAndBoxesScreen>
 
   void _playAgain() {
     setState(() => _initBoard(notify: false));
+    _wrapper.setDifficultyAndMode(
+      difficulty: _diffLabel(_difficulty),
+      mode: _mode == _Mode.ai ? 'ai' : '2_player',
+    );
     _wrapper.restartGame();
     _wrapper.startGame();
   }
@@ -449,7 +457,7 @@ class _DotsAndBoxesScreenState extends State<DotsAndBoxesScreen>
     final game = GameRegistry.getById(kDotsAndBoxesGameId);
     if (game == null) return;
     showHowToPlaySheet(ctx, title: game.name, howToPlay: game.howToPlay,
-        accent: _kAccent, steps: dotsAndBoxesSteps());
+        accent: _kAccent, steps: dotsAndBoxesSteps(), gameId: kDotsAndBoxesGameId);
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────

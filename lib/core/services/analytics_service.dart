@@ -119,4 +119,54 @@ class AnalyticsService {
     String? gameId,
   }) =>
       _log('home_section_tapped', {'section': section, 'game_id': gameId});
+
+  Future<void> adShown({
+    required String adType, // interstitial | rewarded
+    String? gameId,
+    String? rewardType,
+  }) =>
+      _log('ad_shown', {
+        'ad_type': adType,
+        'game_id': gameId,
+        'reward_type': rewardType,
+      });
+
+  Future<void> adCompleted({
+    String? gameId,
+    required String rewardType,
+  }) =>
+      _log('ad_completed', {
+        'game_id': gameId,
+        'reward_type': rewardType,
+      });
+
+  Future<void> adSkipped({
+    String? gameId,
+    required String rewardType,
+  }) =>
+      _log('ad_skipped', {
+        'game_id': gameId,
+        'reward_type': rewardType,
+      });
+
+  Future<void> adFailed({
+    required String adType,
+    String? gameId,
+  }) =>
+      _log('ad_failed', {
+        'ad_type': adType,
+        'game_id': gameId,
+      });
+
+  Future<void> tutorialStarted({required String gameId}) =>
+      _log('tutorial_started', {'game_id': gameId});
+
+  Future<void> tutorialCompleted({
+    required String gameId,
+    required bool finished,
+  }) =>
+      _log('tutorial_completed', {
+        'game_id': gameId,
+        'finished': finished,
+      });
 }

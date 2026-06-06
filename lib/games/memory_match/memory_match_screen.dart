@@ -223,6 +223,7 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen>
       howToPlay: info.howToPlay,
       accent: _kAccent,
       steps: memoryMatchSteps(),
+      gameId: kMemoryMatchGameId,
     );
   }
 
@@ -235,6 +236,10 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen>
     _celebrationCtrl.reset();
     _mode = mode; // set before startGame's setState so build never sees mode≠null + activeDiff==null
     _startGame(_pickerDiff, disposeFirst: false);
+    GameWrapper.of(context).setDifficultyAndMode(
+      difficulty: _pickerDiff.label,
+      mode: mode == _Mode.ai ? 'ai' : '2_player',
+    );
     GameWrapper.of(context).startGame();
   }
 
@@ -586,6 +591,10 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen>
   void _newGame() {
     final mode = _mode!;
     final diff = _activeDiff!;
+    GameWrapper.of(context).setDifficultyAndMode(
+      difficulty: diff.label,
+      mode: mode == _Mode.ai ? 'ai' : '2_player',
+    );
     GameWrapper.of(context).restartGame();
     GameWrapper.of(context).startGame();
     _startGame(diff);

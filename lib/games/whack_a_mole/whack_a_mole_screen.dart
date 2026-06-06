@@ -194,6 +194,7 @@ class _WhackAMoleScreenState extends State<WhackAMoleScreen>
       howToPlay: info.howToPlay,
       accent: _kAccent,
       steps: whackAMoleSteps(),
+      gameId: kWhackAMoleGameId,
     );
   }
 
@@ -228,6 +229,7 @@ class _WhackAMoleScreenState extends State<WhackAMoleScreen>
     ScoreService().incrementGamePlayCount(kWhackAMoleGameId);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
+        GameWrapper.of(context).setDifficultyAndMode(difficulty: diff.label);
         GameWrapper.of(context).startGame();
         GameWrapper.of(context).updateScore(0);
       }

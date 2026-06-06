@@ -46,11 +46,25 @@ class GameWrapperState extends State<GameWrapper> {
   // begin a new session by clearing the flag.
   bool _sessionCounted = false;
   bool _hasContinued = false;
+  String? _difficulty;
+  String? _mode;
 
+  String get gameId => widget.gameId;
   GameState get state => _state;
   int get score => _score;
   int get highScore => _highScore;
   bool get hasContinued => _hasContinued;
+
+  void setDifficultyAndMode({String? difficulty, String? mode}) {
+    if (difficulty != null && difficulty != _difficulty) {
+      AnalyticsService().difficultySelected(
+        gameId: widget.gameId,
+        difficulty: difficulty,
+      );
+    }
+    _difficulty = difficulty;
+    _mode = mode;
+  }
 
   @override
   void initState() {
@@ -66,8 +80,16 @@ class GameWrapperState extends State<GameWrapper> {
       _state = GameState.playing;
       _score = 0;
     });
-    AnalyticsService().gameStart(gameId: widget.gameId);
-    CrashReporter().log('game_start', {'game_id': widget.gameId});
+    AnalyticsService().gameStart(
+      gameId: widget.gameId,
+      difficulty: _difficulty,
+      mode: _mode,
+    );
+    CrashReporter().log('game_start', {
+      'game_id': widget.gameId,
+      'difficulty': _difficulty,
+      'mode': _mode,
+    });
   }
 
   void updateScore(int newScore) {
@@ -126,12 +148,16 @@ class GameWrapperState extends State<GameWrapper> {
         score: _score,
         durationSec: duration,
         isHighScore: isNew,
+        difficulty: _difficulty,
+        mode: _mode,
       );
       CrashReporter().log('game_end', {
         'game_id': widget.gameId,
         'score': _score,
         'duration_sec': duration,
         'is_high_score': isNew,
+        'difficulty': _difficulty,
+        'mode': _mode,
       });
     }
 
@@ -139,9 +165,12 @@ class GameWrapperState extends State<GameWrapper> {
     // and state-change (game-over UI is already showing).
     if (_state == GameState.gameOver) return;
     AdsService().notifyGameOver();
-    AdsService().showInterstitial(onComplete: () {
-      _setGameOverState();
-    });
+    AdsService().showInterstitial(
+      gameId: widget.gameId,
+      onComplete: () {
+        _setGameOverState();
+      },
+    );
   }
 
   void _setGameOverState() {

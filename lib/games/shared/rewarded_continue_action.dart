@@ -36,6 +36,7 @@ GameResultAction? rewardedContinueAction({
       bool rewardEarned = false;
       AdsService().showRewarded(
         rewardType: RewardType.continueGame,
+        gameId: GameWrapper.of(context).gameId,
         onRewarded: (_) {
           rewardEarned = true;
         },

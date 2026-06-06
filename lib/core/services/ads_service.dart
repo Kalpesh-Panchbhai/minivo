@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 import '../../config/ad_config.dart';
+import 'analytics_service.dart';
 import 'crash_reporter.dart';
 
 /// Reward types — drive the per-game logic that runs after a watch.
@@ -135,7 +136,7 @@ class AdsService {
 
   /// Tries to show an interstitial. Always calls [onComplete] when control
   /// returns to your UI — whether the ad showed, was capped, or failed.
-  void showInterstitial({required void Function() onComplete}) {
+  void showInterstitial({required void Function() onComplete, String? gameId}) {
     if (!_canShowInterstitial) {
       onComplete();
       return;
@@ -146,6 +147,7 @@ class AdsService {
       onAdShowedFullScreenContent: (ad) {
         _lastInterstitialShown = DateTime.now();
         CrashReporter().log('ad_shown', {'type': 'interstitial'});
+        AnalyticsService().adShown(adType: 'interstitial', gameId: gameId);
       },
       onAdDismissedFullScreenContent: (ad) {
         ad.dispose();
@@ -163,6 +165,7 @@ class AdsService {
           'type': 'interstitial',
           'msg': error.message,
         });
+        AnalyticsService().adFailed(adType: 'interstitial', gameId: gameId);
         onComplete();
       },
     );
@@ -223,6 +226,7 @@ class AdsService {
     required RewardType rewardType,
     required void Function(RewardType type) onRewarded,
     void Function()? onComplete,
+    String? gameId,
   }) {
     final ad = _rewardedAd;
     if (ad == null || !isRewardedReady) {
@@ -242,6 +246,11 @@ class AdsService {
           'type': 'rewarded',
           'reward': rewardType.name,
         });
+        AnalyticsService().adShown(
+          adType: 'rewarded',
+          gameId: gameId,
+          rewardType: rewardType.name,
+        );
       },
       onAdDismissedFullScreenContent: (ad) {
         if (kDebugMode) {
@@ -252,6 +261,17 @@ class AdsService {
           'type': 'rewarded',
           'reward_earned': rewardEarned,
         });
+        if (rewardEarned) {
+          AnalyticsService().adCompleted(
+            gameId: gameId,
+            rewardType: rewardType.name,
+          );
+        } else {
+          AnalyticsService().adSkipped(
+            gameId: gameId,
+            rewardType: rewardType.name,
+          );
+        }
         ad.dispose();
         _rewardedAd = null;
         _rewardedRetries = 0;
@@ -270,6 +290,7 @@ class AdsService {
           'type': 'rewarded',
           'msg': error.message,
         });
+        AnalyticsService().adFailed(adType: 'rewarded', gameId: gameId);
         onComplete?.call();
       },
     );

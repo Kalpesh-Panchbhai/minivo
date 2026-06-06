@@ -499,11 +499,13 @@ class _DropMergeScreenState extends State<DropMergeScreen> {
 
   void _startGame() {
     setState(() => _initGame());
+    _wrapper.setDifficultyAndMode(difficulty: _difficulty.label);
     _wrapper.startGame();
   }
 
   void _playAgain() {
     setState(() => _initGame());
+    _wrapper.setDifficultyAndMode(difficulty: _difficulty.label);
     _wrapper.restartGame();
     _wrapper.startGame();
   }
@@ -540,7 +542,7 @@ class _DropMergeScreenState extends State<DropMergeScreen> {
     if (game == null) return;
     showHowToPlaySheet(context,
         title: game.name, howToPlay: game.howToPlay,
-        accent: _kAccent, steps: dropMergeSteps());
+        accent: _kAccent, steps: dropMergeSteps(), gameId: kDropMergeGameId);
   }
 
   @override

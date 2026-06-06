@@ -246,6 +246,7 @@ class _TapTapDashScreenState extends State<TapTapDashScreen>
       howToPlay: info.howToPlay,
       accent: _kAccent,
       steps: tapTapDashSteps(),
+      gameId: kTapTapDashGameId,
     );
   }
 
@@ -320,6 +321,7 @@ class _TapTapDashScreenState extends State<TapTapDashScreen>
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
+        GameWrapper.of(context).setDifficultyAndMode(difficulty: diff.label);
         GameWrapper.of(context).startGame();
         GameWrapper.of(context).updateScore(0);
         _startTicker();

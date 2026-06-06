@@ -235,6 +235,7 @@ class _FlappyTapScreenState extends State<FlappyTapScreen>
       howToPlay: info.howToPlay,
       accent: _kFlappyAccent,
       steps: flappyTapSteps(),
+      gameId: kFlappyTapGameId,
     );
   }
 
@@ -283,6 +284,7 @@ class _FlappyTapScreenState extends State<FlappyTapScreen>
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
+        GameWrapper.of(context).setDifficultyAndMode(difficulty: diff.label);
         GameWrapper.of(context).startGame();
         GameWrapper.of(context).updateScore(0);
         _startTicker();

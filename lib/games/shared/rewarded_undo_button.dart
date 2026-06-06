@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/services/ads_service.dart';
 import '../../core/services/audio_service.dart';
+import '../game_wrapper.dart';
 
 class RewardedUndoButton extends StatefulWidget {
   final VoidCallback onUndo;
@@ -83,6 +84,7 @@ class _RewardedUndoButtonState extends State<RewardedUndoButton>
     bool earned = false;
     AdsService().showRewarded(
       rewardType: RewardType.undo,
+      gameId: GameWrapper.of(context).gameId,
       onRewarded: (_) => earned = true,
       onComplete: () {
         if (earned) widget.onUndo();

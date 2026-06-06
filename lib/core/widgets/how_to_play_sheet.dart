@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
+import '../services/analytics_service.dart';
 
 // ── Data model for animated tutorial steps ─────────────────────────────────
 
@@ -29,7 +30,9 @@ Future<void> showHowToPlaySheet(
   String howToPlay = '',
   required Color accent,
   List<GameHowToPlayStep>? steps,
+  String? gameId,
 }) {
+  if (gameId != null) AnalyticsService().tutorialStarted(gameId: gameId);
   return showGeneralDialog<void>(
     context: context,
     barrierDismissible: true,
@@ -41,6 +44,7 @@ Future<void> showHowToPlaySheet(
       howToPlay: howToPlay,
       accent: accent,
       steps: steps,
+      gameId: gameId,
     ),
     transitionBuilder: (_, anim, _, child) {
       final curved = CurvedAnimation(parent: anim, curve: Curves.easeOutBack);
@@ -61,6 +65,7 @@ class HowToPlaySheet extends StatefulWidget {
   final String howToPlay;
   final Color accent;
   final List<GameHowToPlayStep>? steps;
+  final String? gameId;
 
   const HowToPlaySheet({
     super.key,
@@ -68,6 +73,7 @@ class HowToPlaySheet extends StatefulWidget {
     this.howToPlay = '',
     required this.accent,
     this.steps,
+    this.gameId,
   });
 
   @override
@@ -77,6 +83,7 @@ class HowToPlaySheet extends StatefulWidget {
 class _HowToPlaySheetState extends State<HowToPlaySheet> {
   final _pageCtrl = PageController();
   int _page = 0;
+  bool _finished = false;
 
   // Whimsical icons cycled per step — keeps each tutorial page visually
   // distinct without hard-coding per-game art.
@@ -91,6 +98,12 @@ class _HowToPlaySheetState extends State<HowToPlaySheet> {
 
   @override
   void dispose() {
+    if (widget.gameId != null) {
+      AnalyticsService().tutorialCompleted(
+        gameId: widget.gameId!,
+        finished: _finished,
+      );
+    }
     _pageCtrl.dispose();
     super.dispose();
   }
@@ -109,6 +122,7 @@ class _HowToPlaySheetState extends State<HowToPlaySheet> {
 
   void _next(int total) {
     if (_page >= total - 1) {
+      _finished = true;
       Navigator.of(context).pop();
       return;
     }

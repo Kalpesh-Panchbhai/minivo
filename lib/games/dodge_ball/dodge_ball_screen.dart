@@ -245,6 +245,7 @@ class _DodgeBallScreenState extends State<DodgeBallScreen>
       howToPlay: info.howToPlay,
       accent: _kAccent,
       steps: dodgeBallSteps(),
+      gameId: kDodgeBallGameId,
     );
   }
 
@@ -275,6 +276,7 @@ class _DodgeBallScreenState extends State<DodgeBallScreen>
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
+        GameWrapper.of(context).setDifficultyAndMode(difficulty: diff.label);
         GameWrapper.of(context).startGame();
         GameWrapper.of(context).updateScore(0);
         _startTicker();

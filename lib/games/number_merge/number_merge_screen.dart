@@ -174,6 +174,7 @@ class _NumberMergeScreenState extends State<NumberMergeScreen> {
       howToPlay: info.howToPlay,
       accent: _kGolden,
       steps: numberMergeSteps(),
+      gameId: kNumberMergeGameId,
     );
   }
 
@@ -203,6 +204,7 @@ class _NumberMergeScreenState extends State<NumberMergeScreen> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
+        GameWrapper.of(context).setDifficultyAndMode(difficulty: diff.label);
         GameWrapper.of(context).startGame();
         GameWrapper.of(context).updateScore(0);
       }

@@ -152,6 +152,10 @@ class _TicTacToeScreenState extends State<TicTacToeScreen>
       _firstRoundOfSession = true;
     });
     _resetBoardForNewRound();
+    _wrapper.setDifficultyAndMode(
+      difficulty: _difficultyMeta(_difficulty).label,
+      mode: mode == _Mode.ai ? 'ai' : '2_player',
+    );
     _wrapper.startGame();
   }
 
@@ -172,6 +176,10 @@ class _TicTacToeScreenState extends State<TicTacToeScreen>
 
   void _playAgainSameMode() {
     _resetBoardForNewRound();
+    _wrapper.setDifficultyAndMode(
+      difficulty: _difficultyMeta(_difficulty).label,
+      mode: _mode == _Mode.ai ? 'ai' : '2_player',
+    );
     _wrapper.restartGame();
     _wrapper.startGame();
   }
@@ -239,6 +247,7 @@ class _TicTacToeScreenState extends State<TicTacToeScreen>
       howToPlay: game.howToPlay,
       accent: _kAiColor,
       steps: ticTacToeSteps(),
+      gameId: _gameId,
     );
   }
 

@@ -139,6 +139,7 @@ class _SudokuScreenState extends State<SudokuScreen> {
       title: 'Sudoku',
       accent: _kAccent,
       steps: sudokuSteps(),
+      gameId: kSudokuGameId,
     );
   }
 
@@ -195,6 +196,7 @@ class _SudokuScreenState extends State<SudokuScreen> {
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
+          GameWrapper.of(context).setDifficultyAndMode(difficulty: diff.label);
           GameWrapper.of(context).startGame();
           GameWrapper.of(context).updateScore(0);
         }
@@ -300,6 +302,7 @@ class _SudokuScreenState extends State<SudokuScreen> {
     bool earned = false;
     AdsService().showRewarded(
       rewardType: RewardType.hint,
+      gameId: kSudokuGameId,
       onRewarded: (_) => earned = true,
       onComplete: () {
         if (!earned || !mounted) return;
