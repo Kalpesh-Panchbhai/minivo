@@ -3,7 +3,10 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
+import '../../bootstrap.dart';
 import '../../core/constants/app_strings.dart';
+import '../../core/services/force_update_service.dart';
+import '../force_update/force_update_screen.dart';
 import '../../core/models/game_info.dart';
 import '../../core/services/analytics_service.dart';
 import '../../core/services/score_service.dart';
@@ -25,12 +28,29 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> with RouteAware {
+  bool _updateChecked = false;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final route = ModalRoute.of(context);
     if (route is PageRoute) {
       appRouteObserver.subscribe(this, route);
+    }
+    if (!_updateChecked) {
+      _updateChecked = true;
+      _checkForceUpdate();
+    }
+  }
+
+  Future<void> _checkForceUpdate() async {
+    try {
+      await firebaseReady.future.timeout(const Duration(seconds: 5));
+      await ForceUpdateService().init();
+    } catch (_) {}
+    if (!mounted) return;
+    if (ForceUpdateService().needsForceUpdate) {
+      showForceUpdateDialog(context);
     }
   }
 

@@ -20,6 +20,8 @@ import 'games/game_stats_bootstrap.dart';
 import 'routing/app_router.dart';
 import 'utils/perf_logger.dart';
 
+final Completer<void> firebaseReady = Completer<void>();
+
 Future<void> bootstrap({
   required FirebaseOptions firebaseOptions,
   required AdConfig adConfig,
@@ -54,6 +56,7 @@ Future<void> bootstrap({
       PerfLogger.startOp('firebase-init');
       await Firebase.initializeApp(options: firebaseOptions);
       PerfLogger.endOp('firebase-init');
+      if (!firebaseReady.isCompleted) firebaseReady.complete();
 
       // Dev → always enabled (real-time Crashlytics + Analytics, even in debug).
       // Prod → enabled only for release builds.
