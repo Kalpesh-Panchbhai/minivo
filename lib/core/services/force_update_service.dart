@@ -48,7 +48,7 @@ class ForceUpdateService {
       await rc.setConfigSettings(RemoteConfigSettings(
         fetchTimeout: const Duration(seconds: 10),
         minimumFetchInterval:
-            kDebugMode ? Duration.zero : const Duration(hours: 1),
+            kDebugMode ? Duration.zero : const Duration(minutes: 5),
       ));
       await rc.setDefaults({
         _kMinVersion: '0.0.0',
