@@ -11,6 +11,8 @@ import 'drop_merge/drop_merge_stats.dart';
 import 'whack_a_mole/whack_a_mole_stats.dart';
 import 'dodge_ball/dodge_ball_stats.dart';
 import 'tap_tap_dash/tap_tap_dash_stats.dart';
+import 'connect_four/connect_four_stats.dart';
+import 'reversi/reversi_stats.dart';
 
 /// Single entry point for registering all per-game custom stats builders.
 /// Add new games here as they ship.
@@ -31,4 +33,6 @@ void registerAllGameStats() {
   registerWhackAMoleStats();
   registerDodgeBallStats();
   registerTapTapDashStats();
+  registerConnectFourStats();
+  registerReversiStats();
 }

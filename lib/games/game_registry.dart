@@ -26,6 +26,10 @@ import 'dodge_ball/dodge_ball_logo.dart';
 import 'dodge_ball/dodge_ball_screen.dart';
 import 'tap_tap_dash/tap_tap_dash_logo.dart';
 import 'tap_tap_dash/tap_tap_dash_screen.dart';
+import 'connect_four/connect_four_logo.dart';
+import 'connect_four/connect_four_screen.dart';
+import 'reversi/reversi_logo.dart';
+import 'reversi/reversi_screen.dart';
 
 typedef GameWidgetBuilder = Widget Function();
 
@@ -46,6 +50,8 @@ class GameRegistry {
     'whack_a_mole': () => const WhackAMoleScreen(),
     'dodge_ball': () => const DodgeBallScreen(),
     'tap_tap_dash': () => const TapTapDashScreen(),
+    'connect_four': () => const ConnectFourScreen(),
+    'reversi': () => const ReversiScreen(),
   };
 
   static Widget buildGame(String gameId) {
@@ -300,6 +306,42 @@ class GameRegistry {
       playCount: 0,
       isFeatured: false,
       customLogo: buildTapTapDashLogo,
+    ),
+    const GameInfo(
+      id: 'connect_four',
+      name: 'Connect Four',
+      description: 'Drop discs, connect 4 in a row — play vs AI or a friend!',
+      howToPlay:
+          'Choose your difficulty (Easy, Medium, Hard) or play with a friend on the same device.\n'
+          'Players take turns dropping a colored disc into one of the 7 columns.\n'
+          'Discs fall to the lowest available row in that column.\n'
+          'Connect 4 of your discs in a row — horizontally, vertically, or diagonally — to win!\n'
+          'Win consecutive rounds to build a Streak.\n'
+          'Plan ahead — block your opponent while setting up your own lines!',
+      category: GameCategory.board,
+      icon: Icons.grid_4x4_rounded,
+      color: Color(0xFF3366CC),
+      bgColor: Color(0xFFE8EEFF),
+      playCount: 0,
+      customLogo: buildConnectFourLogo,
+    ),
+    const GameInfo(
+      id: 'reversi',
+      name: 'Reversi',
+      description: 'Flip discs, dominate the board — classic Othello strategy!',
+      howToPlay:
+          'Choose your difficulty (Easy, Medium, Hard) or play with a friend on the same device.\n'
+          'Players take turns placing a disc on the 8×8 board.\n'
+          'Place your disc so it sandwiches one or more opponent discs between your pieces — sandwiched discs flip to your color.\n'
+          'You MUST flip at least one disc to make a valid move. If you can\'t, your turn is skipped.\n'
+          'The game ends when neither player can move (usually when the board is full).\n'
+          'The player with the most discs wins! Control the corners for maximum advantage.',
+      category: GameCategory.board,
+      icon: Icons.circle_rounded,
+      color: Color(0xFF2E7D32),
+      bgColor: Color(0xFFE8F5E9),
+      playCount: 0,
+      customLogo: buildReversiLogo,
     ),
   ];
 
