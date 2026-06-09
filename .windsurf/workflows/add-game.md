@@ -327,6 +327,10 @@ In `lib/games/game_stats_bootstrap.dart`:
 - [ ] No hardcoded colors — use AppColors or game-specific constants
 - [ ] `flutter analyze` passes with zero errors
 
+## Important
+
+- **NEVER commit or push** as part of this workflow. The user will handle git operations separately.
+
 ## Key Rules
 
 - Portrait orientation only

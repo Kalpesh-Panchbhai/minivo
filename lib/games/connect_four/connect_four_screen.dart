@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/multiplayer/player_strip.dart';
+import '../../core/services/ads_service.dart';
 import '../../core/services/audio_service.dart';
 import '../../core/services/score_service.dart';
 import '../../core/widgets/how_to_play_sheet.dart';
@@ -14,6 +15,7 @@ import '../shared/animated_difficulty_icon.dart';
 import '../shared/game_control_buttons.dart';
 import '../shared/game_hud_bar.dart';
 import '../shared/game_difficulty_picker.dart';
+import '../shared/rewarded_undo_button.dart';
 import 'connect_four_stats.dart';
 import 'connect_four_tutorial.dart';
 import '../shared/generic_game_result_screen.dart' as game_result;
@@ -25,8 +27,14 @@ const Color _kP1Color = Color(0xFFE85D75);
 const Color _kP2Color = Color(0xFFF5C542);
 const Color _kDrawColor = Color(0xFFB6A5DD);
 const Color _kBoardColor = Color(0xFF3366CC);
-const Color _kBoardDark = Color(0xFF1A3A7A);
 const Color _kAccent = Color(0xFF3366CC);
+
+const Color _kTintP1Top = Color(0xFFFFF0EE);
+const Color _kTintP1Bot = Color(0xFFFFE4E0);
+const Color _kTintP2Top = Color(0xFFFFFBE8);
+const Color _kTintP2Bot = Color(0xFFFFF3C4);
+const Color _kTintNeutralTop = Color(0xFFF0F4FF);
+const Color _kTintNeutralBot = Color(0xFFE8EEFF);
 
 const Color _kBgTop = Color(0xFFF0F4FF);
 const Color _kBgBot = Color(0xFFE8EEFF);
@@ -59,6 +67,7 @@ class _ConnectFourScreenState extends State<ConnectFourScreen>
   String? _bannerLabel;
   Color _bannerColor = _kDrawColor;
   bool _showBanner = false;
+  bool _celebrating = false;
 
   int _p1Wins = 0;
   int _p2Wins = 0;
@@ -71,6 +80,16 @@ class _ConnectFourScreenState extends State<ConnectFourScreen>
 
   int _starter = 1;
   bool _firstRound = true;
+
+  int? _lastMoveRow;
+  int? _lastMoveCol;
+  bool _undoUsedThisRound = false;
+  bool _inUndoWindow = false;
+
+  int? _dropCol;
+  int? _dropTargetRow;
+  int? _dropPlayer;
+  late final AnimationController _dropCtrl;
 
   bool _isFavorite = false;
   static const _gameId = kConnectFourGameId;
@@ -91,6 +110,12 @@ class _ConnectFourScreenState extends State<ConnectFourScreen>
       vsync: this,
       duration: const Duration(milliseconds: 400),
     );
+    _dropCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 380),
+    )..addStatusListener((status) {
+        if (status == AnimationStatus.completed) _onDropComplete();
+      });
   }
 
   @override
@@ -98,6 +123,7 @@ class _ConnectFourScreenState extends State<ConnectFourScreen>
     _aiTimer?.cancel();
     _endTimer?.cancel();
     _winCtrl.dispose();
+    _dropCtrl.dispose();
     super.dispose();
   }
 
@@ -105,6 +131,8 @@ class _ConnectFourScreenState extends State<ConnectFourScreen>
 
   static List<List<int>> _emptyGrid() =>
       List.generate(_kRows, (_) => List.filled(_kCols, 0));
+
+  bool get _isDropping => _dropCol != null;
 
   // ════════════════════════════════════════════════════════════════
   // SESSION / FLOW
@@ -171,7 +199,15 @@ class _ConnectFourScreenState extends State<ConnectFourScreen>
       _bannerLabel = null;
       _wasNewBest = false;
       _showStreakBadge = false;
+      _celebrating = false;
       _winCtrl.value = 0;
+      _lastMoveRow = null;
+      _lastMoveCol = null;
+      _undoUsedThisRound = false;
+      _inUndoWindow = false;
+      _dropCol = null;
+      _dropTargetRow = null;
+      _dropPlayer = null;
     }
 
     if (notify) {
@@ -216,6 +252,32 @@ class _ConnectFourScreenState extends State<ConnectFourScreen>
   String _diffLabel(_Difficulty d) => ['EASY', 'MEDIUM', 'HARD'][d.index];
 
   // ════════════════════════════════════════════════════════════════
+  // UNDO (AI mode only, 1 per round)
+  // ════════════════════════════════════════════════════════════════
+
+  bool get _canUndo => _inUndoWindow && !_gameOver;
+
+  void _onUndoExpired() {
+    if (!mounted || _gameOver || !_inUndoWindow) return;
+    setState(() => _inUndoWindow = false);
+    _scheduleAiMove();
+  }
+
+  void _performUndo() {
+    final r = _lastMoveRow;
+    final c = _lastMoveCol;
+    if (r == null || c == null) return;
+    setState(() {
+      _grid[r][c] = 0;
+      _currentPlayer = 1;
+      _inUndoWindow = false;
+      _lastMoveRow = null;
+      _lastMoveCol = null;
+      _undoUsedThisRound = true;
+    });
+  }
+
+  // ════════════════════════════════════════════════════════════════
   // GAMEPLAY
   // ════════════════════════════════════════════════════════════════
 
@@ -227,29 +289,62 @@ class _ConnectFourScreenState extends State<ConnectFourScreen>
   }
 
   void _onColumnTap(int col) {
-    if (_gameOver) return;
-    if (_mode == _Mode.ai && (_aiThinking || _currentPlayer != 1)) return;
+    if (_gameOver || _isDropping) return;
+    if (_mode == _Mode.ai && (_aiThinking || _inUndoWindow || _currentPlayer != 1)) return;
     final row = _dropRow(col);
     if (row == null) return;
-    _placePiece(row, col);
+    _startDrop(row, col, _currentPlayer);
   }
 
-  void _placePiece(int row, int col) {
-    setState(() => _grid[row][col] = _currentPlayer);
+  void _startDrop(int row, int col, int player) {
+    setState(() {
+      _dropCol = col;
+      _dropTargetRow = row;
+      _dropPlayer = player;
+    });
+    _dropCtrl.forward(from: 0);
+  }
+
+  void _onDropComplete() {
+    if (!mounted) return;
+    final row = _dropTargetRow!;
+    final col = _dropCol!;
+    final player = _dropPlayer!;
+
+    setState(() {
+      _grid[row][col] = player;
+      _dropCol = null;
+      _dropTargetRow = null;
+      _dropPlayer = null;
+    });
     _audio.playTap();
 
-    final win = _checkWin(_currentPlayer);
+    final win = _checkWin(player);
     if (win != null) {
-      _onWin(win, _currentPlayer);
+      _onWin(win, player);
       return;
     }
     if (_isBoardFull()) {
       _onDraw();
       return;
     }
-    setState(() => _currentPlayer = _currentPlayer == 1 ? 2 : 1);
+
+    final isHumanInAi = _mode == _Mode.ai && player == 1;
+    setState(() {
+      _currentPlayer = _currentPlayer == 1 ? 2 : 1;
+      if (isHumanInAi) {
+        _lastMoveRow = row;
+        _lastMoveCol = col;
+      }
+    });
+
     if (_mode == _Mode.ai && _currentPlayer == 2) {
-      _scheduleAiMove();
+      final undoAvailable = !_undoUsedThisRound && AdsService().isRewardedReady;
+      if (undoAvailable) {
+        setState(() => _inUndoWindow = true);
+      } else {
+        _scheduleAiMove();
+      }
     }
   }
 
@@ -265,8 +360,12 @@ class _ConnectFourScreenState extends State<ConnectFourScreen>
       if (!mounted || _gameOver) return;
       final col = _pickAiMove();
       final row = _dropRow(col)!;
-      setState(() => _aiThinking = false);
-      _placePiece(row, col);
+      setState(() {
+        _aiThinking = false;
+        _lastMoveRow = null;
+        _lastMoveCol = null;
+      });
+      _startDrop(row, col, 2);
     });
   }
 
@@ -458,6 +557,7 @@ class _ConnectFourScreenState extends State<ConnectFourScreen>
       _winCells = cells;
       _gameOver = true;
       _showBanner = true;
+      _celebrating = true;
       if (player == 1) {
         _p1Wins++;
         _bannerLabel = isAi ? 'You Win!' : 'Player 1 Wins!';
@@ -589,94 +689,146 @@ class _ConnectFourScreenState extends State<ConnectFourScreen>
   }
 
   Widget _buildGame() {
-    final isP1Turn = _currentPlayer == 1;
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [_kBgTop, _kBgBot],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
-      ),
-      child: SafeArea(
-        child: Column(
-          children: [
-            const SizedBox(height: 4),
-            GameHudBar(
-              leading: GameBackButton(onTap: _backOrHome),
-              centerContent: _ScorePill(
-                mode: _mode!,
-                difficulty: _difficulty,
-                p1Wins: _p1Wins,
-                p2Wins: _p2Wins,
-              ),
-              trailing: GameRestartButton(
-                gameName: 'Connect Four',
-                accentColor: _kAccent,
-                onRestart: _playAgain,
-              ),
-            ),
-            if (_showStreakBadge)
-              Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: _StreakChip(streak: _streak),
-              ),
-            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: PlayerStrip(
-                label: _mode == _Mode.ai ? 'AI' : 'P2',
-                mark: '●',
-                color: _kP2Color,
-                isActive: _currentPlayer == 2 && !_gameOver,
-                isThinking: _aiThinking,
-                avatarIcon: _mode == _Mode.ai ? Icons.smart_toy_rounded : null,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Expanded(
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Stack(
-                    children: [
-                      _BoardWidget(
-                        grid: _grid,
-                        winCells: _winCells,
-                        winCtrl: _winCtrl,
-                        onColumnTap: _onColumnTap,
-                        currentPlayer: _currentPlayer,
-                        gameOver: _gameOver,
-                      ),
-                      if (_showBanner && _bannerLabel != null)
-                        Positioned.fill(
-                          child: Center(
-                            child: _WinBanner(
-                              label: _bannerLabel!,
-                              color: _bannerColor,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
+    final isP1Turn = _currentPlayer == 1 || _inUndoWindow;
+    final topColor = (_showBanner)
+        ? _kTintNeutralTop
+        : (isP1Turn ? _kTintP1Top : _kTintP2Top);
+    final botColor = (_showBanner)
+        ? _kTintNeutralBot
+        : (isP1Turn ? _kTintP1Bot : _kTintP2Bot);
+
+    return TweenAnimationBuilder<Color?>(
+      duration: const Duration(milliseconds: 420),
+      curve: Curves.easeOut,
+      tween: ColorTween(end: topColor),
+      builder: (context, animTop, _) {
+        return TweenAnimationBuilder<Color?>(
+          duration: const Duration(milliseconds: 420),
+          curve: Curves.easeOut,
+          tween: ColorTween(end: botColor),
+          builder: (context, animBot, _) {
+            return Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    animTop ?? topColor,
+                    animBot ?? botColor,
+                  ],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
                 ),
               ),
-            ),
-            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: PlayerStrip(
-                label: _mode == _Mode.ai ? 'You' : 'P1',
-                mark: '●',
-                color: _kP1Color,
-                isActive: isP1Turn && !_gameOver,
-                isThinking: false,
+              child: SafeArea(
+                child: Column(
+                  children: [
+                    const SizedBox(height: 4),
+                    GameHudBar(
+                      leading: GameBackButton(onTap: _backOrHome),
+                      centerContent: _ScorePill(
+                        mode: _mode!,
+                        difficulty: _difficulty,
+                        p1Wins: _p1Wins,
+                        p2Wins: _p2Wins,
+                      ),
+                      trailing: GameRestartButton(
+                        gameName: 'Connect Four',
+                        accentColor: _kAccent,
+                        onRestart: _playAgain,
+                      ),
+                    ),
+                    AnimatedSize(
+                      duration: const Duration(milliseconds: 260),
+                      curve: Curves.easeOutCubic,
+                      child: _showStreakBadge
+                          ? Padding(
+                              padding: const EdgeInsets.only(top: 6),
+                              child: _StreakChip(streak: _streak),
+                            )
+                          : const SizedBox.shrink(),
+                    ),
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: PlayerStrip(
+                        label: _mode == _Mode.ai ? 'AI' : 'P2',
+                        mark: '●',
+                        color: _kP2Color,
+                        isActive: _currentPlayer == 2 && !_inUndoWindow && !_gameOver,
+                        isThinking: _aiThinking,
+                        avatarIcon: _mode == _Mode.ai ? Icons.smart_toy_rounded : null,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Stack(
+                            children: [
+                              _BoardWidget(
+                                grid: _grid,
+                                winCells: _winCells,
+                                winCtrl: _winCtrl,
+                                onColumnTap: _onColumnTap,
+                                currentPlayer: _currentPlayer,
+                                gameOver: _gameOver,
+                                dropCol: _dropCol,
+                                dropTargetRow: _dropTargetRow,
+                                dropPlayer: _dropPlayer,
+                                dropCtrl: _dropCtrl,
+                              ),
+                              if (_celebrating)
+                                Positioned.fill(
+                                  child: IgnorePointer(
+                                    child: _Confetti(color: _bannerColor),
+                                  ),
+                                ),
+                              if (_showBanner && _bannerLabel != null)
+                                Positioned.fill(
+                                  child: Center(
+                                    child: _WinBanner(
+                                      label: _bannerLabel!,
+                                      color: _bannerColor,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: PlayerStrip(
+                        label: _mode == _Mode.ai ? 'You' : 'P1',
+                        mark: '●',
+                        color: _kP1Color,
+                        isActive: isP1Turn && !_gameOver,
+                        isThinking: false,
+                      ),
+                    ),
+                    SizedBox(
+                      height: 44,
+                      child: _canUndo
+                          ? Center(
+                              child: RewardedUndoButton(
+                                key: ValueKey('undo_${_grid.map((r) => r.join()).join("_")}'),
+                                onUndo: _performUndo,
+                                onExpired: _onUndoExpired,
+                                accentColor: _kP1Color,
+                              ),
+                            )
+                          : const SizedBox.shrink(),
+                    ),
+                    const SizedBox(height: 4),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-          ],
-        ),
-      ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -760,6 +912,10 @@ class _BoardWidget extends StatelessWidget {
   final ValueChanged<int> onColumnTap;
   final int currentPlayer;
   final bool gameOver;
+  final int? dropCol;
+  final int? dropTargetRow;
+  final int? dropPlayer;
+  final AnimationController? dropCtrl;
 
   const _BoardWidget({
     required this.grid,
@@ -768,6 +924,10 @@ class _BoardWidget extends StatelessWidget {
     required this.onColumnTap,
     required this.currentPlayer,
     required this.gameOver,
+    this.dropCol,
+    this.dropTargetRow,
+    this.dropPlayer,
+    this.dropCtrl,
   });
 
   @override
@@ -780,23 +940,50 @@ class _BoardWidget extends StatelessWidget {
       final cell = math.min(cellW, cellH);
       final boardW = cell * _kCols;
       final boardH = cell * _kRows;
+      final discR = cell * 0.38;
 
       return SizedBox(
         width: boardW,
         height: boardH,
         child: Stack(
+          clipBehavior: Clip.none,
           children: [
             Container(
               decoration: BoxDecoration(
-                color: _kBoardColor,
                 borderRadius: BorderRadius.circular(12),
+                gradient: const LinearGradient(
+                  colors: [
+                    Color(0xFF4A7FE0),
+                    Color(0xFF3366CC),
+                    Color(0xFF2952A3),
+                  ],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
                 boxShadow: [
                   BoxShadow(
-                    color: _kBoardColor.withValues(alpha: 0.30),
-                    blurRadius: 18,
-                    offset: const Offset(0, 8),
+                    color: const Color(0xFF1A3A7A).withValues(alpha: 0.50),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  ),
+                  BoxShadow(
+                    color: const Color(0xFF5A8FE8).withValues(alpha: 0.30),
+                    blurRadius: 1,
+                    offset: const Offset(0, -1),
                   ),
                 ],
+              ),
+            ),
+            Container(
+              margin: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+                border: Border(
+                  top: BorderSide(color: Colors.white.withValues(alpha: 0.12), width: 1.5),
+                  left: BorderSide(color: Colors.white.withValues(alpha: 0.08), width: 1),
+                  right: BorderSide(color: Colors.black.withValues(alpha: 0.10), width: 1),
+                  bottom: BorderSide(color: Colors.black.withValues(alpha: 0.15), width: 1.5),
+                ),
               ),
             ),
             for (int r = 0; r < _kRows; r++)
@@ -810,10 +997,30 @@ class _BoardWidget extends StatelessWidget {
                     child: _CellWidget(
                       value: grid[r][col],
                       isWin: winCells.any((w) => w[0] == r && w[1] == col),
-                      radius: cell * 0.38,
+                      radius: discR,
                     ),
                   ),
                 ),
+            if (dropCol != null && dropTargetRow != null && dropPlayer != null && dropCtrl != null)
+              AnimatedBuilder(
+                animation: dropCtrl!,
+                builder: (context, _) {
+                  final t = Curves.bounceOut.transform(dropCtrl!.value.clamp(0.0, 1.0));
+                  final startY = -cell;
+                  final endY = dropTargetRow! * cell + (cell - discR * 2) / 2;
+                  final currentY = startY + (endY - startY) * t;
+                  final cx = dropCol! * cell + (cell - discR * 2) / 2;
+                  return Positioned(
+                    left: cx,
+                    top: currentY,
+                    child: _Disc3D(
+                      color: dropPlayer == 1 ? _kP1Color : _kP2Color,
+                      radius: discR,
+                      isWin: false,
+                    ),
+                  );
+                },
+              ),
             for (int col = 0; col < _kCols; col++)
               Positioned(
                 left: col * cell,
@@ -845,47 +1052,194 @@ class _CellWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Color color;
-    if (value == 0) {
-      color = _kBoardDark;
-    } else if (value == 1) {
-      color = _kP1Color;
-    } else {
-      color = _kP2Color;
-    }
+    if (value == 0) return _Hole3D(radius: radius);
+    final color = value == 1 ? _kP1Color : _kP2Color;
+    return _Disc3D(color: color, radius: radius, isWin: isWin);
+  }
+}
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      width: radius * 2,
-      height: radius * 2,
-      decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
-        boxShadow: isWin
-            ? [
-                BoxShadow(
-                  color: Colors.white.withValues(alpha: 0.70),
-                  blurRadius: 12,
-                  spreadRadius: 2,
-                ),
-              ]
-            : null,
+class _Hole3D extends StatelessWidget {
+  final double radius;
+  const _Hole3D({required this.radius});
+
+  @override
+  Widget build(BuildContext context) {
+    final d = radius * 2;
+    return SizedBox(
+      width: d,
+      height: d,
+      child: CustomPaint(
+        painter: _Hole3DPainter(radius: radius),
       ),
-      child: value != 0
-          ? Align(
-              alignment: const Alignment(-0.3, -0.3),
-              child: Container(
-                width: radius * 0.35,
-                height: radius * 0.35,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.40),
-                  shape: BoxShape.circle,
-                ),
-              ),
-            )
-          : null,
     );
   }
+}
+
+class _Hole3DPainter extends CustomPainter {
+  final double radius;
+  _Hole3DPainter({required this.radius});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+
+    canvas.drawCircle(
+      center,
+      radius,
+      Paint()
+        ..shader = RadialGradient(
+          center: const Alignment(0.0, 0.0),
+          radius: 1.0,
+          colors: [
+            const Color(0xFF0D2240),
+            const Color(0xFF132E56),
+            const Color(0xFF1A3A7A),
+          ],
+          stops: const [0.0, 0.7, 1.0],
+        ).createShader(Rect.fromCircle(center: center, radius: radius)),
+    );
+
+    canvas.drawCircle(
+      center,
+      radius - 1,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.0
+        ..shader = SweepGradient(
+          colors: [
+            Colors.black.withValues(alpha: 0.25),
+            Colors.white.withValues(alpha: 0.06),
+            Colors.black.withValues(alpha: 0.20),
+            Colors.white.withValues(alpha: 0.04),
+            Colors.black.withValues(alpha: 0.25),
+          ],
+          stops: const [0.0, 0.25, 0.5, 0.75, 1.0],
+        ).createShader(Rect.fromCircle(center: center, radius: radius)),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_Hole3DPainter old) => old.radius != radius;
+}
+
+class _Disc3D extends StatelessWidget {
+  final Color color;
+  final double radius;
+  final bool isWin;
+
+  const _Disc3D({
+    required this.color,
+    required this.radius,
+    required this.isWin,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final d = radius * 2;
+    return SizedBox(
+      width: d,
+      height: d,
+      child: CustomPaint(
+        painter: _Disc3DPainter(color: color, radius: radius, isWin: isWin),
+      ),
+    );
+  }
+}
+
+class _Disc3DPainter extends CustomPainter {
+  final Color color;
+  final double radius;
+  final bool isWin;
+
+  _Disc3DPainter({
+    required this.color,
+    required this.radius,
+    required this.isWin,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final hsl = HSLColor.fromColor(color);
+    final darkEdge = hsl.withLightness((hsl.lightness - 0.18).clamp(0.0, 1.0)).toColor();
+    final lightFace = hsl.withLightness((hsl.lightness + 0.08).clamp(0.0, 1.0)).toColor();
+
+    if (isWin) {
+      canvas.drawCircle(
+        center,
+        radius + 3,
+        Paint()
+          ..color = Colors.white.withValues(alpha: 0.55)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
+      );
+    }
+
+    canvas.drawCircle(
+      Offset(center.dx + 1, center.dy + 2),
+      radius,
+      Paint()..color = Colors.black.withValues(alpha: 0.22),
+    );
+
+    canvas.drawCircle(
+      center,
+      radius,
+      Paint()
+        ..shader = RadialGradient(
+          center: const Alignment(-0.35, -0.40),
+          radius: 1.1,
+          colors: [
+            lightFace,
+            color,
+            darkEdge,
+          ],
+          stops: const [0.0, 0.55, 1.0],
+        ).createShader(Rect.fromCircle(center: center, radius: radius)),
+    );
+
+    canvas.drawCircle(
+      center,
+      radius * 0.72,
+      Paint()
+        ..shader = RadialGradient(
+          center: const Alignment(-0.30, -0.35),
+          radius: 0.9,
+          colors: [
+            Colors.white.withValues(alpha: 0.0),
+            Colors.white.withValues(alpha: 0.06),
+            Colors.transparent,
+          ],
+          stops: const [0.0, 0.4, 1.0],
+        ).createShader(Rect.fromCircle(center: center, radius: radius * 0.72)),
+    );
+
+    final specCenter = Offset(center.dx - radius * 0.28, center.dy - radius * 0.30);
+    canvas.drawCircle(
+      specCenter,
+      radius * 0.22,
+      Paint()
+        ..shader = RadialGradient(
+          colors: [
+            Colors.white.withValues(alpha: 0.70),
+            Colors.white.withValues(alpha: 0.20),
+            Colors.white.withValues(alpha: 0.0),
+          ],
+          stops: const [0.0, 0.5, 1.0],
+        ).createShader(Rect.fromCircle(center: specCenter, radius: radius * 0.22)),
+    );
+
+    canvas.drawCircle(
+      center,
+      radius - 0.5,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0
+        ..color = darkEdge.withValues(alpha: 0.35),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_Disc3DPainter old) =>
+      old.color != color || old.radius != radius || old.isWin != isWin;
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -1072,6 +1426,115 @@ class _WinBanner extends StatelessWidget {
       child: Text(label, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: 0.6)),
     );
   }
+}
+
+// ════════════════════════════════════════════════════════════════
+// CONFETTI
+// ════════════════════════════════════════════════════════════════
+
+class _Confetti extends StatefulWidget {
+  final Color color;
+  const _Confetti({required this.color});
+
+  @override
+  State<_Confetti> createState() => _ConfettiState();
+}
+
+class _ConfettiState extends State<_Confetti>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final List<_ConfettiParticle> _particles;
+  static final _rng = math.Random();
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    )..forward();
+    _particles = List.generate(36, (i) {
+      final angle = (i / 36) * math.pi * 2 + _rng.nextDouble() * 0.5;
+      final speed = 0.55 + _rng.nextDouble() * 0.35;
+      final size = 3.0 + _rng.nextDouble() * 4.0;
+      final hueShift = _rng.nextDouble();
+      return _ConfettiParticle(
+        angle: angle,
+        speed: speed,
+        size: size,
+        hueShift: hueShift,
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (_, _) => CustomPaint(
+        painter: _ConfettiPainter(
+          progress: _ctrl.value,
+          particles: _particles,
+          baseColor: widget.color,
+        ),
+      ),
+    );
+  }
+}
+
+class _ConfettiParticle {
+  final double angle;
+  final double speed;
+  final double size;
+  final double hueShift;
+  _ConfettiParticle({
+    required this.angle,
+    required this.speed,
+    required this.size,
+    required this.hueShift,
+  });
+}
+
+class _ConfettiPainter extends CustomPainter {
+  final double progress;
+  final List<_ConfettiParticle> particles;
+  final Color baseColor;
+
+  _ConfettiPainter({
+    required this.progress,
+    required this.particles,
+    required this.baseColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final maxR = size.shortestSide * 0.55;
+    final eased = Curves.easeOutCubic.transform(progress.clamp(0, 1));
+    final alpha = (1 - progress).clamp(0.0, 1.0);
+    for (final p in particles) {
+      final r = maxR * eased * p.speed;
+      final pos = center + Offset(math.cos(p.angle), math.sin(p.angle)) * r;
+      final hsl = HSLColor.fromColor(baseColor);
+      final colored = hsl
+          .withLightness(
+            (hsl.lightness + (p.hueShift - 0.5) * 0.35).clamp(0.35, 0.85),
+          )
+          .toColor()
+          .withValues(alpha: alpha);
+      canvas.drawCircle(pos, p.size * (0.5 + alpha * 0.5), Paint()..color = colored);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ConfettiPainter oldDelegate) =>
+      oldDelegate.progress != progress;
 }
 
 // ════════════════════════════════════════════════════════════════

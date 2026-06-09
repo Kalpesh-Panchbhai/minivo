@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/multiplayer/player_strip.dart';
+import '../../core/services/ads_service.dart';
 import '../../core/services/audio_service.dart';
 import '../../core/services/score_service.dart';
 import '../../core/widgets/how_to_play_sheet.dart';
@@ -14,6 +15,7 @@ import '../shared/animated_difficulty_icon.dart';
 import '../shared/game_control_buttons.dart';
 import '../shared/game_hud_bar.dart';
 import '../shared/game_difficulty_picker.dart';
+import '../shared/rewarded_undo_button.dart';
 import 'reversi_stats.dart';
 import 'reversi_tutorial.dart';
 import '../shared/generic_game_result_screen.dart' as game_result;
@@ -21,7 +23,8 @@ import '../shared/generic_game_result_screen.dart' as game_result;
 const int _kN = 8;
 
 const Color _kBlackDisc = Color(0xFF1A1A1A);
-const Color _kWhiteDisc = Color(0xFFF5F5F5);
+const Color _kP1Strip = Color(0xFF5B4FC7);
+const Color _kP2Strip = Color(0xFFE5890A);
 const Color _kBoardGreen = Color(0xFF2E7D32);
 const Color _kDrawColor = Color(0xFFB6A5DD);
 const Color _kAccent = Color(0xFF2E7D32);
@@ -50,7 +53,8 @@ class ReversiScreen extends StatefulWidget {
   State<ReversiScreen> createState() => _ReversiScreenState();
 }
 
-class _ReversiScreenState extends State<ReversiScreen> {
+class _ReversiScreenState extends State<ReversiScreen>
+    with TickerProviderStateMixin {
   _Mode? _mode;
   _Difficulty _difficulty = _Difficulty.values[DifficultyKind.defaultIndex];
 
@@ -59,6 +63,7 @@ class _ReversiScreenState extends State<ReversiScreen> {
   bool _gameOver = false;
   bool _aiThinking = false;
   List<List<int>> _validMoves = [];
+  bool _celebrating = false;
 
   int _p1Wins = 0;
   int _p2Wins = 0;
@@ -68,6 +73,21 @@ class _ReversiScreenState extends State<ReversiScreen> {
   int? _streakOwner;
   bool _showStreakBadge = false;
   bool _wasNewBest = false;
+
+  Map<String, int> _flippingFrom = {};
+  late final AnimationController _flipCtrl;
+  int? _lastPlacedR;
+  int? _lastPlacedC;
+  late final AnimationController _placeCtrl;
+  bool _waitingForFlip = false;
+  int _pendingOpponent = 0;
+  List<List<int>> _pendingOppMoves = [];
+  bool _pendingEnd = false;
+
+  List<List<int>>? _undoGridSnapshot;
+  List<List<int>> _undoPrevValidMoves = [];
+  bool _undoUsedThisRound = false;
+  bool _inUndoWindow = false;
 
   bool _isFavorite = false;
   static const _gameId = kReversiGameId;
@@ -82,11 +102,23 @@ class _ReversiScreenState extends State<ReversiScreen> {
     _isFavorite = ScoreService().isFavorite(_gameId);
     _grid = _initialGrid();
     _validMoves = _getValidMoves(1);
+    _flipCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    )..addStatusListener((s) {
+        if (s == AnimationStatus.completed) _onFlipDone();
+      });
+    _placeCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 280),
+    );
   }
 
   @override
   void dispose() {
     _aiTimer?.cancel();
+    _flipCtrl.dispose();
+    _placeCtrl.dispose();
     super.dispose();
   }
 
@@ -156,7 +188,17 @@ class _ReversiScreenState extends State<ReversiScreen> {
       _aiThinking = false;
       _wasNewBest = false;
       _showStreakBadge = false;
+      _celebrating = false;
       _validMoves = _getValidMoves(1);
+      _flippingFrom = {};
+      _lastPlacedR = null;
+      _lastPlacedC = null;
+      _waitingForFlip = false;
+      _pendingEnd = false;
+      _undoGridSnapshot = null;
+      _undoPrevValidMoves = [];
+      _undoUsedThisRound = false;
+      _inUndoWindow = false;
     }
 
     if (notify) {
@@ -198,6 +240,37 @@ class _ReversiScreenState extends State<ReversiScreen> {
   String _diffLabel(_Difficulty d) => ['EASY', 'MEDIUM', 'HARD'][d.index];
 
   // ════════════════════════════════════════════════════════════════
+  // UNDO (AI mode only, 1 per round)
+  // ════════════════════════════════════════════════════════════════
+
+  bool get _canUndo => _inUndoWindow && !_gameOver;
+
+  void _onUndoExpired() {
+    if (!mounted || _gameOver || !_inUndoWindow) return;
+    setState(() {
+      _inUndoWindow = false;
+      _currentPlayer = _pendingOpponent;
+      _validMoves = _pendingOppMoves;
+    });
+    _scheduleAiMove();
+  }
+
+  void _performUndo() {
+    final snap = _undoGridSnapshot;
+    if (snap == null) return;
+    setState(() {
+      _grid = snap;
+      _currentPlayer = 1;
+      _validMoves = _undoPrevValidMoves;
+      _inUndoWindow = false;
+      _undoGridSnapshot = null;
+      _undoUsedThisRound = true;
+      _lastPlacedR = null;
+      _lastPlacedC = null;
+    });
+  }
+
+  // ════════════════════════════════════════════════════════════════
   // GAME LOGIC
   // ════════════════════════════════════════════════════════════════
 
@@ -233,7 +306,7 @@ class _ReversiScreenState extends State<ReversiScreen> {
   }
 
   void _onCellTap(int r, int c) {
-    if (_gameOver) return;
+    if (_gameOver || _waitingForFlip || _inUndoWindow) return;
     if (_mode == _Mode.ai && (_aiThinking || _currentPlayer != 1)) return;
     if (!_validMoves.any((m) => m[0] == r && m[1] == c)) return;
     _makeMove(r, c);
@@ -241,35 +314,104 @@ class _ReversiScreenState extends State<ReversiScreen> {
 
   void _makeMove(int r, int c) {
     final flips = _wouldFlip(r, c, _currentPlayer);
+
+    if (_mode == _Mode.ai && _currentPlayer == 1) {
+      _undoGridSnapshot = _grid.map((row) => List<int>.from(row)).toList();
+      _undoPrevValidMoves = List<List<int>>.from(_validMoves);
+    }
+
+    _flippingFrom = {};
+    for (final f in flips) {
+      _flippingFrom['${f[0]},${f[1]}'] = _grid[f[0]][f[1]];
+    }
+
     setState(() {
       _grid[r][c] = _currentPlayer;
       for (final f in flips) {
         _grid[f[0]][f[1]] = _currentPlayer;
       }
+      _lastPlacedR = r;
+      _lastPlacedC = c;
     });
     _audio.playTap();
+    _placeCtrl.forward(from: 0);
 
     final opponent = _currentPlayer == 1 ? 2 : 1;
     final oppMoves = _getValidMoves(opponent);
-    if (oppMoves.isNotEmpty) {
-      setState(() {
-        _currentPlayer = opponent;
-        _validMoves = oppMoves;
-      });
-    } else {
-      final myMoves = _getValidMoves(_currentPlayer);
-      if (myMoves.isNotEmpty) {
-        setState(() => _validMoves = myMoves);
+
+    if (flips.isNotEmpty) {
+      _waitingForFlip = true;
+      if (oppMoves.isNotEmpty) {
+        _pendingOpponent = opponent;
+        _pendingOppMoves = oppMoves;
+        _pendingEnd = false;
       } else {
-        _endRound();
-        return;
+        final myMoves = _getValidMoves(_currentPlayer);
+        if (myMoves.isNotEmpty) {
+          _pendingOpponent = _currentPlayer;
+          _pendingOppMoves = myMoves;
+          _pendingEnd = false;
+        } else {
+          _pendingEnd = true;
+        }
+      }
+      _flipCtrl.forward(from: 0);
+    } else {
+      if (oppMoves.isNotEmpty) {
+        final undoAvail = _mode == _Mode.ai && _currentPlayer == 1 &&
+            !_undoUsedThisRound && AdsService().isRewardedReady;
+        if (undoAvail) {
+          _pendingOpponent = opponent;
+          _pendingOppMoves = oppMoves;
+          _updateScore();
+          setState(() => _inUndoWindow = true);
+        } else {
+          setState(() {
+            _currentPlayer = opponent;
+            _validMoves = oppMoves;
+          });
+          _updateScore();
+          if (_mode == _Mode.ai && _currentPlayer == 2 && !_gameOver) {
+            _scheduleAiMove();
+          }
+        }
+      } else {
+        final myMoves = _getValidMoves(_currentPlayer);
+        if (myMoves.isNotEmpty) {
+          setState(() => _validMoves = myMoves);
+        } else {
+          _endRound();
+          return;
+        }
+        _updateScore();
       }
     }
+  }
 
-    _updateScore();
-
-    if (_mode == _Mode.ai && _currentPlayer == 2 && !_gameOver) {
-      _scheduleAiMove();
+  void _onFlipDone() {
+    if (!mounted) return;
+    setState(() {
+      _flippingFrom = {};
+      _waitingForFlip = false;
+    });
+    if (_pendingEnd) {
+      _endRound();
+      return;
+    }
+    final undoAvail = _mode == _Mode.ai && _pendingOpponent == 2 &&
+        !_undoUsedThisRound && AdsService().isRewardedReady;
+    if (undoAvail) {
+      _updateScore();
+      setState(() => _inUndoWindow = true);
+    } else {
+      setState(() {
+        _currentPlayer = _pendingOpponent;
+        _validMoves = _pendingOppMoves;
+      });
+      _updateScore();
+      if (_mode == _Mode.ai && _currentPlayer == 2 && !_gameOver) {
+        _scheduleAiMove();
+      }
     }
   }
 
@@ -335,9 +477,10 @@ class _ReversiScreenState extends State<ReversiScreen> {
     setState(() {
       _gameOver = true;
       _validMoves = [];
+      if (winner != null) _celebrating = true;
     });
 
-    Future.delayed(const Duration(milliseconds: 800), () {
+    Future.delayed(const Duration(milliseconds: 1200), () {
       if (mounted) _wrapper.endGame();
     });
   }
@@ -528,90 +671,140 @@ class _ReversiScreenState extends State<ReversiScreen> {
 
   Widget _buildGame() {
     final (black, white) = _discCounts;
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [_kBgTop, _kBgBot],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
-      ),
-      child: SafeArea(
-        child: Column(
-          children: [
-            const SizedBox(height: 4),
-            GameHudBar(
-              leading: GameBackButton(onTap: _backOrHome),
-              centerContent: _ScorePill(
-                mode: _mode!,
-                difficulty: _difficulty,
-                p1Wins: _p1Wins,
-                p2Wins: _p2Wins,
-              ),
-              trailing: GameRestartButton(
-                gameName: 'Reversi',
-                accentColor: _kAccent,
-                onRestart: _playAgain,
-              ),
-            ),
-            if (_showStreakBadge)
-              Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: _StreakChip(streak: _streak),
-              ),
-            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: PlayerStrip(
-                label: _mode == _Mode.ai ? 'AI' : 'P2',
-                mark: '●',
-                color: _kWhiteDisc,
-                isActive: _currentPlayer == 2 && !_gameOver,
-                isThinking: _aiThinking,
-                avatarIcon: _mode == _Mode.ai ? Icons.smart_toy_rounded : null,
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 4),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _DiscCount(color: _kBlackDisc, count: black),
-                  const SizedBox(width: 16),
-                  const Text('—', style: TextStyle(color: Color(0xFF666666), fontSize: 16, fontWeight: FontWeight.w700)),
-                  const SizedBox(width: 16),
-                  _DiscCount(color: _kWhiteDisc, count: white),
-                ],
-              ),
-            ),
-            Expanded(
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: _BoardWidget(
-                    grid: _grid,
-                    validMoves: _validMoves,
-                    showHints: !_aiThinking && !_gameOver,
-                    onCellTap: _onCellTap,
-                  ),
+    final isP1Turn = _currentPlayer == 1 || _inUndoWindow;
+    final topC = _gameOver ? _kBgTop : (isP1Turn ? const Color(0xFFF0F5F0) : const Color(0xFFF5F5F0));
+    final botC = _gameOver ? _kBgBot : (isP1Turn ? const Color(0xFFE0EDE0) : const Color(0xFFEDE8E0));
+
+    return TweenAnimationBuilder<Color?>(
+      duration: const Duration(milliseconds: 400),
+      tween: ColorTween(end: topC),
+      builder: (context, animTop, _) {
+        return TweenAnimationBuilder<Color?>(
+          duration: const Duration(milliseconds: 400),
+          tween: ColorTween(end: botC),
+          builder: (context, animBot, _) {
+            return Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [animTop ?? topC, animBot ?? botC],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
                 ),
               ),
-            ),
-            const SizedBox(height: 4),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: PlayerStrip(
-                label: _mode == _Mode.ai ? 'You' : 'P1',
-                mark: '●',
-                color: _kBlackDisc,
-                isActive: _currentPlayer == 1 && !_gameOver,
-                isThinking: false,
+              child: SafeArea(
+                child: Column(
+                  children: [
+                    const SizedBox(height: 4),
+                    GameHudBar(
+                      leading: GameBackButton(onTap: _backOrHome),
+                      centerContent: _ScorePill(
+                        mode: _mode!,
+                        difficulty: _difficulty,
+                        p1Wins: _p1Wins,
+                        p2Wins: _p2Wins,
+                      ),
+                      trailing: GameRestartButton(
+                        gameName: 'Reversi',
+                        accentColor: _kAccent,
+                        onRestart: _playAgain,
+                      ),
+                    ),
+                    AnimatedSize(
+                      duration: const Duration(milliseconds: 260),
+                      curve: Curves.easeOutCubic,
+                      child: _showStreakBadge
+                          ? Padding(
+                              padding: const EdgeInsets.only(top: 6),
+                              child: _StreakChip(streak: _streak),
+                            )
+                          : const SizedBox.shrink(),
+                    ),
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: PlayerStrip(
+                        label: _mode == _Mode.ai ? 'AI' : 'P2',
+                        mark: '●',
+                        color: _kP2Strip,
+                        isActive: _currentPlayer == 2 && !_inUndoWindow && !_gameOver && !_waitingForFlip,
+                        isThinking: _aiThinking,
+                        avatarIcon: _mode == _Mode.ai ? Icons.smart_toy_rounded : null,
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 4),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _DiscCount3D(isBlack: true, count: black),
+                          const SizedBox(width: 16),
+                          const Text('—', style: TextStyle(color: Color(0xFF666666), fontSize: 16, fontWeight: FontWeight.w700)),
+                          const SizedBox(width: 16),
+                          _DiscCount3D(isBlack: false, count: white),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          child: Stack(
+                            children: [
+                              _BoardWidget(
+                                grid: _grid,
+                                validMoves: _validMoves,
+                                showHints: !_aiThinking && !_gameOver && !_waitingForFlip,
+                                onCellTap: _onCellTap,
+                                flippingFrom: _flippingFrom,
+                                flipCtrl: _flipCtrl,
+                                lastPlacedR: _lastPlacedR,
+                                lastPlacedC: _lastPlacedC,
+                                placeCtrl: _placeCtrl,
+                                currentPlayer: _currentPlayer,
+                              ),
+                              if (_celebrating)
+                                Positioned.fill(
+                                  child: IgnorePointer(
+                                    child: _Confetti(color: _kBoardGreen),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: PlayerStrip(
+                        label: _mode == _Mode.ai ? 'You' : 'P1',
+                        mark: '●',
+                        color: _kP1Strip,
+                        isActive: isP1Turn && !_gameOver,
+                        isThinking: false,
+                      ),
+                    ),
+                    SizedBox(
+                      height: 44,
+                      child: _canUndo
+                          ? Center(
+                              child: RewardedUndoButton(
+                                key: ValueKey('undo_rv_${_grid.map((r) => r.join()).join("_")}'),
+                                onUndo: _performUndo,
+                                onExpired: _onUndoExpired,
+                                accentColor: _kBoardGreen,
+                              ),
+                            )
+                          : const SizedBox.shrink(),
+                    ),
+                    const SizedBox(height: 4),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-          ],
-        ),
-      ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -693,169 +886,406 @@ class _BoardWidget extends StatelessWidget {
   final List<List<int>> validMoves;
   final bool showHints;
   final void Function(int r, int c) onCellTap;
+  final Map<String, int> flippingFrom;
+  final AnimationController flipCtrl;
+  final int? lastPlacedR;
+  final int? lastPlacedC;
+  final AnimationController placeCtrl;
+  final int currentPlayer;
 
   const _BoardWidget({
     required this.grid,
     required this.validMoves,
     required this.showHints,
     required this.onCellTap,
+    required this.flippingFrom,
+    required this.flipCtrl,
+    required this.lastPlacedR,
+    required this.lastPlacedC,
+    required this.placeCtrl,
+    required this.currentPlayer,
   });
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(builder: (context, c) {
       final maxSide = math.min(c.maxWidth, c.maxHeight);
-      final cell = maxSide / _kN;
+      final frame = 6.0;
+      final inner = maxSide - frame * 2;
+      final cell = inner / _kN;
       final side = cell * _kN;
 
       return SizedBox(
-        width: side,
-        height: side,
+        width: side + frame * 2,
+        height: side + frame * 2,
         child: Container(
           decoration: BoxDecoration(
-            color: _kBoardGreen,
             borderRadius: BorderRadius.circular(10),
+            gradient: const LinearGradient(
+              colors: [Color(0xFF5A3E1B), Color(0xFF3E2A10), Color(0xFF2D1E0A)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
             boxShadow: [
               BoxShadow(
-                color: _kBoardGreen.withValues(alpha: 0.30),
-                blurRadius: 18,
-                offset: const Offset(0, 8),
+                color: Colors.black.withValues(alpha: 0.40),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+              BoxShadow(
+                color: const Color(0xFF7A5C30).withValues(alpha: 0.30),
+                blurRadius: 1,
+                offset: const Offset(0, -1),
               ),
             ],
           ),
-          child: Stack(
-            children: [
-              CustomPaint(
-                size: Size.square(side),
-                painter: _GridPainter(),
-              ),
-              for (int r = 0; r < _kN; r++)
-                for (int col = 0; col < _kN; col++)
-                  Positioned(
-                    left: col * cell,
-                    top: r * cell,
-                    width: cell,
-                    height: cell,
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => onCellTap(r, col),
-                      child: Center(
-                        child: _CellContent(
-                          value: grid[r][col],
-                          isValid: showHints &&
-                              validMoves.any((m) => m[0] == r && m[1] == col),
-                          radius: cell * 0.40,
+          padding: EdgeInsets.all(frame),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: Stack(
+              children: [
+                CustomPaint(
+                  size: Size.square(side),
+                  painter: _Board3DPainter(),
+                ),
+                for (int r = 0; r < _kN; r++)
+                  for (int col = 0; col < _kN; col++)
+                    Positioned(
+                      left: col * cell,
+                      top: r * cell,
+                      width: cell,
+                      height: cell,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => onCellTap(r, col),
+                        child: Center(
+                          child: _buildCell(r, col, cell * 0.40),
                         ),
                       ),
                     ),
-                  ),
-            ],
+              ],
+            ),
           ),
         ),
       );
     });
   }
-}
 
-class _CellContent extends StatelessWidget {
-  final int value;
-  final bool isValid;
-  final double radius;
+  Widget _buildCell(int r, int c, double radius) {
+    final value = grid[r][c];
+    final key = '$r,$c';
+    final isFlipping = flippingFrom.containsKey(key);
+    final isPlaced = lastPlacedR == r && lastPlacedC == c;
+    final isValid = showHints && validMoves.any((m) => m[0] == r && m[1] == c);
 
-  const _CellContent({
-    required this.value,
-    required this.isValid,
-    required this.radius,
-  });
-
-  @override
-  Widget build(BuildContext context) {
     if (value == 0 && isValid) {
-      return Container(
-        width: radius * 2,
-        height: radius * 2,
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.18),
-          shape: BoxShape.circle,
-        ),
-      );
+      return _ValidHint(radius: radius, currentPlayer: currentPlayer);
     }
     if (value == 0) return const SizedBox.shrink();
 
-    final color = value == 1 ? _kBlackDisc : _kWhiteDisc;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 250),
-      width: radius * 2,
-      height: radius * 2,
-      decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.20),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Align(
-        alignment: const Alignment(-0.3, -0.3),
-        child: Container(
-          width: radius * 0.28,
-          height: radius * 0.28,
+    if (isFlipping) {
+      final oldPlayer = flippingFrom[key]!;
+      return AnimatedBuilder(
+        animation: flipCtrl,
+        builder: (_, _) {
+          final t = flipCtrl.value;
+          final scaleX = (t < 0.5)
+              ? 1.0 - t * 2.0
+              : (t - 0.5) * 2.0;
+          final showPlayer = t < 0.5 ? oldPlayer : value;
+          return Transform(
+            alignment: Alignment.center,
+            transform: Matrix4.diagonal3Values(scaleX.clamp(0.02, 1.0), 1.0, 1.0),
+            child: _ReversiDisc3D(isBlack: showPlayer == 1, radius: radius),
+          );
+        },
+      );
+    }
+
+    if (isPlaced) {
+      return AnimatedBuilder(
+        animation: placeCtrl,
+        builder: (_, _) {
+          final s = Curves.elasticOut.transform(placeCtrl.value.clamp(0.0, 1.0));
+          return Transform.scale(
+            scale: s,
+            child: _ReversiDisc3D(isBlack: value == 1, radius: radius),
+          );
+        },
+      );
+    }
+
+    return _ReversiDisc3D(isBlack: value == 1, radius: radius);
+  }
+}
+
+class _ValidHint extends StatefulWidget {
+  final double radius;
+  final int currentPlayer;
+  const _ValidHint({required this.radius, required this.currentPlayer});
+
+  @override
+  State<_ValidHint> createState() => _ValidHintState();
+}
+
+class _ValidHintState extends State<_ValidHint> with SingleTickerProviderStateMixin {
+  late final AnimationController _pulse;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulse = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _pulse,
+      builder: (_, _) {
+        final a = 0.12 + _pulse.value * 0.14;
+        return Container(
+          width: widget.radius * 2,
+          height: widget.radius * 2,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: value == 1 ? 0.20 : 0.45),
             shape: BoxShape.circle,
+            color: (widget.currentPlayer == 1 ? Colors.black : Colors.white).withValues(alpha: a),
+            border: Border.all(
+              color: (widget.currentPlayer == 1 ? Colors.black : Colors.white).withValues(alpha: a + 0.05),
+              width: 1,
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
 
-class _GridPainter extends CustomPainter {
+class _Board3DPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final cell = size.width / _kN;
-    final paint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.18)
-      ..strokeWidth = 1;
+
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()
+        ..shader = const LinearGradient(
+          colors: [Color(0xFF3A8F3A), Color(0xFF2E7D32), Color(0xFF256B28)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ).createShader(Offset.zero & size),
+    );
+
+    final darkLine = Paint()
+      ..color = Colors.black.withValues(alpha: 0.22)
+      ..strokeWidth = 1.2;
+    final lightLine = Paint()
+      ..color = Colors.white.withValues(alpha: 0.06)
+      ..strokeWidth = 0.8;
     for (int i = 1; i < _kN; i++) {
-      canvas.drawLine(Offset(i * cell, 0), Offset(i * cell, size.height), paint);
-      canvas.drawLine(Offset(0, i * cell), Offset(size.width, i * cell), paint);
+      final p = i * cell;
+      canvas.drawLine(Offset(p, 0), Offset(p, size.height), darkLine);
+      canvas.drawLine(Offset(p + 1, 0), Offset(p + 1, size.height), lightLine);
+      canvas.drawLine(Offset(0, p), Offset(size.width, p), darkLine);
+      canvas.drawLine(Offset(0, p + 1), Offset(size.width, p + 1), lightLine);
+    }
+
+    final dotPaint = Paint()..color = Colors.black.withValues(alpha: 0.35);
+    for (final pos in [[2, 2], [2, 6], [6, 2], [6, 6]]) {
+      canvas.drawCircle(Offset(pos[1] * cell, pos[0] * cell), 3.5, dotPaint);
     }
   }
 
   @override
-  bool shouldRepaint(_GridPainter old) => false;
+  bool shouldRepaint(_Board3DPainter old) => false;
+}
+
+class _ReversiDisc3D extends StatelessWidget {
+  final bool isBlack;
+  final double radius;
+  const _ReversiDisc3D({required this.isBlack, required this.radius});
+
+  @override
+  Widget build(BuildContext context) {
+    final d = radius * 2;
+    return SizedBox(
+      width: d,
+      height: d,
+      child: CustomPaint(painter: _Disc3DPainter(isBlack: isBlack, radius: radius)),
+    );
+  }
+}
+
+class _Disc3DPainter extends CustomPainter {
+  final bool isBlack;
+  final double radius;
+  _Disc3DPainter({required this.isBlack, required this.radius});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+
+    canvas.drawCircle(
+      Offset(center.dx + 1, center.dy + 2),
+      radius,
+      Paint()..color = Colors.black.withValues(alpha: 0.28),
+    );
+
+    if (isBlack) {
+      canvas.drawCircle(
+        center,
+        radius,
+        Paint()
+          ..shader = RadialGradient(
+            center: const Alignment(-0.35, -0.40),
+            radius: 1.1,
+            colors: const [
+              Color(0xFF4A4A4A),
+              Color(0xFF2A2A2A),
+              Color(0xFF0A0A0A),
+            ],
+            stops: const [0.0, 0.5, 1.0],
+          ).createShader(Rect.fromCircle(center: center, radius: radius)),
+      );
+
+      canvas.drawCircle(
+        center,
+        radius * 0.70,
+        Paint()
+          ..shader = RadialGradient(
+            center: const Alignment(-0.20, -0.25),
+            radius: 0.8,
+            colors: [
+              Colors.white.withValues(alpha: 0.0),
+              Colors.white.withValues(alpha: 0.04),
+              Colors.transparent,
+            ],
+            stops: const [0.0, 0.5, 1.0],
+          ).createShader(Rect.fromCircle(center: center, radius: radius * 0.70)),
+      );
+
+      final specC = Offset(center.dx - radius * 0.25, center.dy - radius * 0.28);
+      canvas.drawCircle(
+        specC,
+        radius * 0.18,
+        Paint()
+          ..shader = RadialGradient(
+            colors: [
+              Colors.white.withValues(alpha: 0.50),
+              Colors.white.withValues(alpha: 0.12),
+              Colors.transparent,
+            ],
+            stops: const [0.0, 0.5, 1.0],
+          ).createShader(Rect.fromCircle(center: specC, radius: radius * 0.18)),
+      );
+    } else {
+      canvas.drawCircle(
+        center,
+        radius,
+        Paint()
+          ..shader = RadialGradient(
+            center: const Alignment(-0.35, -0.40),
+            radius: 1.1,
+            colors: const [
+              Color(0xFFFFFFFF),
+              Color(0xFFF0F0F0),
+              Color(0xFFD8D8D8),
+            ],
+            stops: const [0.0, 0.55, 1.0],
+          ).createShader(Rect.fromCircle(center: center, radius: radius)),
+      );
+
+      canvas.drawCircle(
+        center,
+        radius * 0.70,
+        Paint()
+          ..shader = RadialGradient(
+            center: const Alignment(-0.20, -0.25),
+            radius: 0.8,
+            colors: [
+              Colors.white.withValues(alpha: 0.0),
+              Colors.white.withValues(alpha: 0.15),
+              Colors.transparent,
+            ],
+            stops: const [0.0, 0.5, 1.0],
+          ).createShader(Rect.fromCircle(center: center, radius: radius * 0.70)),
+      );
+
+      final specC = Offset(center.dx - radius * 0.25, center.dy - radius * 0.28);
+      canvas.drawCircle(
+        specC,
+        radius * 0.20,
+        Paint()
+          ..shader = RadialGradient(
+            colors: [
+              Colors.white.withValues(alpha: 0.90),
+              Colors.white.withValues(alpha: 0.30),
+              Colors.transparent,
+            ],
+            stops: const [0.0, 0.5, 1.0],
+          ).createShader(Rect.fromCircle(center: specC, radius: radius * 0.20)),
+      );
+
+      canvas.drawCircle(
+        center,
+        radius - 0.5,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 0.8
+          ..color = const Color(0xFFBBBBBB),
+      );
+    }
+
+    canvas.drawCircle(
+      center,
+      radius - 0.5,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.6
+        ..color = Colors.black.withValues(alpha: isBlack ? 0.30 : 0.10),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_Disc3DPainter old) => old.isBlack != isBlack || old.radius != radius;
 }
 
 // ════════════════════════════════════════════════════════════════
 // HUD WIDGETS
 // ════════════════════════════════════════════════════════════════
 
-class _DiscCount extends StatelessWidget {
-  final Color color;
+class _DiscCount3D extends StatelessWidget {
+  final bool isBlack;
   final int count;
-  const _DiscCount({required this.color, required this.count});
+  const _DiscCount3D({required this.isBlack, required this.count});
 
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(
-          width: 18,
-          height: 18,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.grey.shade400, width: 1),
+        SizedBox(
+          width: 20,
+          height: 20,
+          child: CustomPaint(
+            painter: _Disc3DPainter(isBlack: isBlack, radius: 10),
           ),
         ),
         const SizedBox(width: 6),
         AnimatedSwitcher(
           duration: const Duration(milliseconds: 200),
+          transitionBuilder: (child, anim) => ScaleTransition(
+            scale: CurvedAnimation(parent: anim, curve: Curves.easeOutBack),
+            child: FadeTransition(opacity: anim, child: child),
+          ),
           child: Text(
             '$count',
             key: ValueKey(count),
@@ -1000,6 +1430,95 @@ class _NewBestChip extends StatelessWidget {
       ),
     );
   }
+}
+
+// ════════════════════════════════════════════════════════════════
+// CONFETTI
+// ════════════════════════════════════════════════════════════════
+
+class _Confetti extends StatefulWidget {
+  final Color color;
+  const _Confetti({required this.color});
+
+  @override
+  State<_Confetti> createState() => _ConfettiState();
+}
+
+class _ConfettiState extends State<_Confetti>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final List<_ConfettiP> _particles;
+  static final _rng = math.Random();
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    )..forward();
+    _particles = List.generate(36, (i) {
+      return _ConfettiP(
+        angle: (i / 36) * math.pi * 2 + _rng.nextDouble() * 0.5,
+        speed: 0.55 + _rng.nextDouble() * 0.35,
+        size: 3.0 + _rng.nextDouble() * 4.0,
+        hueShift: _rng.nextDouble(),
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (_, _) => CustomPaint(
+        painter: _ConfettiPainter(
+          progress: _ctrl.value,
+          particles: _particles,
+          baseColor: widget.color,
+        ),
+      ),
+    );
+  }
+}
+
+class _ConfettiP {
+  final double angle, speed, size, hueShift;
+  _ConfettiP({required this.angle, required this.speed, required this.size, required this.hueShift});
+}
+
+class _ConfettiPainter extends CustomPainter {
+  final double progress;
+  final List<_ConfettiP> particles;
+  final Color baseColor;
+  _ConfettiPainter({required this.progress, required this.particles, required this.baseColor});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final maxR = size.shortestSide * 0.55;
+    final eased = Curves.easeOutCubic.transform(progress.clamp(0, 1));
+    final alpha = (1 - progress).clamp(0.0, 1.0);
+    for (final p in particles) {
+      final r = maxR * eased * p.speed;
+      final pos = center + Offset(math.cos(p.angle), math.sin(p.angle)) * r;
+      final hsl = HSLColor.fromColor(baseColor);
+      final colored = hsl
+          .withLightness((hsl.lightness + (p.hueShift - 0.5) * 0.35).clamp(0.35, 0.85))
+          .toColor()
+          .withValues(alpha: alpha);
+      canvas.drawCircle(pos, p.size * (0.5 + alpha * 0.5), Paint()..color = colored);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ConfettiPainter old) => old.progress != progress;
 }
 
 // ════════════════════════════════════════════════════════════════
