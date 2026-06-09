@@ -210,6 +210,23 @@ void main() {
       });
     });
 
+    group('tutorial seen', () {
+      test('default is false for any game', () {
+        expect(service.hasTutorialSeen('any_game'), isFalse);
+      });
+
+      test('setTutorialSeen persists true', () async {
+        await service.setTutorialSeen('tic_tac_toe');
+        expect(service.hasTutorialSeen('tic_tac_toe'), isTrue);
+      });
+
+      test('tutorial flags are isolated per game', () async {
+        await service.setTutorialSeen('tic_tac_toe');
+        expect(service.hasTutorialSeen('tic_tac_toe'), isTrue);
+        expect(service.hasTutorialSeen('flappy_tap'), isFalse);
+      });
+    });
+
     group('high score with subKey', () {
       test('default is 0 for an unknown bucket', () {
         expect(

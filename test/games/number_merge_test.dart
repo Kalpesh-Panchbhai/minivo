@@ -20,16 +20,11 @@ Widget _build() => GameWrapper(
     );
 
 Future<void> _start(WidgetTester tester) async {
-  await tester.tap(find.text('Tap to Start'));
-  await tester.pump(const Duration(milliseconds: 250));
+  await tester.tap(find.text('Play Classic'));
+  await tester.pump(const Duration(milliseconds: 500));
 }
 
-/// The 4×4 board is rendered as 16 cells inside the play area. Find the cell
-/// container by walking the grid columns/rows. We just need a Finder we can
-/// drag from to simulate a swipe.
 Finder _board() {
-  // The board fills most of the screen; pumping center-anchored gestures from
-  // it is reliable.
   return find.byType(GestureDetector).first;
 }
 
@@ -37,18 +32,24 @@ void main() {
   group('Number Merge — gameplay', () {
     setUp(() async => initTestDependencies());
 
-    testWidgets('ready overlay shows Tap to Start', (tester) async {
+    testWidgets('ready state shows Play button', (tester) async {
       await pumpScreen(tester, _device, _build(), settle: false);
-      expect(find.text('Tap to Start'), findsOneWidget);
-      expect(find.byIcon(Icons.touch_app_rounded), findsOneWidget);
+      expect(find.text('Play Classic'), findsOneWidget);
+      cleanUp(tester);
     });
 
-    testWidgets('start transitions to playing and shows score 0', (tester) async {
+    testWidgets('difficulty picker shows default MEDIUM label', (tester) async {
+      await pumpScreen(tester, _device, _build(), settle: false);
+      expect(find.text('MEDIUM'), findsOneWidget);
+      cleanUp(tester);
+    });
+
+    testWidgets('start transitions to playing', (tester) async {
       await pumpScreen(tester, _device, _build(), settle: false);
       await _start(tester);
-      expect(find.text('0'), findsWidgets);
-      expect(find.text('Tap to Start'), findsNothing);
+      expect(find.text('Play Classic'), findsNothing);
       await tester.pump(const Duration(seconds: 5));
+      cleanUp(tester);
     });
 
     testWidgets('swipe gesture does not crash and keeps game playing',
@@ -56,27 +57,27 @@ void main() {
       await pumpScreen(tester, _device, _build(), settle: false);
       await _start(tester);
 
-      // Swipe up from board center.
       final center = tester.getCenter(_board());
       await tester.dragFrom(center, const Offset(0, -300));
       await tester.pump(const Duration(milliseconds: 200));
 
-      // Game should still be playing — no game-over overlay yet.
       expect(find.text('Game Over'), findsNothing);
-      await tester.pump(const Duration(seconds: 5));
+      cleanUp(tester);
     });
 
     testWidgets('pause + resume works mid-game', (tester) async {
       await pumpScreen(tester, _device, _build(), settle: false);
       await _start(tester);
-      await tester.tap(find.byIcon(Icons.pause_rounded));
-      await tester.pump(const Duration(milliseconds: 200));
+      final state = tester.state<GameWrapperState>(find.byType(GameWrapper));
+      state.pauseGame();
+      await tester.pump(const Duration(milliseconds: 500));
       expect(find.text('Paused'), findsOneWidget);
 
       await tester.tap(find.text('Resume'));
-      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(milliseconds: 500));
       expect(find.text('Paused'), findsNothing);
       await tester.pump(const Duration(seconds: 5));
+      cleanUp(tester);
     });
 
     testWidgets('multiple swipes do not produce overflow or exceptions',
@@ -96,6 +97,14 @@ void main() {
       }
       expect(tester.takeException(), isNull);
       await tester.pump(const Duration(seconds: 5));
+      cleanUp(tester);
+    });
+
+    testWidgets('registry metadata is correct', (_) async {
+      final game = GameRegistry.getById('number_merge')!;
+      expect(game.id, 'number_merge');
+      expect(game.name.isNotEmpty, isTrue);
+      expect(game.howToPlay.isNotEmpty, isTrue);
     });
   });
 }

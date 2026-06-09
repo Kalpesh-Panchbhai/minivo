@@ -20,25 +20,81 @@ Widget _build() => GameWrapper(
     );
 
 void main() {
-  group('Flappy Tap ready-state', () {
+  group('Flappy Tap', () {
     setUp(() async => initTestDependencies());
 
-    testWidgets('ready overlay shows Tap to Start', (tester) async {
-      await pumpScreen(tester, _device, _build(), settle: false);
-      expect(find.text('Tap to Start'), findsOneWidget);
-      expect(find.byIcon(Icons.touch_app_rounded), findsOneWidget);
-    });
-
-    testWidgets('ready state has no HUD pause button', (tester) async {
-      await pumpScreen(tester, _device, _build(), settle: false);
-      expect(find.byIcon(Icons.pause_rounded), findsNothing);
-    });
-
-    testWidgets('registry metadata is non-empty', (_) async {
+    testWidgets('registry metadata is correct', (_) async {
       final game = GameRegistry.getById('flappy_tap')!;
       expect(game.id, 'flappy_tap');
       expect(game.name.isNotEmpty, isTrue);
       expect(game.howToPlay.isNotEmpty, isTrue);
+      expect(game.category, isNotNull);
+    });
+
+    testWidgets('ready state shows Play button', (tester) async {
+      await pumpScreen(tester, _device, _build(), settle: false);
+      expect(find.text('Play Flappy Tap'), findsOneWidget);
+      expectNoOverflow(_device, 'Flappy Tap ready');
+      cleanUp(tester);
+    });
+
+    testWidgets('difficulty picker shows default MEDIUM label', (tester) async {
+      await pumpScreen(tester, _device, _build(), settle: false);
+      expect(find.text('MEDIUM'), findsOneWidget);
+      cleanUp(tester);
+    });
+
+    testWidgets('ready state shows title', (tester) async {
+      await pumpScreen(tester, _device, _build(), settle: false);
+      expect(find.text('Flappy Tap'), findsWidgets);
+      cleanUp(tester);
+    });
+
+    testWidgets('tapping Play starts game', (tester) async {
+      await pumpScreen(tester, _device, _build(), settle: false);
+      await tester.tap(find.text('Play Flappy Tap'));
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.text('Play Flappy Tap'), findsNothing);
+      expectNoOverflow(_device, 'Flappy Tap playing');
+      cleanUp(tester);
+    });
+
+    testWidgets('playing state shows SCORE and BEST HUD', (tester) async {
+      await pumpScreen(tester, _device, _build(), settle: false);
+      await tester.tap(find.text('Play Flappy Tap'));
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.text('SCORE'), findsOneWidget);
+      expect(find.text('BEST'), findsOneWidget);
+      cleanUp(tester);
+    });
+
+    testWidgets('pause and resume works', (tester) async {
+      await pumpScreen(tester, _device, _build(), settle: false);
+      await tester.tap(find.text('Play Flappy Tap'));
+      await tester.pump(const Duration(milliseconds: 500));
+      final state = tester.state<GameWrapperState>(find.byType(GameWrapper));
+      state.pauseGame();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.text('Paused'), findsOneWidget);
+      expect(find.text('Resume'), findsOneWidget);
+      await tester.tap(find.text('Resume'));
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.text('Paused'), findsNothing);
+      await tester.pump(const Duration(seconds: 5));
+      cleanUp(tester);
+    });
+
+    testWidgets('pause overlay has Restart and Quit', (tester) async {
+      await pumpScreen(tester, _device, _build(), settle: false);
+      await tester.tap(find.text('Play Flappy Tap'));
+      await tester.pump(const Duration(milliseconds: 500));
+      final state = tester.state<GameWrapperState>(find.byType(GameWrapper));
+      state.pauseGame();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.text('Restart'), findsOneWidget);
+      expect(find.text('Quit'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 5));
+      cleanUp(tester);
     });
   });
 }

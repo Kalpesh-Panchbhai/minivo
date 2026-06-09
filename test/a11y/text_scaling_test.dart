@@ -96,6 +96,7 @@ void main() {
       testWidgets('HomeScreen on ${d.name}', (tester) async {
         await _pumpAtScale(tester, d, const HomeScreen(), 1.3);
         OverflowDetector.expectNoOverflow(context: 'HomeScreen ${d.name} 1.3x');
+        await tester.pump(const Duration(seconds: 6));
         _cleanup(tester);
       });
 

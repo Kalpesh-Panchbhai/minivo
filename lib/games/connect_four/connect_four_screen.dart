@@ -978,11 +978,9 @@ class _BoardWidget extends StatelessWidget {
               margin: const EdgeInsets.all(2),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(10),
-                border: Border(
-                  top: BorderSide(color: Colors.white.withValues(alpha: 0.12), width: 1.5),
-                  left: BorderSide(color: Colors.white.withValues(alpha: 0.08), width: 1),
-                  right: BorderSide(color: Colors.black.withValues(alpha: 0.10), width: 1),
-                  bottom: BorderSide(color: Colors.black.withValues(alpha: 0.15), width: 1.5),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.10),
+                  width: 1,
                 ),
               ),
             ),

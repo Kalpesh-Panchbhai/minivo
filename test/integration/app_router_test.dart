@@ -56,6 +56,7 @@ void main() {
       await tester.pumpAndSettle();
       // Home shows the app title.
       expect(find.text('MINIVO'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 6));
     });
 
     // Removed: 'home -> search via app bar icon' — the search icon was
@@ -73,6 +74,7 @@ void main() {
       AppRouter.router.go('/game/tic_tac_toe');
       await tester.pumpAndSettle();
       expect(find.text('Play vs. AI'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 6));
     });
 
     testWidgets('/game/flappy_tap redirects to /play/flappy_tap',
@@ -88,6 +90,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
       // FlappyTap uses a difficulty picker — the play screen shows the picker UI.
       expect(find.text('Flappy Tap'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 6));
     });
   });
 }

@@ -25,25 +25,80 @@ Widget _build() => GameWrapper(
     );
 
 void main() {
-  group('Drop Merge — ready state', () {
+  group('Drop Merge', () {
     setUp(() async => initTestDependencies());
 
-    testWidgets('ready overlay shows Tap to Start', (tester) async {
-      await pumpScreen(tester, _device, _build(), settle: false);
-      expect(find.text('Tap to Start'), findsOneWidget);
-    });
-
-    testWidgets('no HUD pause button visible in ready state', (tester) async {
-      await pumpScreen(tester, _device, _build(), settle: false);
-      expect(find.byIcon(Icons.pause_rounded), findsNothing);
-    });
-
-    testWidgets('drop_merge is registered with a name and how-to-play text',
-        (tester) async {
+    testWidgets('registry metadata is correct', (_) async {
       final game = GameRegistry.getById('drop_merge')!;
       expect(game.id, 'drop_merge');
       expect(game.name.isNotEmpty, isTrue);
       expect(game.howToPlay.isNotEmpty, isTrue);
+      expect(game.category, isNotNull);
+    });
+
+    testWidgets('ready state shows Play button', (tester) async {
+      await pumpScreen(tester, _device, _build(), settle: false);
+      expect(find.text('Play Drop Merge'), findsOneWidget);
+      expectNoOverflow(_device, 'Drop Merge ready');
+      cleanUp(tester);
+    });
+
+    testWidgets('difficulty picker shows default MEDIUM label', (tester) async {
+      await pumpScreen(tester, _device, _build(), settle: false);
+      expect(find.text('MEDIUM'), findsOneWidget);
+      cleanUp(tester);
+    });
+
+    testWidgets('tapping Play starts game', (tester) async {
+      await pumpScreen(tester, _device, _build(), settle: false);
+      await tester.tap(find.text('Play Drop Merge'));
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.text('Play Drop Merge'), findsNothing);
+      expectNoOverflow(_device, 'Drop Merge playing');
+      await tester.pump(const Duration(seconds: 5));
+      cleanUp(tester);
+    });
+
+    testWidgets('playing state shows DROP label and score', (tester) async {
+      await pumpScreen(tester, _device, _build(), settle: false);
+      await tester.tap(find.text('Play Drop Merge'));
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.text('DROP'), findsOneWidget);
+      expect(find.text('0'), findsWidgets);
+      await tester.pump(const Duration(seconds: 5));
+      cleanUp(tester);
+    });
+
+    testWidgets('pause and resume works', (tester) async {
+      await pumpScreen(tester, _device, _build(), settle: false);
+      await tester.tap(find.text('Play Drop Merge'));
+      await tester.pump(const Duration(milliseconds: 500));
+      final state = tester.state<GameWrapperState>(find.byType(GameWrapper));
+      state.pauseGame();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.text('Paused'), findsOneWidget);
+      expect(find.text('Resume'), findsOneWidget);
+      expect(find.text('Restart'), findsOneWidget);
+      expect(find.text('Quit'), findsOneWidget);
+      await tester.tap(find.text('Resume'));
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.text('Paused'), findsNothing);
+      await tester.pump(const Duration(seconds: 5));
+      cleanUp(tester);
+    });
+
+    testWidgets('pause overlay shows correct icons', (tester) async {
+      await pumpScreen(tester, _device, _build(), settle: false);
+      await tester.tap(find.text('Play Drop Merge'));
+      await tester.pump(const Duration(milliseconds: 500));
+      final state = tester.state<GameWrapperState>(find.byType(GameWrapper));
+      state.pauseGame();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.byIcon(Icons.play_arrow_rounded), findsWidgets);
+      expect(find.byIcon(Icons.refresh_rounded), findsWidgets);
+      expect(find.byIcon(Icons.home_rounded), findsWidgets);
+      await tester.pump(const Duration(seconds: 5));
+      cleanUp(tester);
     });
   });
 }

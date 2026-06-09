@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import '../../lib/core/models/game_info.dart';
 import '../../lib/games/game_wrapper.dart';
 import '../../lib/games/game_registry.dart';
 import '../../lib/games/tic_tac_toe/tic_tac_toe_screen.dart' as ttt;
@@ -9,7 +10,6 @@ import '../helpers/overflow_detector.dart';
 
 Widget _buildGame() => GameWrapper(
       gameId: 'tic_tac_toe',
-      customOverlays: GameRegistry.usesCustomOverlays('tic_tac_toe'),
       child: GameRegistry.buildGame('tic_tac_toe'),
     );
 
@@ -192,6 +192,58 @@ void main() {
       expectNoOverflow(_pixel6, 'restart');
       await tester.pump(const Duration(seconds: 1));
       cleanUp(tester);
+    });
+  });
+
+  group('Tic Tac Toe — 2P Mode', () {
+    setUp(() async {
+      await initTestDependencies();
+      ttt.debugFirstStarter = 'X';
+    });
+    tearDown(() {
+      ttt.debugFirstStarter = null;
+    });
+
+    testWidgets('selecting 2P mode starts game with P1 and P2 strips', (tester) async {
+      await pumpScreen(tester, _pixel6, _buildGame(), settle: false);
+      await tester.tap(find.text('Play with a Friend'));
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.text('P1'), findsWidgets);
+      expect(find.text('P2'), findsWidgets);
+      expect(find.text('Play vs. AI'), findsNothing);
+      expectNoOverflow(_pixel6, '2P mode start');
+      cleanUp(tester);
+    });
+
+    testWidgets('both players can place marks in 2P mode', (tester) async {
+      await pumpScreen(tester, _pixel6, _buildGame(), settle: false);
+      await tester.tap(find.text('Play with a Friend'));
+      await tester.pump(const Duration(milliseconds: 500));
+
+      final beforeXs = find.text('X').evaluate().length;
+      await tester.tap(_cell(0));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('X').evaluate().length, greaterThan(beforeXs));
+
+      final beforeOs = find.text('O').evaluate().length;
+      await tester.tap(_cell(1));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('O').evaluate().length, greaterThan(beforeOs));
+
+      expectNoOverflow(_pixel6, '2P moves');
+      cleanUp(tester);
+    });
+  });
+
+  group('Tic Tac Toe — Registry', () {
+    setUp(() async => initTestDependencies());
+
+    testWidgets('registry metadata is correct', (_) async {
+      final game = GameRegistry.getById('tic_tac_toe')!;
+      expect(game.id, 'tic_tac_toe');
+      expect(game.name, 'Tic Tac Toe');
+      expect(game.howToPlay.isNotEmpty, isTrue);
+      expect(game.category, GameCategory.board);
     });
   });
 

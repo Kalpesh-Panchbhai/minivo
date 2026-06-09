@@ -84,9 +84,14 @@ class GenericGameResultScreen extends StatelessWidget {
         ),
       ),
       child: SafeArea(
-        child: Column(
-          children: [
-            const Spacer(),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
             // Badge medallion
             Container(
               width: 148,
@@ -219,7 +224,7 @@ class GenericGameResultScreen extends StatelessWidget {
               const SizedBox(height: 22),
               statsWidget!.animate().fadeIn(delay: 320.ms, duration: 320.ms),
             ],
-            const Spacer(),
+            const SizedBox(height: 24),
             // Action buttons
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -275,7 +280,11 @@ class GenericGameResultScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
-          ],
+                  ],
+                ),
+              ),
+            );
+          },
         ),
       ),
     );

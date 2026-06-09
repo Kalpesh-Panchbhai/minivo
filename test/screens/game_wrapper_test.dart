@@ -10,7 +10,19 @@ class _DummyGame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(color: Colors.blue);
+    final wrapper = GameWrapper.of(context);
+    final isReady = wrapper.state == GameState.ready;
+    return GestureDetector(
+      onTap: isReady ? wrapper.startGame : null,
+      child: Container(
+        color: Colors.blue,
+        child: Center(
+          child: isReady
+              ? const Text('Start')
+              : const Text('Playing'),
+        ),
+      ),
+    );
   }
 }
 
@@ -28,60 +40,50 @@ void main() {
           const GameWrapper(gameId: 'flappy_tap', child: _DummyGame()),
           settle: false,
         );
+        expect(find.byType(GameWrapper), findsOneWidget);
         expectNoOverflow(device, 'GameWrapper');
         cleanUp(tester);
       });
 
-      testWidgets('tap to start text visible in ready state', (tester) async {
+      testWidgets('initial state is ready', (tester) async {
         await pumpScreen(
           tester,
           device,
           const GameWrapper(gameId: 'flappy_tap', child: _DummyGame()),
           settle: false,
         );
-        expect(find.text('Tap to Start'), findsOneWidget);
+        expect(find.text('Start'), findsOneWidget);
+        expect(find.text('Paused'), findsNothing);
         expectNoOverflow(device, 'GameWrapper');
         cleanUp(tester);
       });
 
-      testWidgets('touch icon visible in ready state', (tester) async {
+      testWidgets('startGame transitions to playing', (tester) async {
         await pumpScreen(
           tester,
           device,
           const GameWrapper(gameId: 'flappy_tap', child: _DummyGame()),
           settle: false,
         );
-        expect(find.byIcon(Icons.touch_app_rounded), findsOneWidget);
+        await tester.tap(find.text('Start'));
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(find.text('Playing'), findsOneWidget);
         expectNoOverflow(device, 'GameWrapper');
         cleanUp(tester);
       });
 
-      testWidgets('tapping starts game and shows HUD', (tester) async {
+      testWidgets('pause overlay shows when paused', (tester) async {
         await pumpScreen(
           tester,
           device,
           const GameWrapper(gameId: 'flappy_tap', child: _DummyGame()),
           settle: false,
         );
-        await tester.tap(find.text('Tap to Start'));
+        await tester.tap(find.text('Start'));
+        await tester.pump(const Duration(milliseconds: 100));
+        final state = tester.state<GameWrapperState>(find.byType(GameWrapper));
+        state.pauseGame();
         await tester.pump(const Duration(milliseconds: 500));
-        expect(find.byIcon(Icons.pause_rounded), findsOneWidget);
-        expect(find.text('0'), findsOneWidget);
-        expectNoOverflow(device, 'GameWrapper');
-        cleanUp(tester);
-      });
-
-      testWidgets('pause button works', (tester) async {
-        await pumpScreen(
-          tester,
-          device,
-          const GameWrapper(gameId: 'flappy_tap', child: _DummyGame()),
-          settle: false,
-        );
-        await tester.tap(find.text('Tap to Start'));
-        await tester.pump(const Duration(milliseconds: 100));
-        await tester.tap(find.byIcon(Icons.pause_rounded));
-        await tester.pump(const Duration(milliseconds: 100));
         expect(find.text('Paused'), findsOneWidget);
         expect(find.text('Resume'), findsOneWidget);
         expect(find.text('Restart'), findsOneWidget);
@@ -91,17 +93,18 @@ void main() {
         cleanUp(tester);
       });
 
-      testWidgets('pause overlay buttons meet layout', (tester) async {
+      testWidgets('pause overlay icons are present', (tester) async {
         await pumpScreen(
           tester,
           device,
           const GameWrapper(gameId: 'flappy_tap', child: _DummyGame()),
           settle: false,
         );
-        await tester.tap(find.text('Tap to Start'));
+        await tester.tap(find.text('Start'));
         await tester.pump(const Duration(milliseconds: 100));
-        await tester.tap(find.byIcon(Icons.pause_rounded));
-        await tester.pump(const Duration(milliseconds: 100));
+        final state = tester.state<GameWrapperState>(find.byType(GameWrapper));
+        state.pauseGame();
+        await tester.pump(const Duration(milliseconds: 500));
         expect(find.byIcon(Icons.play_arrow_rounded), findsOneWidget);
         expect(find.byIcon(Icons.refresh_rounded), findsOneWidget);
         expect(find.byIcon(Icons.home_rounded), findsOneWidget);
@@ -117,14 +120,15 @@ void main() {
           const GameWrapper(gameId: 'flappy_tap', child: _DummyGame()),
           settle: false,
         );
-        await tester.tap(find.text('Tap to Start'));
+        await tester.tap(find.text('Start'));
         await tester.pump(const Duration(milliseconds: 100));
-        await tester.tap(find.byIcon(Icons.pause_rounded));
-        await tester.pump(const Duration(milliseconds: 100));
+        final state = tester.state<GameWrapperState>(find.byType(GameWrapper));
+        state.pauseGame();
+        await tester.pump(const Duration(milliseconds: 500));
         await tester.tap(find.text('Resume'));
-        await tester.pump(const Duration(milliseconds: 100));
-        expect(find.byIcon(Icons.pause_rounded), findsOneWidget);
+        await tester.pump(const Duration(milliseconds: 500));
         expect(find.text('Paused'), findsNothing);
+        expect(find.text('Playing'), findsOneWidget);
         expectNoOverflow(device, 'GameWrapper');
         await tester.pump(const Duration(seconds: 5));
         cleanUp(tester);

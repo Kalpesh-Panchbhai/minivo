@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -29,6 +30,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> with RouteAware {
   bool _updateChecked = false;
+  Timer? _forceUpdateTimer;
 
   @override
   void didChangeDependencies() {
@@ -44,10 +46,23 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
   }
 
   Future<void> _checkForceUpdate() async {
+    final completer = Completer<void>();
+    _forceUpdateTimer = Timer(const Duration(seconds: 5), () {
+      if (!completer.isCompleted) completer.complete();
+    });
+    firebaseReady.future.then((_) {
+      if (!completer.isCompleted) completer.complete();
+    });
     try {
-      await firebaseReady.future.timeout(const Duration(seconds: 5));
+      await completer.future;
+      _forceUpdateTimer?.cancel();
+      _forceUpdateTimer = null;
+      if (!mounted) return;
       await ForceUpdateService().init();
-    } catch (_) {}
+    } catch (_) {
+      _forceUpdateTimer?.cancel();
+      _forceUpdateTimer = null;
+    }
     if (!mounted) return;
     if (ForceUpdateService().needsForceUpdate) {
       showForceUpdateDialog(context);
@@ -56,6 +71,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
 
   @override
   void dispose() {
+    _forceUpdateTimer?.cancel();
     appRouteObserver.unsubscribe(this);
     super.dispose();
   }

@@ -62,7 +62,6 @@ void main() {
             device,
             GameWrapper(
               gameId: game.id,
-              customOverlays: GameRegistry.usesCustomOverlays(game.id),
               child: GameRegistry.buildGame(game.id),
             ),
             settle: false,

@@ -80,8 +80,8 @@ void main() {
           OverflowDetector.expectNoOverflow(
             context: '${entry.key} on ${d.name}',
           );
-          // Drain any splash / animation timers before teardown.
-          await tester.pump(const Duration(seconds: 3));
+          await tester.pump(const Duration(seconds: 5));
+          await tester.pump(const Duration(seconds: 5));
           OverflowDetector.stop();
           tester.view.resetPhysicalSize();
           tester.view.resetDevicePixelRatio();
