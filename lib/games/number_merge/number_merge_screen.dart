@@ -599,46 +599,80 @@ class _NumberMergeScreenState extends State<NumberMergeScreen> {
   Widget _buildGame() {
     if (_gameOver) return _buildGameOverScreen();
 
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [_kBgTop, _kBgBot],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onPanStart: (_) {
+        _dragDx = 0;
+        _dragDy = 0;
+      },
+      onPanUpdate: (d) {
+        _dragDx += d.delta.dx;
+        _dragDy += d.delta.dy;
+      },
+      onPanEnd: (d) {
+        final v = d.velocity.pixelsPerSecond;
+        final dx = math.max(v.dx.abs() / 4, _dragDx.abs());
+        final dy = math.max(v.dy.abs() / 4, _dragDy.abs());
+        if (dx < 24 && dy < 24) return;
+
+        final accDx = _dragDx;
+        final accDy = _dragDy;
+        final velX = v.dx;
+        final velY = v.dy;
+
+        if (dx > dy) {
+          final velSignal = v.dx.abs() / 4;
+          final distSignal = _dragDx.abs();
+          final goRight = (velSignal > distSignal) ? (velX > 0) : (accDx > 0);
+          _handleSwipeDirection(goRight ? 'right' : 'left');
+        } else {
+          final velSignal = v.dy.abs() / 4;
+          final distSignal = _dragDy.abs();
+          final goDown = (velSignal > distSignal) ? (velY > 0) : (accDy > 0);
+          _handleSwipeDirection(goDown ? 'down' : 'up');
+        }
+      },
+      child: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [_kBgTop, _kBgBot],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
         ),
-      ),
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: AnimatedBackground(
-              factory: (t) => _MergeBgPainter(t),
-              period: const Duration(seconds: 10),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: AnimatedBackground(
+                factory: (t) => _MergeBgPainter(t),
+                period: const Duration(seconds: 10),
+              ),
             ),
-          ),
-          SafeArea(
-            child: Column(
-              children: [
-                const SizedBox(height: 4),
-                _buildGameHud(),
-                const SizedBox(height: 12),
-                SizedBox(
-                  height: 40,
-                  child: _inUndoWindow
-                      ? RewardedUndoButton(
-                          key: ValueKey('undo_$_prevScore'),
-                          onUndo: _performUndo,
-                          onExpired: _onUndoExpired,
-                          accentColor: _kGolden,
-                        )
-                      : const SizedBox.shrink(),
-                ),
-                Expanded(child: Center(child: _buildBoard())),
-                if (_won && !_continueAfterWin) _buildWinBanner(),
-                const SizedBox(height: 12),
-              ],
+            SafeArea(
+              child: Column(
+                children: [
+                  const SizedBox(height: 4),
+                  _buildGameHud(),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    height: 40,
+                    child: _inUndoWindow
+                        ? RewardedUndoButton(
+                            key: ValueKey('undo_$_prevScore'),
+                            onUndo: _performUndo,
+                            onExpired: _onUndoExpired,
+                            accentColor: _kGolden,
+                          )
+                        : const SizedBox.shrink(),
+                  ),
+                  Expanded(child: Center(child: _buildBoard())),
+                  if (_won && !_continueAfterWin) _buildWinBanner(),
+                  const SizedBox(height: 12),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -669,8 +703,6 @@ class _NumberMergeScreenState extends State<NumberMergeScreen> {
           child: _Board(
             side: side,
             tiles: _tiles,
-            onSwipe: _handleSwipeDirection,
-            dragState: this,
           ),
         );
       },
@@ -835,14 +867,10 @@ class _ClassicSection extends StatelessWidget {
 class _Board extends StatelessWidget {
   final double side;
   final List<_Tile> tiles;
-  final ValueChanged<String> onSwipe;
-  final _NumberMergeScreenState dragState;
 
   const _Board({
     required this.side,
     required this.tiles,
-    required this.onSwipe,
-    required this.dragState,
   });
 
   @override
@@ -855,43 +883,7 @@ class _Board extends StatelessWidget {
     double tileLeft(int col) => padding + col * (cellSize + gap);
     double tileTop(int row) => padding + row * (cellSize + gap);
 
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onPanStart: (_) {
-        dragState._dragDx = 0;
-        dragState._dragDy = 0;
-      },
-      onPanUpdate: (d) {
-        dragState._dragDx += d.delta.dx;
-        dragState._dragDy += d.delta.dy;
-      },
-      onPanEnd: (d) {
-        final v = d.velocity.pixelsPerSecond;
-        // Combine velocity (fast flick) and accumulated distance (slow drag).
-        // Either signal alone is enough to register a swipe.
-        final dx = math.max(v.dx.abs() / 4, dragState._dragDx.abs());
-        final dy = math.max(v.dy.abs() / 4, dragState._dragDy.abs());
-        if (dx < 24 && dy < 24) return;
-
-        final accDx = dragState._dragDx;
-        final accDy = dragState._dragDy;
-        final velX = v.dx;
-        final velY = v.dy;
-
-        if (dx > dy) {
-          // Use direction from whichever signal dominated the magnitude.
-          final velSignal = v.dx.abs() / 4;
-          final distSignal = dragState._dragDx.abs();
-          final goRight = (velSignal > distSignal) ? (velX > 0) : (accDx > 0);
-          onSwipe(goRight ? 'right' : 'left');
-        } else {
-          final velSignal = v.dy.abs() / 4;
-          final distSignal = dragState._dragDy.abs();
-          final goDown = (velSignal > distSignal) ? (velY > 0) : (accDy > 0);
-          onSwipe(goDown ? 'down' : 'up');
-        }
-      },
-      child: Container(
+    return Container(
         width: side,
         height: side,
         decoration: BoxDecoration(
@@ -937,7 +929,6 @@ class _Board extends StatelessWidget {
               ),
           ],
         ),
-      ),
     );
   }
 }

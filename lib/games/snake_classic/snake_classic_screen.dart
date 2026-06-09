@@ -481,34 +481,65 @@ class _SnakeClassicScreenState extends State<SnakeClassicScreen>
   Widget _buildGame() {
     if (_gameOver) return _buildGameOverScreen();
 
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [_kBgTop, _kBgBot],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onPanStart: (_) {
+        _dragDx = 0;
+        _dragDy = 0;
+      },
+      onPanUpdate: (d) {
+        _dragDx += d.delta.dx;
+        _dragDy += d.delta.dy;
+      },
+      onPanEnd: (d) {
+        final v = d.velocity.pixelsPerSecond;
+        final dx = math.max(v.dx.abs() / 4, _dragDx.abs());
+        final dy = math.max(v.dy.abs() / 4, _dragDy.abs());
+        if (dx < 24 && dy < 24) return;
+
+        if (dx > dy) {
+          final velSignal = v.dx.abs() / 4;
+          final distSignal = _dragDx.abs();
+          final goRight =
+              (velSignal > distSignal) ? (v.dx > 0) : (_dragDx > 0);
+          _handleSwipeDirection(goRight ? _Dir.right : _Dir.left);
+        } else {
+          final velSignal = v.dy.abs() / 4;
+          final distSignal = _dragDy.abs();
+          final goDown =
+              (velSignal > distSignal) ? (v.dy > 0) : (_dragDy > 0);
+          _handleSwipeDirection(goDown ? _Dir.down : _Dir.up);
+        }
+      },
+      child: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [_kBgTop, _kBgBot],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
         ),
-      ),
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: AnimatedBackground(
-              factory: (t) => _SnakeBgPainter(t),
-              period: const Duration(seconds: 10),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: AnimatedBackground(
+                factory: (t) => _SnakeBgPainter(t),
+                period: const Duration(seconds: 10),
+              ),
             ),
-          ),
-          SafeArea(
-            child: Column(
-              children: [
-                const SizedBox(height: 4),
-                _buildGameHud(),
-                const SizedBox(height: 12),
-                Expanded(child: Center(child: _buildBoard())),
-                const SizedBox(height: 12),
-              ],
+            SafeArea(
+              child: Column(
+                children: [
+                  const SizedBox(height: 4),
+                  _buildGameHud(),
+                  const SizedBox(height: 12),
+                  Expanded(child: Center(child: _buildBoard())),
+                  const SizedBox(height: 12),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -540,64 +571,33 @@ class _SnakeClassicScreenState extends State<SnakeClassicScreen>
         return SizedBox(
           width: side,
           height: side,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onPanStart: (_) {
-              _dragDx = 0;
-              _dragDy = 0;
-            },
-            onPanUpdate: (d) {
-              _dragDx += d.delta.dx;
-              _dragDy += d.delta.dy;
-            },
-            onPanEnd: (d) {
-              final v = d.velocity.pixelsPerSecond;
-              final dx = math.max(v.dx.abs() / 4, _dragDx.abs());
-              final dy = math.max(v.dy.abs() / 4, _dragDy.abs());
-              if (dx < 24 && dy < 24) return;
-
-              if (dx > dy) {
-                final velSignal = v.dx.abs() / 4;
-                final distSignal = _dragDx.abs();
-                final goRight =
-                    (velSignal > distSignal) ? (v.dx > 0) : (_dragDx > 0);
-                _handleSwipeDirection(goRight ? _Dir.right : _Dir.left);
-              } else {
-                final velSignal = v.dy.abs() / 4;
-                final distSignal = _dragDy.abs();
-                final goDown =
-                    (velSignal > distSignal) ? (v.dy > 0) : (_dragDy > 0);
-                _handleSwipeDirection(goDown ? _Dir.down : _Dir.up);
-              }
-            },
-            child: Container(
-              decoration: BoxDecoration(
-                color: _kBoardBg,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: _kSnakeGreen.withValues(alpha: 0.18),
-                    blurRadius: 18,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: AnimatedBuilder(
-                  animation: _tickCtrl,
-                  builder: (_, _) => CustomPaint(
-                    size: Size.square(side),
-                    painter: _SnakePainter(
-                      snake: _snake,
-                      prevSnake: _prevSnake,
-                      foods: _foods,
-                      dir: _dir,
-                      t: _tickCtrl.value,
-                      eatEffects: _eatEffects,
-                      lastEatTimeMs: _lastEatTimeMs,
-                      nowMs: DateTime.now().millisecondsSinceEpoch,
-                    ),
+          child: Container(
+            decoration: BoxDecoration(
+              color: _kBoardBg,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: _kSnakeGreen.withValues(alpha: 0.18),
+                  blurRadius: 18,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: AnimatedBuilder(
+                animation: _tickCtrl,
+                builder: (_, _) => CustomPaint(
+                  size: Size.square(side),
+                  painter: _SnakePainter(
+                    snake: _snake,
+                    prevSnake: _prevSnake,
+                    foods: _foods,
+                    dir: _dir,
+                    t: _tickCtrl.value,
+                    eatEffects: _eatEffects,
+                    lastEatTimeMs: _lastEatTimeMs,
+                    nowMs: DateTime.now().millisecondsSinceEpoch,
                   ),
                 ),
               ),
