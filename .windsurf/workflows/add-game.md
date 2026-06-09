@@ -19,6 +19,10 @@ Before writing any code, read these reference files to understand the patterns:
 - `lib/games/shared/game_control_buttons.dart` — GameBackButton, GameRestartButton
 - `lib/core/models/game_info.dart` — GameInfo model and GameCategory enum
 - `lib/core/widgets/how_to_play_sheet.dart` — tutorial system (GameHowToPlayStep)
+- `lib/core/models/best_stat.dart` — BestStat model for stats
+- `lib/core/services/best_stats_registry.dart` — stats registry
+- `lib/core/services/ads_service.dart` — AdsService (rewarded ads, interstitials)
+- `lib/games/game_stats_bootstrap.dart` — where stats are registered
 - Use an existing game as a template (e.g. `lib/games/color_tap/` for arcade, `lib/games/number_merge/` for puzzle, `lib/games/tic_tac_toe/` for board)
 
 ## Step 1: Create Game Folder
@@ -27,6 +31,7 @@ Create `lib/games/<game_id>/` with these files:
 - `<game_id>_screen.dart` — main screen (picker + game + game over)
 - `<game_id>_logo.dart` — custom logo widget for home tiles
 - `<game_id>_tutorial.dart` — animated tutorial steps (optional but recommended)
+- `<game_id>_stats.dart` — stats builder for leaderboard/profile screens
 
 The `<game_id>` must be snake_case (e.g. `minesweeper`, `word_search`, `brick_breaker`).
 
@@ -109,7 +114,21 @@ The screen MUST be a `StatefulWidget` with these sections:
    GameWrapper.of(context).updateScore(0);
    ```
 
-7. **_newGame** / **_backToPicker** — restart / return to picker
+7. **_newGame** / **_backToPicker** — restart / return to picker:
+   ```dart
+   void _backToPicker() {
+     GameWrapper.of(context).restartGame();
+     setState(() { _activeDifficulty = null; _score = 0; _gameOver = false; });
+   }
+   ```
+
+7b. **Rewarded continue** (for applicable games):
+   ```dart
+   void _continueGame() {
+     GameWrapper.of(context).continueAfterGameOver();
+     setState(() { _gameOver = false; /* restore game state */ });
+   }
+   ```
 
 8. **build** — returns `_activeDifficulty == null ? _buildPicker() : _buildGame()`
 
@@ -136,7 +155,37 @@ The screen MUST be a `StatefulWidget` with these sections:
 ### Score Handling
 - Save scores: `ScoreService().saveScore(kMyGameId, score, subKey: diff.subKey)`
 - Update wrapper: `GameWrapper.of(context).updateScore(score)`
-- On game over: `GameWrapper.of(context).endGame()` (this triggers interstitial ad)
+- On game over: `GameWrapper.of(context).endGame()` (this triggers interstitial ad + analytics)
+- Play sound on score: `AudioService().playScore()`
+- Play sound on game over: handled automatically by `GameWrapper.endGame()`
+
+### Auto-Pause (Real-Time Games Only)
+For games with timers/animation controllers (snake, dino, etc.), add `WidgetsBindingObserver`:
+```dart
+class _MyGameScreenState extends State<MyGameScreen>
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed && _activeDifficulty != null && !_gameOver) {
+      // Pause animation controller or timer
+    }
+  }
+}
+```
+This is NOT needed for turn-based games (sudoku, tic-tac-toe, memory match, etc.).
 
 ## Step 3: Create the Logo File (`<game_id>_logo.dart`)
 
@@ -169,7 +218,40 @@ List<GameHowToPlayStep> myGameSteps() => [
 
 Each step has text + an animated demo CustomPainter. 2-4 steps is ideal.
 
-## Step 5: Register in GameRegistry
+## Step 5: Create Stats File (`<game_id>_stats.dart`)
+
+Every game needs a stats file for the leaderboard/profile screen:
+
+```dart
+import 'package:flutter/material.dart';
+import '../../core/models/best_stat.dart';
+import '../../core/services/best_stats_registry.dart';
+import '../../core/services/score_service.dart';
+
+const String kMyGameId = '<game_id>';
+
+void registerMyGameStats() {
+  BestStatsRegistry.register(kMyGameId, _buildStats);
+}
+
+List<BestStat> _buildStats() {
+  final easy   = ScoreService().getHighScore(kMyGameId, subKey: 'easy');
+  final medium = ScoreService().getHighScore(kMyGameId, subKey: 'medium');
+  final hard   = ScoreService().getHighScore(kMyGameId, subKey: 'hard');
+
+  if (easy == 0 && medium == 0 && hard == 0) return const [];
+
+  return [
+    if (easy   > 0) BestStat(label: '🌱  EASY',   value: '$easy',   sublabel: '...', icon: Icons.emoji_events_rounded, color: Color(0xFF22C55E)),
+    if (medium > 0) BestStat(label: '🔥  MEDIUM', value: '$medium', sublabel: '...', icon: Icons.emoji_events_rounded, color: Color(0xFFF59E0B)),
+    if (hard   > 0) BestStat(label: '💀  HARD',   value: '$hard',   sublabel: '...', icon: Icons.emoji_events_rounded, color: Color(0xFFEF4444)),
+  ];
+}
+```
+
+The sublabel should describe the scoring metric (e.g. '10 pts/apple', 'time-based').
+
+## Step 6: Register in GameRegistry
 
 In `lib/games/game_registry.dart`:
 
@@ -184,7 +266,7 @@ In `lib/games/game_registry.dart`:
    '<game_id>': () => const MyGameScreen(),
    ```
 
-3. **Add GameInfo** to `allGames` list:
+3. **Add GameInfo** to `allGames` list (add at the end or in category order):
    ```dart
    const GameInfo(
      id: '<game_id>',
@@ -200,7 +282,21 @@ In `lib/games/game_registry.dart`:
    ),
    ```
 
-## Step 6: Verify
+## Step 7: Register Stats
+
+In `lib/games/game_stats_bootstrap.dart`:
+
+1. **Add import** at top:
+   ```dart
+   import '<game_id>/<game_id>_stats.dart';
+   ```
+
+2. **Add call** inside `registerAllGameStats()`:
+   ```dart
+   registerMyGameStats();
+   ```
+
+## Step 8: Verify
 
 // turbo
 1. Run `flutter analyze lib/` — must have zero errors
@@ -215,12 +311,18 @@ In `lib/games/game_registry.dart`:
 - [ ] `<game_id>_screen.dart` — picker + game + game over
 - [ ] `<game_id>_logo.dart` — custom painted logo
 - [ ] `<game_id>_tutorial.dart` — animated tutorial steps
+- [ ] `<game_id>_stats.dart` — stats builder for leaderboard/profile
 - [ ] Registered in `GameRegistry._builders`
 - [ ] `GameInfo` added to `GameRegistry.allGames`
+- [ ] Stats registered in `game_stats_bootstrap.dart`
 - [ ] `GameWrapper` lifecycle wired (startGame, endGame, updateScore, setDifficultyAndMode)
+- [ ] `GameWrapper.restartGame()` called on back-to-picker
+- [ ] `GameWrapper.continueAfterGameOver()` wired if rewarded continue used
 - [ ] `ScoreService` wired (saveScore, getHighScore, isFavorite)
+- [ ] `AudioService().playScore()` on point gain
 - [ ] Tutorial wired (showHowToPlaySheet with gameId)
 - [ ] Analytics wired (difficulty passed to setDifficultyAndMode)
+- [ ] WidgetsBindingObserver added (real-time games only)
 - [ ] No hardcoded strings — use AppStrings where applicable
 - [ ] No hardcoded colors — use AppColors or game-specific constants
 - [ ] `flutter analyze` passes with zero errors
