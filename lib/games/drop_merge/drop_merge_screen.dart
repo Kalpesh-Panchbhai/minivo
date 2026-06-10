@@ -622,7 +622,7 @@ class _DropMergeScreenState extends State<DropMergeScreen> {
           actionId: 'play_again',
         ),
         game_result.GameResultAction(
-          label: 'Change Mode', icon: Icons.tune_rounded,
+          label: 'Change Difficulty', icon: Icons.tune_rounded,
           onTap: _backToPickerScreen, filled: false,
           actionId: 'change_mode',
         ),

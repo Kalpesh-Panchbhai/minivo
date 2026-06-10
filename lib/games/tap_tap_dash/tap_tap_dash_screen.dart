@@ -800,7 +800,7 @@ class _TapTapDashScreenState extends State<TapTapDashScreen>
           actionId: 'play_again',
         ),
         game_result.GameResultAction(
-          label: 'Change Mode',
+          label: 'Change Difficulty',
           icon: Icons.tune_rounded,
           onTap: _backToPicker,
           filled: false,

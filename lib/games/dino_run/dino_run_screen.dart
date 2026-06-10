@@ -593,7 +593,7 @@ class _DinoRunScreenState extends State<DinoRunScreen>
           actionId: 'play_again',
         ),
         game_result.GameResultAction(
-          label: 'Change Mode',
+          label: 'Change Difficulty',
           icon: Icons.tune_rounded,
           onTap: _backToPicker,
           filled: false,
