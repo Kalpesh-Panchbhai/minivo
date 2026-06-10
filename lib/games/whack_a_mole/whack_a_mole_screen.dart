@@ -226,10 +226,9 @@ class _WhackAMoleScreenState extends State<WhackAMoleScreen>
       _holes            = List.filled(count, null);
     });
 
-    ScoreService().incrementGamePlayCount(kWhackAMoleGameId);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        GameWrapper.of(context).setDifficultyAndMode(difficulty: diff.label);
+        GameWrapper.of(context).setDifficultyAndMode(difficulty: diff.label, subKey: diff.subKey);
         GameWrapper.of(context).startGame();
         GameWrapper.of(context).updateScore(0);
       }
@@ -420,14 +419,12 @@ class _WhackAMoleScreenState extends State<WhackAMoleScreen>
 
   void _newGame() => _startGame(_activeDifficulty ?? _pickerDifficulty);
 
-  void _backToPicker() {
-    _spawnTimer?.cancel();
-    _tickTimer?.cancel();
-    GameWrapper.of(context).restartGame();
-    setState(() {
-      _activeDifficulty = null;
-      _gameOver = false;
-      _score = 0;
+  void _backOrHome() {
+    final wrapper = GameWrapper.of(context);
+    wrapper.handleExit(() {
+      _spawnTimer?.cancel();
+      _tickTimer?.cancel();
+      if (context.canPop()) context.pop(); else context.go('/home');
     });
   }
 
@@ -483,7 +480,7 @@ class _WhackAMoleScreenState extends State<WhackAMoleScreen>
             children: [
               const SizedBox(height: 4),
               GameHudBar(
-                leading: GameBackButton(onTap: _backToPicker),
+                leading: GameBackButton(onTap: _backOrHome),
                 centerContent: _ScorePill(
                   difficulty: diff,
                   score: _score,
@@ -574,7 +571,7 @@ class _WhackAMoleScreenState extends State<WhackAMoleScreen>
         game_result.GameResultAction(
           label: 'Change Mode',
           icon: Icons.tune_rounded,
-          onTap: _backToPicker,
+          onTap: _backOrHome,
           filled: false,
           actionId: 'change_mode',
         ),

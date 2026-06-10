@@ -153,8 +153,6 @@ class _SudokuScreenState extends State<SudokuScreen> {
       _activeDiff = diff;
     });
 
-    ScoreService().incrementGamePlayCount(kSudokuGameId);
-
     compute(generateSudokuPuzzle, diff.clues).then((result) {
       if (!mounted) return;
       final given = List.generate(
@@ -196,7 +194,7 @@ class _SudokuScreenState extends State<SudokuScreen> {
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
-          GameWrapper.of(context).setDifficultyAndMode(difficulty: diff.label);
+          GameWrapper.of(context).setDifficultyAndMode(difficulty: diff.label, subKey: diff.subKey);
           GameWrapper.of(context).startGame();
           GameWrapper.of(context).updateScore(0);
         }
@@ -370,36 +368,18 @@ class _SudokuScreenState extends State<SudokuScreen> {
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) GameWrapper.of(context).endGame();
+      if (mounted) GameWrapper.of(context).endGame(result: 'win');
     });
   }
 
   void _newGame() => _startGame(_activeDiff ?? _pickerDiff);
 
-  void _backToPicker() {
-    _ticker?.cancel();
-    _stopwatch.stop();
-    GameWrapper.of(context).restartGame();
-    setState(() {
-      _mode           = _Mode.picker;
-      _activeDiff     = null;
-      _isGenerating   = false;
-      _puzzle         = [];
-      _solution       = [];
-      _given          = [];
-      _selRow         = null;
-      _selCol         = null;
-      _errorCount     = 0;
-      _elapsedSeconds = 0;
-      _animRow        = -1;
-      _animCol        = -1;
-      _animCorrect    = false;
-      _completedRows   = {};
-      _completedCols   = {};
-      _completedBoxes  = {};
-      _flashingRows    = {};
-      _flashingCols    = {};
-      _flashingBoxes   = {};
+  void _backOrHome() {
+    final wrapper = GameWrapper.of(context);
+    wrapper.handleExit(() {
+      _ticker?.cancel();
+      _stopwatch.stop();
+      if (context.canPop()) context.pop(); else context.go('/home');
     });
   }
 
@@ -466,7 +446,7 @@ class _SudokuScreenState extends State<SudokuScreen> {
             : Column(
                 children: [
                   GameHudBar(
-                    leading: GameBackButton(onTap: _backToPicker),
+                    leading: GameBackButton(onTap: _backOrHome),
                     centerContent: _ScorePill(
                       difficulty: diff,
                       elapsedSeconds: _elapsedSeconds,
@@ -565,7 +545,7 @@ class _SudokuScreenState extends State<SudokuScreen> {
         game_result.GameResultAction(
           label: 'Change Difficulty',
           icon: Icons.tune_rounded,
-          onTap: _backToPicker,
+          onTap: _backOrHome,
           filled: false,
           actionId: 'change_mode',
         ),

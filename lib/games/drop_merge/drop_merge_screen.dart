@@ -499,36 +499,40 @@ class _DropMergeScreenState extends State<DropMergeScreen> {
 
   void _startGame() {
     setState(() => _initGame());
-    _wrapper.setDifficultyAndMode(difficulty: _difficulty.label);
+    _wrapper.setDifficultyAndMode(difficulty: _difficulty.label, subKey: _difficulty.subKey);
     _wrapper.startGame();
   }
 
   void _playAgain() {
     setState(() => _initGame());
-    _wrapper.setDifficultyAndMode(difficulty: _difficulty.label);
+    _wrapper.setDifficultyAndMode(difficulty: _difficulty.label, subKey: _difficulty.subKey);
     _wrapper.restartGame();
     _wrapper.startGame();
   }
 
   void _backToPickerScreen() {
-    setState(() {
-      _gameOver      = false;
-      _score         = 0;
-      _grid          = _emptyGrid();
-      _chains        = 0;
-      _dropping      = false;
-      _flashingCells = {};
-      _consumedCells = {};
-      _gravityMoves  = [];
-      _fallingDrop   = null;
-      _stepTimer?.cancel();
-      _fallTimer?.cancel();
+    _wrapper.handleExit(() {
+      setState(() {
+        _gameOver      = false;
+        _score         = 0;
+        _grid          = _emptyGrid();
+        _chains        = 0;
+        _dropping      = false;
+        _flashingCells = {};
+        _consumedCells = {};
+        _gravityMoves  = [];
+        _fallingDrop   = null;
+        _stepTimer?.cancel();
+        _fallTimer?.cancel();
+      });
+      _wrapper.restartGame();
     });
-    _wrapper.restartGame();
   }
 
   void _backOrHome() {
-    if (context.canPop()) { context.pop(); } else { context.go('/home'); }
+    _wrapper.handleExit(() {
+      if (context.canPop()) { context.pop(); } else { context.go('/home'); }
+    });
   }
 
   void _toggleFavorite() {
@@ -619,7 +623,7 @@ class _DropMergeScreenState extends State<DropMergeScreen> {
         ),
         game_result.GameResultAction(
           label: 'Change Mode', icon: Icons.tune_rounded,
-          onTap: _backToPickerScreen, filled: false,
+          onTap: _backOrHome, filled: false,
           actionId: 'change_mode',
         ),
         game_result.GameResultAction(

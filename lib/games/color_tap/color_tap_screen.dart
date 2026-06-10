@@ -206,10 +206,9 @@ class _ColorTapScreenState extends State<ColorTapScreen>
       _showScorePopup = false;
     });
 
-    ScoreService().incrementGamePlayCount(kColorTapGameId);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        GameWrapper.of(context).setDifficultyAndMode(difficulty: diff.label);
+        GameWrapper.of(context).setDifficultyAndMode(difficulty: diff.label, subKey: diff.subKey);
         GameWrapper.of(context).startGame();
         GameWrapper.of(context).updateScore(0);
       }
@@ -386,18 +385,13 @@ class _ColorTapScreenState extends State<ColorTapScreen>
     _nextRound(diff);
   }
 
-  void _backToPicker() {
-    _roundTimer?.cancel();
-    _feedbackTimer?.cancel();
-    _timerCtrl.stop();
-    GameWrapper.of(context).restartGame();
-    setState(() {
-      _activeDifficulty = null;
-      _gameOver = false;
-      _score = 0;
-      _lives = 3;
-      _comboCount = 0;
-      _showCombo = false;
+  void _backOrHome() {
+    final wrapper = GameWrapper.of(context);
+    wrapper.handleExit(() {
+      _roundTimer?.cancel();
+      _feedbackTimer?.cancel();
+      _timerCtrl.stop();
+      if (context.canPop()) context.pop(); else context.go('/home');
     });
   }
 
@@ -486,7 +480,7 @@ class _ColorTapScreenState extends State<ColorTapScreen>
                 // HUD
                 GameHudBar(
                   leading: GameBackButton(
-                    onTap: _backToPicker,
+                    onTap: _backOrHome,
                     iconColor: const Color(0xFF7A2E00),
                   ),
                   centerContent: _ScorePill(
@@ -618,7 +612,7 @@ class _ColorTapScreenState extends State<ColorTapScreen>
         game_result.GameResultAction(
           label: 'Change Mode',
           icon: Icons.tune_rounded,
-          onTap: _backToPicker,
+          onTap: _backOrHome,
           filled: false,
           actionId: 'change_mode',
         ),

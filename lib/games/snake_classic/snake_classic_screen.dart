@@ -235,7 +235,7 @@ class _SnakeClassicScreenState extends State<SnakeClassicScreen>
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        GameWrapper.of(context).setDifficultyAndMode(difficulty: diff.label);
+        GameWrapper.of(context).setDifficultyAndMode(difficulty: diff.label, subKey: diff.subKey);
         GameWrapper.of(context).startGame();
         GameWrapper.of(context).updateScore(0);
       }
@@ -269,19 +269,11 @@ class _SnakeClassicScreenState extends State<SnakeClassicScreen>
     GameWrapper.of(context).continueAfterGameOver();
   }
 
-  void _backToPicker() {
-    _tickCtrl.stop();
-    GameWrapper.of(context).restartGame();
-    setState(() {
-      _activeDifficulty = null;
-      _gameOver = false;
-      _isNewBestScore = false;
-      _score = 0;
-      _snake = const [];
-      _prevSnake = const [];
-      _applesEaten = 0;
-      _eatEffects.clear();
-      _lastEatTimeMs = null;
+  void _backOrHome() {
+    final wrapper = GameWrapper.of(context);
+    wrapper.handleExit(() {
+      _tickCtrl.stop();
+      if (context.canPop()) context.pop(); else context.go('/home');
     });
   }
 
@@ -546,7 +538,7 @@ class _SnakeClassicScreenState extends State<SnakeClassicScreen>
 
   Widget _buildGameHud() {
     return GameHudBar(
-      leading: GameBackButton(onTap: _backToPicker),
+      leading: GameBackButton(onTap: _backOrHome),
       centerContent: _ScoreBoardPill(
         difficulty: _activeDifficulty!,
         score: _score,
@@ -636,7 +628,7 @@ class _SnakeClassicScreenState extends State<SnakeClassicScreen>
         game_result.GameResultAction(
           label: 'Change Mode',
           icon: Icons.tune_rounded,
-          onTap: _backToPicker,
+          onTap: _backOrHome,
           filled: false,
           actionId: 'change_mode',
         ),

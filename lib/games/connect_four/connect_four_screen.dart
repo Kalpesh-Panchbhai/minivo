@@ -153,6 +153,7 @@ class _ConnectFourScreenState extends State<ConnectFourScreen>
     _wrapper.setDifficultyAndMode(
       difficulty: _diffLabel(_difficulty),
       mode: mode == _Mode.ai ? 'ai' : '2_player',
+      subKey: _aiSubKey(),
     );
     _wrapper.startGame();
   }
@@ -177,6 +178,7 @@ class _ConnectFourScreenState extends State<ConnectFourScreen>
     _wrapper.setDifficultyAndMode(
       difficulty: _diffLabel(_difficulty),
       mode: _mode == _Mode.ai ? 'ai' : '2_player',
+      subKey: _aiSubKey(),
     );
     _wrapper.restartGame();
     _wrapper.startGame();
@@ -229,11 +231,13 @@ class _ConnectFourScreenState extends State<ConnectFourScreen>
   }
 
   void _backOrHome() {
-    if (context.canPop()) {
-      context.pop();
-    } else {
-      context.go('/home');
-    }
+    _wrapper.handleExit(() {
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/home');
+      }
+    });
   }
 
   void _showHelp() {
@@ -589,11 +593,14 @@ class _ConnectFourScreenState extends State<ConnectFourScreen>
       _wasNewBest = false;
     }
 
+    if (isAi && player == 1) _wrapper.updateScore(_streak);
+
     _winCtrl.forward(from: 0);
+    final gameResult = isAi ? (player == 1 ? 'win' : 'loss') : 'win';
     _audio.playSuccess();
     _endTimer?.cancel();
     _endTimer = Timer(const Duration(milliseconds: 1700), () {
-      if (mounted) _wrapper.endGame();
+      if (mounted) _wrapper.endGame(result: gameResult);
     });
   }
 
@@ -611,7 +618,7 @@ class _ConnectFourScreenState extends State<ConnectFourScreen>
     });
     _endTimer?.cancel();
     _endTimer = Timer(const Duration(milliseconds: 1500), () {
-      if (mounted) _wrapper.endGame();
+      if (mounted) _wrapper.endGame(result: 'draw');
     });
   }
 
@@ -873,6 +880,12 @@ class _ConnectFourScreenState extends State<ConnectFourScreen>
           game_result.StatItem(label: isAi ? 'YOU' : 'P1', value: _p1Wins, color: _kP1Color),
           game_result.StatItem(label: 'DRAWS', value: _draws, color: const Color(0xFF8B7BA7)),
           game_result.StatItem(label: isAi ? 'AI' : 'P2', value: _p2Wins, color: _kP2Color),
+          if (isAi)
+            game_result.StatItem(
+              label: 'BEST',
+              value: ScoreService().getHighScore(_gameId, subKey: _aiSubKey()),
+              color: const Color(0xFF6C63FF),
+            ),
         ],
       ),
       actions: [
@@ -1317,27 +1330,49 @@ class _ScorePill extends StatelessWidget {
               ),
             ],
           ),
-          child: Row(
+          child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              _scoreCol(isAi ? 'YOU' : 'P1', p1Wins, _kP1Color),
-              const SizedBox(width: 14),
-              const Text(
-                'VS',
-                style: TextStyle(
-                  color: Color(0xFF8B7BA7),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.2,
-                ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  _scoreCol(isAi ? 'YOU' : 'P1', p1Wins, _kP1Color),
+                  const SizedBox(width: 14),
+                  const Text(
+                    'VS',
+                    style: TextStyle(
+                      color: Color(0xFF8B7BA7),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  _scoreCol(isAi ? 'AI' : 'P2', p2Wins, _kP2Color),
+                ],
               ),
-              const SizedBox(width: 14),
-              _scoreCol(isAi ? 'AI' : 'P2', p2Wins, _kP2Color),
+              if (isAi) _bestLabel(difficulty),
             ],
           ),
         ),
       ],
+    );
+  }
+
+  Widget _bestLabel(_Difficulty d) {
+    final subKey = switch (d) {
+      _Difficulty.easy => kC4SubKeyEasy,
+      _Difficulty.medium => kC4SubKeyMedium,
+      _Difficulty.hard => kC4SubKeyHard,
+    };
+    final best = ScoreService().getHighScore(kConnectFourGameId, subKey: subKey);
+    if (best <= 0) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Text('best $best',
+          style: TextStyle(color: Colors.grey.shade500, fontSize: 10,
+              fontWeight: FontWeight.w600)),
     );
   }
 

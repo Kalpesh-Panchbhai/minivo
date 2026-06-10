@@ -13,6 +13,11 @@ import 'dodge_ball/dodge_ball_stats.dart';
 import 'tap_tap_dash/tap_tap_dash_stats.dart';
 import 'connect_four/connect_four_stats.dart';
 import 'reversi/reversi_stats.dart';
+import 'checkers/checkers_stats.dart';
+import 'go/go_stats.dart';
+import 'mancala/mancala_stats.dart';
+import 'gomoku/gomoku_stats.dart';
+import 'hangman/hangman_stats.dart';
 
 /// Single entry point for registering all per-game custom stats builders.
 /// Add new games here as they ship.
@@ -35,4 +40,9 @@ void registerAllGameStats() {
   registerTapTapDashStats();
   registerConnectFourStats();
   registerReversiStats();
+  registerCheckersStats();
+  registerGoStats();
+  registerMancalaStats();
+  registerGomokuStats();
+  registerHangmanStats();
 }

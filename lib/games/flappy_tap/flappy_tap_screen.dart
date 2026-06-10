@@ -284,7 +284,7 @@ class _FlappyTapScreenState extends State<FlappyTapScreen>
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        GameWrapper.of(context).setDifficultyAndMode(difficulty: diff.label);
+        GameWrapper.of(context).setDifficultyAndMode(difficulty: diff.label, subKey: diff.subKey);
         GameWrapper.of(context).startGame();
         GameWrapper.of(context).updateScore(0);
         _startTicker();
@@ -310,16 +310,11 @@ class _FlappyTapScreenState extends State<FlappyTapScreen>
     _startTicker();
   }
 
-  void _backToPicker() {
-    _stopTicker();
-    GameWrapper.of(context).restartGame();
-    setState(() {
-      _activeDifficulty = null;
-      _gameOver = false;
-      _isNewBestScore = false;
-      _score = 0;
-      _pipes.clear();
-      _clouds.clear();
+  void _backOrHome() {
+    final wrapper = GameWrapper.of(context);
+    wrapper.handleExit(() {
+      _stopTicker();
+      if (context.canPop()) context.pop(); else context.go('/home');
     });
   }
 
@@ -535,7 +530,7 @@ class _FlappyTapScreenState extends State<FlappyTapScreen>
 
   Widget _buildGameHud(_Difficulty diff) {
     return GameHudBar(
-      leading: GameBackButton(onTap: _backToPicker),
+      leading: GameBackButton(onTap: _backOrHome),
       centerContent: _ScoreBoardPill(
         difficulty: diff,
         score: _score,
@@ -627,7 +622,7 @@ class _FlappyTapScreenState extends State<FlappyTapScreen>
         game_result.GameResultAction(
           label: 'Change Mode',
           icon: Icons.tune_rounded,
-          onTap: _backToPicker,
+          onTap: _backOrHome,
           filled: false,
           actionId: 'change_mode',
         ),

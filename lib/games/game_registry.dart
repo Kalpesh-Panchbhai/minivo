@@ -30,6 +30,16 @@ import 'connect_four/connect_four_logo.dart';
 import 'connect_four/connect_four_screen.dart';
 import 'reversi/reversi_logo.dart';
 import 'reversi/reversi_screen.dart';
+import 'checkers/checkers_logo.dart';
+import 'checkers/checkers_screen.dart';
+import 'go/go_logo.dart';
+import 'go/go_screen.dart';
+import 'mancala/mancala_logo.dart';
+import 'mancala/mancala_screen.dart';
+import 'gomoku/gomoku_logo.dart';
+import 'gomoku/gomoku_screen.dart';
+import 'hangman/hangman_logo.dart';
+import 'hangman/hangman_screen.dart';
 
 typedef GameWidgetBuilder = Widget Function();
 
@@ -52,6 +62,11 @@ class GameRegistry {
     'tap_tap_dash': () => const TapTapDashScreen(),
     'connect_four': () => const ConnectFourScreen(),
     'reversi': () => const ReversiScreen(),
+    'checkers': () => const CheckersScreen(),
+    'go': () => const GoScreen(),
+    'mancala': () => const MancalaScreen(),
+    'gomoku': () => const GomokuScreen(),
+    'hangman': () => const HangmanScreen(),
   };
 
   static Widget buildGame(String gameId) {
@@ -342,6 +357,96 @@ class GameRegistry {
       bgColor: Color(0xFFE8F5E9),
       playCount: 0,
       customLogo: buildReversiLogo,
+    ),
+    const GameInfo(
+      id: 'checkers',
+      name: 'Checkers',
+      description: 'Jump, capture, and crown your kings on the classic board!',
+      howToPlay:
+          'Choose your difficulty (Easy, Medium, Hard) or play with a friend on the same device.\n'
+          'Players take turns moving pieces diagonally forward on dark squares.\n'
+          'Jump over an opponent\'s piece to capture it — mandatory jumps must be taken!\n'
+          'Chain multiple jumps in a single turn for big captures.\n'
+          'Reach the far side to promote your piece to a King — Kings move diagonally in any direction!\n'
+          'Capture all opponent pieces or block them completely to win.',
+      category: GameCategory.board,
+      icon: Icons.grid_on_rounded,
+      color: Color(0xFF8B5E3C),
+      bgColor: Color(0xFFFFF8F0),
+      playCount: 0,
+      customLogo: buildCheckersLogo,
+    ),
+    const GameInfo(
+      id: 'go',
+      name: 'Go',
+      description: 'Ancient strategy — surround territory and capture stones on a 9x9 board!',
+      howToPlay:
+          'Choose your difficulty (Easy, Medium, Hard) or play with a friend on the same device.\n'
+          'Players take turns placing stones on grid intersections. Black goes first.\n'
+          'Surround opponent stones completely to capture and remove them from the board.\n'
+          'Pass when you have no good moves. Two consecutive passes end the game.\n'
+          'Territory is counted — empty intersections surrounded by your stones are your territory.\n'
+          'The player with the most territory plus captures wins! White gets 6 komi (bonus points).',
+      category: GameCategory.board,
+      icon: Icons.circle_outlined,
+      color: Color(0xFFC4944E),
+      bgColor: Color(0xFFFFF8E7),
+      playCount: 0,
+      customLogo: buildGoLogo,
+    ),
+    const GameInfo(
+      id: 'mancala',
+      name: 'Mancala',
+      description: 'Sow seeds, capture stones, and outplay your opponent!',
+      howToPlay:
+          'Choose your difficulty (Easy, Medium, Hard) or play with a friend on the same device.\n'
+          'Each player has 6 pits with 4 seeds each, plus a store on their right.\n'
+          'Tap a pit on your side to pick up all seeds and sow them counterclockwise, one per pit.\n'
+          'If your last seed lands in your store, you get another turn!\n'
+          'If your last seed lands in an empty pit on your side, capture it and the opposite pit\'s seeds.\n'
+          'The game ends when one side is empty. Most seeds in your store wins!',
+      category: GameCategory.board,
+      icon: Icons.circle_rounded,
+      color: Color(0xFF7B5B3A),
+      bgColor: Color(0xFFFFF5E6),
+      playCount: 0,
+      customLogo: buildMancalaLogo,
+    ),
+    const GameInfo(
+      id: 'gomoku',
+      name: 'Gomoku',
+      description: 'Five in a row wins! Place stones strategically on a 13x13 board.',
+      howToPlay:
+          'Choose your difficulty (Easy, Medium, Hard) or play with a friend on the same device.\n'
+          'Players take turns placing stones on grid intersections. Black goes first.\n'
+          'Connect 5 of your stones in a row — horizontally, vertically, or diagonally — to win!\n'
+          'Block your opponent while building your own lines.\n'
+          'The board is 13x13 — smaller than standard Go but perfect for fast games.\n'
+          'Think ahead — open-ended lines of 4 are nearly unstoppable!',
+      category: GameCategory.board,
+      icon: Icons.blur_on_rounded,
+      color: Color(0xFF4A90D9),
+      bgColor: Color(0xFFF0F5FF),
+      playCount: 0,
+      customLogo: buildGomokuLogo,
+    ),
+    const GameInfo(
+      id: 'hangman',
+      name: 'Hangman',
+      description: 'Guess the hidden word letter by letter before the hangman is complete!',
+      howToPlay:
+          'Choose your difficulty (Easy = short words, Medium = longer words, Hard = complex words).\n'
+          'A hidden word is shown as blanks. Tap letters on the keyboard to guess.\n'
+          'Correct letters fill in the blanks. Wrong guesses draw parts of the hangman.\n'
+          'You have 6 wrong guesses before the hangman is complete and the game is over.\n'
+          'Solve the word to win and build your streak!\n'
+          'Common letters (E, A, R, S, T) are good starting guesses.',
+      category: GameCategory.puzzle,
+      icon: Icons.text_fields_rounded,
+      color: Color(0xFF6C63FF),
+      bgColor: Color(0xFFF5F3FF),
+      playCount: 0,
+      customLogo: buildHangmanLogo,
     ),
   ];
 

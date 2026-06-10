@@ -171,6 +171,13 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen>
   bool _undoUsed = false;
   bool _showUndoButton = false;
   int? _undoFirstIdx;
+  int  _starter = 0;
+  bool _firstRoundOfSession = true;
+  int _combo = 0;
+  bool _showCombo = false;
+  bool _showWinBanner = false;
+  String? _winBannerLabel;
+  Color _winBannerColor = _kAccent;
 
   // ── Animation controllers ─────────────────────────────────────────────────
   List<AnimationController> _flipCtrl = [];
@@ -234,11 +241,13 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen>
   void _selectMode(_Mode mode) {
     _cancelAllTimers();
     _celebrationCtrl.reset();
+    _firstRoundOfSession = true;
     _mode = mode; // set before startGame's setState so build never sees mode≠null + activeDiff==null
     _startGame(_pickerDiff, disposeFirst: false);
     GameWrapper.of(context).setDifficultyAndMode(
       difficulty: _pickerDiff.label,
       mode: mode == _Mode.ai ? 'ai' : '2_player',
+      subKey: _pickerDiff.subKey,
     );
     GameWrapper.of(context).startGame();
   }
@@ -276,8 +285,13 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen>
       (_) => AnimationController(vsync: this, duration: const Duration(milliseconds: 500)),
     );
 
-    // Who goes first? Random.
-    final firstTurn = _rng.nextBool() ? 0 : 1;
+    if (_firstRoundOfSession) {
+      _starter = _rng.nextBool() ? 0 : 1;
+      _firstRoundOfSession = false;
+    } else {
+      _starter = _starter == 0 ? 1 : 0;
+    }
+    final firstTurn = _starter;
 
     setState(() {
       _activeDiff   = diff;
@@ -297,9 +311,11 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen>
       _undoUsed     = false;
       _showUndoButton = false;
       _undoFirstIdx = null;
+      _combo = 0;
+      _showCombo = false;
+      _showWinBanner = false;
+      _winBannerLabel = null;
     });
-
-    ScoreService().incrementGamePlayCount(kMemoryMatchGameId);
 
     // Stagger bounce-in
     for (int i = 0; i < bounceControllers.length; i++) {
@@ -385,6 +401,8 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen>
         } else {
           _p2Matches++;
         }
+        _combo++;
+        _showCombo = _combo >= 2;
         _lockInput = false;
       });
 
@@ -419,6 +437,8 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen>
       setState(() {
         first.mismatch  = true;
         second.mismatch = true;
+        _combo = 0;
+        _showCombo = false;
       });
 
       _flipBackTimer?.cancel();
@@ -564,14 +584,28 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen>
   void _finishGame() {
     _cancelAllTimers();
     final diff = _activeDiff!;
+    final isAiMode = _mode == _Mode.ai;
+
+    if (_p1Matches > _p2Matches) {
+      _winBannerLabel = isAiMode ? 'You Win!' : 'P1 Wins!';
+      _winBannerColor = _kP1Color;
+    } else if (_p2Matches > _p1Matches) {
+      _winBannerLabel = isAiMode ? 'AI Wins!' : 'P2 Wins!';
+      _winBannerColor = _kP2Color;
+    } else {
+      _winBannerLabel = "It's a Tie!";
+      _winBannerColor = _kAccent;
+    }
+    setState(() => _showWinBanner = true);
 
     // Save score in AI mode (player's pair count)
-    if (_mode == _Mode.ai) {
+    if (isAiMode) {
       ScoreService().saveScore(
         kMemoryMatchGameId, _p1Matches, subKey: diff.subKey,
       ).then((isNew) {
         if (mounted && isNew) setState(() => _wasNewBest = true);
       });
+      GameWrapper.of(context).updateScore(_p1Matches);
     }
 
     Future.delayed(const Duration(milliseconds: 400), () {
@@ -580,8 +614,14 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen>
       Future.delayed(const Duration(milliseconds: 900), () {
         if (mounted) {
           setState(() => _gameOver = true);
+          final isAiMode = _mode == _Mode.ai;
+          final gameResult = _p1Matches > _p2Matches
+              ? (isAiMode ? 'win' : 'win')
+              : _p2Matches > _p1Matches
+                  ? (isAiMode ? 'loss' : 'win')
+                  : 'draw';
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) GameWrapper.of(context).endGame();
+            if (mounted) GameWrapper.of(context).endGame(result: gameResult);
           });
         }
       });
@@ -594,6 +634,7 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen>
     GameWrapper.of(context).setDifficultyAndMode(
       difficulty: diff.label,
       mode: mode == _Mode.ai ? 'ai' : '2_player',
+      subKey: diff.subKey,
     );
     GameWrapper.of(context).restartGame();
     GameWrapper.of(context).startGame();
@@ -602,17 +643,11 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen>
     setState(() => _mode = mode);
   }
 
-  void _backToPicker() {
-    _cancelAllTimers();
-    GameWrapper.of(context).restartGame();
-    setState(() {
-      _mode        = null;
-      _activeDiff  = null;
-      _gameOver    = false;
-      _p1Matches   = 0;
-      _p2Matches   = 0;
-      _currentTurn = 0;
-      _aiThinking  = false;
+  void _backOrHome() {
+    final wrapper = GameWrapper.of(context);
+    wrapper.handleExit(() {
+      _cancelAllTimers();
+      if (context.canPop()) context.pop(); else context.go('/home');
     });
   }
 
@@ -700,7 +735,7 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen>
                 // HUD
                 GameHudBar(
                   leading: GameBackButton(
-                    onTap: _backToPicker,
+                    onTap: _backOrHome,
                     iconColor: _kAccentDk,
                   ),
                   centerContent: _MultiScorePill(
@@ -716,7 +751,18 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen>
                     iconColor: _kAccentDk,
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
+                // Combo badge
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 260),
+                  curve: Curves.easeOutCubic,
+                  child: _showCombo
+                      ? Padding(
+                          padding: const EdgeInsets.only(bottom: 2),
+                          child: _ComboBadge(combo: _combo),
+                        )
+                      : const SizedBox.shrink(),
+                ),
                 // Progress bar (combined)
                 _ProgressBar(
                   matched: _p1Matches + _p2Matches,
@@ -742,14 +788,27 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen>
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: _CardGrid(
-                      cards: _cards,
-                      flipControllers: _flipCtrl,
-                      bounceControllers: _bounceCtrl,
-                      matchControllers: _matchCtrl,
-                      cols: diff.cols,
-                      rows: diff.rows,
-                      onCardTap: _onCardTap,
+                    child: Stack(
+                      children: [
+                        _CardGrid(
+                          cards: _cards,
+                          flipControllers: _flipCtrl,
+                          bounceControllers: _bounceCtrl,
+                          matchControllers: _matchCtrl,
+                          cols: diff.cols,
+                          rows: diff.rows,
+                          onCardTap: _onCardTap,
+                        ),
+                        if (_showWinBanner && _winBannerLabel != null)
+                          Positioned.fill(
+                            child: Center(
+                              child: _WinBanner(
+                                label: _winBannerLabel!,
+                                color: _winBannerColor,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ),
@@ -837,15 +896,32 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen>
       badgeContent: badge,
       badgeColor: badgeColor,
       showNewBestBadge: showNewBest,
-      statsWidget: game_result.GameResultPlayersRow(
-        p1Label: isAiMode ? 'YOU' : 'P1',
-        p2Label: isAiMode ? 'AI' : 'P2',
-        p1Score: _p1Matches,
-        p2Score: _p2Matches,
-        p1Color: _kP1Color,
-        p2Color: _kP2Color,
-        p1IsWinner: _p1Matches > _p2Matches,
-        p2IsWinner: _p2Matches > _p1Matches,
+      statsWidget: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          game_result.GameResultPlayersRow(
+            p1Label: isAiMode ? 'YOU' : 'P1',
+            p2Label: isAiMode ? 'AI' : 'P2',
+            p1Score: _p1Matches,
+            p2Score: _p2Matches,
+            p1Color: _kP1Color,
+            p2Color: _kP2Color,
+            p1IsWinner: _p1Matches > _p2Matches,
+            p2IsWinner: _p2Matches > _p1Matches,
+          ),
+          if (isAiMode) ...[
+            const SizedBox(height: 12),
+            game_result.GameResultStatsRow(
+              stats: [
+                game_result.StatItem(
+                  label: 'BEST',
+                  value: ScoreService().getHighScore(kMemoryMatchGameId, subKey: diff.subKey),
+                  color: const Color(0xFF6C63FF),
+                ),
+              ],
+            ),
+          ],
+        ],
       ),
       actions: [
         game_result.GameResultAction(
@@ -859,7 +935,7 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen>
         game_result.GameResultAction(
           label: 'Change Mode',
           icon: Icons.tune_rounded,
-          onTap: _backToPicker,
+          onTap: _backOrHome,
           actionId: 'change_mode',
         ),
         game_result.GameResultAction(
@@ -931,7 +1007,8 @@ class _MultiScorePill extends StatelessWidget {
     final isAi = mode == _Mode.ai;
     final leftLabel = isAi ? 'YOU' : 'P1';
     final rightLabel = isAi ? 'AI' : 'P2';
-    final tabColor = diff.color;
+    final tabLabel = isAi ? diff.label : 'PASS & PLAY';
+    final tabColor = isAi ? diff.color : const Color(0xFF8B7558);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -952,10 +1029,9 @@ class _MultiScorePill extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              AnimatedDifficultyIcon(kind: diff.kind, size: 14, prominent: false),
-              const SizedBox(width: 6),
+              if (isAi) ...[AnimatedDifficultyIcon(kind: diff.kind, size: 14, prominent: false), const SizedBox(width: 6)],
               Text(
-                diff.label,
+                tabLabel,
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 10,
@@ -984,27 +1060,44 @@ class _MultiScorePill extends StatelessWidget {
               ),
             ],
           ),
-          child: Row(
+          child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              _scoreColumn(leftLabel, p1Matches, _kP1Color),
-              const SizedBox(width: 14),
-              const Text(
-                'VS',
-                style: TextStyle(
-                  color: Color(0xFF8B7BA7),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.2,
-                ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  _scoreColumn(leftLabel, p1Matches, _kP1Color),
+                  const SizedBox(width: 14),
+                  const Text(
+                    'VS',
+                    style: TextStyle(
+                      color: Color(0xFF8B7BA7),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  _scoreColumn(rightLabel, p2Matches, _kP2Color),
+                ],
               ),
-              const SizedBox(width: 14),
-              _scoreColumn(rightLabel, p2Matches, _kP2Color),
+              if (isAi) _bestLabel(),
             ],
           ),
         ),
       ],
+    );
+  }
+
+  Widget _bestLabel() {
+    final best = ScoreService().getHighScore(kMemoryMatchGameId, subKey: diff.subKey);
+    if (best <= 0) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Text('best $best',
+          style: TextStyle(color: Colors.grey.shade500, fontSize: 10,
+              fontWeight: FontWeight.w600)),
     );
   }
 
@@ -1375,19 +1468,19 @@ class _CardFace extends StatelessWidget {
       duration: const Duration(milliseconds: 200),
       decoration: BoxDecoration(
         color: faceUp ? const Color(0xFFFAFDFF) : null,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           if (glowColor != null)
             BoxShadow(
               color: glowColor.withValues(alpha: card.matched ? 0.55 : 0.45),
-              blurRadius: card.matched ? 14 : 10,
-              spreadRadius: card.matched ? 2 : 1,
+              blurRadius: card.matched ? 16 : 12,
+              spreadRadius: card.matched ? 3 : 1,
             )
           else
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.13),
-              blurRadius: 6,
-              offset: const Offset(0, 3),
+              color: Colors.black.withValues(alpha: 0.12),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
             ),
         ],
         border: card.matched
@@ -1400,13 +1493,13 @@ class _CardFace extends StatelessWidget {
         gradient: faceUp
             ? null
             : const LinearGradient(
-                colors: [Color(0xFF4C3F91), Color(0xFF3949AB), Color(0xFF1A237E)],
+                colors: [Color(0xFF5C50A5), Color(0xFF4A6CF7), Color(0xFF3B5EE0)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(14),
         child: faceUp ? _FaceSide(card: card) : const _BackSide(),
       ),
     );
@@ -1419,20 +1512,19 @@ class _FaceSide extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final pairColor = _kPairColors[card.pairColorIdx % _kPairColors.length];
     return Stack(
       fit: StackFit.expand,
       children: [
-        if (card.matched)
-          Container(
-            decoration: BoxDecoration(
-              gradient: RadialGradient(
-                colors: [
-                  const Color(0xFF22C55E).withValues(alpha: 0.15),
-                  Colors.transparent,
-                ],
-              ),
+        Container(
+          decoration: BoxDecoration(
+            gradient: RadialGradient(
+              colors: card.matched
+                  ? [const Color(0xFF22C55E).withValues(alpha: 0.12), const Color(0xFFF0FFF4)]
+                  : [pairColor.withValues(alpha: 0.08), const Color(0xFFFAFDFF)],
             ),
           ),
+        ),
         Center(
           child: FittedBox(
             child: Padding(
@@ -1445,6 +1537,20 @@ class _FaceSide extends StatelessWidget {
             ),
           ),
         ),
+        if (card.matched)
+          Positioned(
+            right: 3,
+            top: 3,
+            child: Container(
+              width: 16,
+              height: 16,
+              decoration: const BoxDecoration(
+                color: Color(0xFF22C55E),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.check_rounded, size: 11, color: Colors.white),
+            ),
+          ),
       ],
     );
   }
@@ -1462,33 +1568,60 @@ class _BackSide extends StatelessWidget {
 class _CardBackPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final dotPaint = Paint()..color = Colors.white.withValues(alpha: 0.20);
-    const dotCols = 3, dotRows = 4;
-    final rr = math.min(size.width, size.height) * 0.06;
-    for (int r = 0; r < dotRows; r++) {
-      for (int c = 0; c < dotCols; c++) {
-        canvas.drawCircle(
-          Offset(size.width * (c + 1) / (dotCols + 1), size.height * (r + 1) / (dotRows + 1)),
-          rr, dotPaint,
-        );
-      }
-    }
+    final w = size.width;
+    final h = size.height;
+    final cx = w / 2;
+    final cy = h / 2;
+
     final linePaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.08)
+      ..color = Colors.white.withValues(alpha: 0.06)
       ..strokeWidth = 1.0
       ..style = PaintingStyle.stroke;
-    var offset = -size.height;
-    while (offset < size.width + size.height) {
-      canvas.drawLine(Offset(offset, 0), Offset(offset + size.height, size.height), linePaint);
-      offset += 12.0;
+    var offset = -h;
+    while (offset < w + h) {
+      canvas.drawLine(Offset(offset, 0), Offset(offset + h, h), linePaint);
+      offset += 14.0;
     }
+
+    final ringR = math.min(w, h) * 0.30;
+    canvas.drawCircle(Offset(cx, cy), ringR, Paint()
+      ..color = Colors.white.withValues(alpha: 0.08)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0);
+    canvas.drawCircle(Offset(cx, cy), ringR * 0.6, Paint()
+      ..color = Colors.white.withValues(alpha: 0.05)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5);
+
+    final qSize = math.min(w, h) * 0.32;
+    final tp = TextPainter(
+      text: TextSpan(
+        text: '?',
+        style: TextStyle(
+          color: Colors.white.withValues(alpha: 0.22),
+          fontSize: qSize,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(canvas, Offset(cx - tp.width / 2, cy - tp.height / 2));
+
+    final cornerR = math.min(w, h) * 0.04;
+    final cornerPaint = Paint()..color = Colors.white.withValues(alpha: 0.15);
+    final margin = math.min(w, h) * 0.12;
+    canvas.drawCircle(Offset(margin, margin), cornerR, cornerPaint);
+    canvas.drawCircle(Offset(w - margin, margin), cornerR, cornerPaint);
+    canvas.drawCircle(Offset(margin, h - margin), cornerR, cornerPaint);
+    canvas.drawCircle(Offset(w - margin, h - margin), cornerR, cornerPaint);
+
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        Rect.fromLTWH(0, 0, size.width, size.height),
-        Radius.circular(size.width * 0.1),
+        Rect.fromLTWH(2, 2, w - 4, h - 4),
+        Radius.circular(w * 0.1),
       ),
       Paint()
-        ..color = Colors.white.withValues(alpha: 0.18)
+        ..color = Colors.white.withValues(alpha: 0.15)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.5,
     );
@@ -1590,5 +1723,48 @@ class _MemoryBgPainter extends AnimatedBgPainter {
       }
       canvas.restore();
     }
+  }
+}
+
+class _ComboBadge extends StatelessWidget {
+  final int combo;
+  const _ComboBadge({required this.combo});
+  @override
+  Widget build(BuildContext context) {
+    final label = combo >= 4 ? 'AMAZING x$combo!' : combo >= 3 ? 'GREAT x$combo!' : 'x$combo combo!';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.amber.shade50,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.amber.shade200),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.bolt_rounded, size: 16, color: Colors.orange.shade700),
+          const SizedBox(width: 4),
+          Text(label, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12, color: Colors.orange.shade800)),
+        ],
+      ),
+    );
+  }
+}
+
+class _WinBanner extends StatelessWidget {
+  final String label;
+  final Color color;
+  const _WinBanner({required this.label, required this.color});
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: color.withValues(alpha: 0.5), blurRadius: 20, spreadRadius: 2)],
+      ),
+      child: Text(label, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
+    );
   }
 }

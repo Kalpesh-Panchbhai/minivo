@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_strings.dart';
 import '../../core/services/score_service.dart';
-import '../../core/widgets/game_card.dart';
 import '../../games/game_registry.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -141,24 +140,84 @@ class ProfileScreen extends StatelessWidget {
                 // Favorites
                 if (favGames.isNotEmpty) ...[
                   const SizedBox(height: 28),
-                  _sectionRow(context, AppStrings.favorites, null),
+                  _sectionRow(context, '${AppStrings.favorites} (${favGames.length})', null),
                   const SizedBox(height: 12),
-                  SizedBox(
-                    height: 100,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: favGames.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 12),
-                      itemBuilder: (context, index) {
-                        final game = favGames[index]!;
-                        return GameCard(
-                          game: game,
-                          compact: true,
-                          onTap: () => context.push('/game/${game.id}'),
-                        );
-                      },
-                    ),
-                  ),
+                  ...favGames.asMap().entries.map((entry) {
+                    final game = entry.value!;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: GestureDetector(
+                        onTap: () => context.push('/game/${game.id}'),
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: AppColors.surface,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: game.color.withValues(alpha: 0.10),
+                                blurRadius: 14,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 52,
+                                height: 52,
+                                decoration: BoxDecoration(
+                                  color: game.bgColor,
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                clipBehavior: Clip.antiAlias,
+                                child: game.hasBrandedLogo
+                                    ? game.buildBrandedLogo(size: 52)
+                                    : Center(child: game.buildIcon(size: 26)),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      game.name,
+                                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      game.category.label,
+                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                            color: AppColors.textHint,
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Icon(
+                                Icons.favorite_rounded,
+                                size: 20,
+                                color: AppColors.accent,
+                              ),
+                              const SizedBox(width: 4),
+                              Icon(
+                                Icons.chevron_right_rounded,
+                                size: 22,
+                                color: AppColors.textHint,
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                          .animate(delay: (entry.key * 60).ms)
+                          .fadeIn(duration: 300.ms)
+                          .slideY(begin: 0.15),
+                    );
+                  }),
                 ],
               ],
             ),

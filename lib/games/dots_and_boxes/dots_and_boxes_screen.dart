@@ -72,6 +72,9 @@ class _DotsAndBoxesScreenState extends State<DotsAndBoxesScreen>
   int  _p1Score        = 0;
   int  _p2Score        = 0;
   bool _isFavorite     = false;
+  bool _wasNewBest     = false;
+  int  _starter        = 0;
+  bool _firstRoundOfSession = true;
 
   // Key of the most recently drawn line — used to trigger draw animation
   String? _lastDrawnKey;
@@ -112,7 +115,13 @@ class _DotsAndBoxesScreenState extends State<DotsAndBoxesScreen>
     _hOwner        = List.generate(dots,  (_) => List.filled(boxes, -1));
     _vOwner        = List.generate(boxes, (_) => List.filled(dots,  -1));
     _boxes         = List.generate(boxes, (_) => List.filled(boxes, -1));
-    _currentPlayer = 0;
+    if (_firstRoundOfSession) {
+      _starter = _rng.nextBool() ? 0 : 1;
+      _firstRoundOfSession = false;
+    } else {
+      _starter = _starter == 0 ? 1 : 0;
+    }
+    _currentPlayer = _starter;
     _gameOver      = false;
     _aiThinking    = false;
     _p1Score       = 0;
@@ -125,7 +134,11 @@ class _DotsAndBoxesScreenState extends State<DotsAndBoxesScreen>
     _undoCol       = null;
     _undoClaimedCount = 0;
     _undoClaimedBoxes = [];
+    _wasNewBest    = false;
     if (notify) setState(() {});
+    if (_mode == _Mode.ai && _currentPlayer == 1) {
+      _scheduleAiMove();
+    }
   }
 
   // ── Predicates ────────────────────────────────────────────────────────────
@@ -284,11 +297,20 @@ class _DotsAndBoxesScreenState extends State<DotsAndBoxesScreen>
     if (_mode == _Mode.ai) {
       final subKey = _aiSubKey();
       if (subKey != null && _p1Score > 0) {
-        ScoreService().saveScore(kDotsAndBoxesGameId, _p1Score, subKey: subKey);
+        ScoreService().saveScore(kDotsAndBoxesGameId, _p1Score, subKey: subKey).then((isNew) {
+          if (mounted && isNew) setState(() => _wasNewBest = true);
+        });
       }
+      _wrapper.updateScore(_p1Score);
     }
+    final isAi = _mode == _Mode.ai;
+    final gameResult = _p1Score > _p2Score
+        ? (isAi ? 'win' : 'win')
+        : _p2Score > _p1Score
+            ? (isAi ? 'loss' : 'win')
+            : 'draw';
     Future.delayed(const Duration(milliseconds: 900), () {
-      if (mounted) _wrapper.endGame();
+      if (mounted) _wrapper.endGame(result: gameResult);
     });
   }
 
@@ -420,15 +442,18 @@ class _DotsAndBoxesScreenState extends State<DotsAndBoxesScreen>
       };
 
   void _selectMode(_Mode mode) {
+    _firstRoundOfSession = true;
     setState(() { _mode = mode; _initBoard(notify: false); });
     _wrapper.setDifficultyAndMode(
       difficulty: _diffLabel(_difficulty),
       mode: mode == _Mode.ai ? 'ai' : '2_player',
+      subKey: _aiSubKey(),
     );
     _wrapper.startGame();
   }
 
   void _changeMode() {
+    _firstRoundOfSession = true;
     setState(() { _mode = null; _initBoard(notify: false); });
     _wrapper.restartGame();
   }
@@ -438,6 +463,7 @@ class _DotsAndBoxesScreenState extends State<DotsAndBoxesScreen>
     _wrapper.setDifficultyAndMode(
       difficulty: _diffLabel(_difficulty),
       mode: _mode == _Mode.ai ? 'ai' : '2_player',
+      subKey: _aiSubKey(),
     );
     _wrapper.restartGame();
     _wrapper.startGame();
@@ -450,7 +476,9 @@ class _DotsAndBoxesScreenState extends State<DotsAndBoxesScreen>
   }
 
   void _backOrHome() {
-    if (context.canPop()) context.pop(); else context.go('/home');
+    _wrapper.handleExit(() {
+      if (context.canPop()) context.pop(); else context.go('/home');
+    });
   }
 
   void _showHowToPlay(BuildContext ctx) {
@@ -527,15 +555,32 @@ class _DotsAndBoxesScreenState extends State<DotsAndBoxesScreen>
       headline: headline,
       badgeContent: badge,
       badgeColor: badgeColor,
-      showNewBestBadge: false,
-      statsWidget: game_result.GameResultPlayersRow(
-        p1Label: isAi ? 'YOU' : 'P1',
-        p2Label: isAi ? 'AI'  : 'P2',
-        p1Score: _p1Score, p2Score: _p2Score,
-        p1Color: _kP1Color, p2Color: _kP2Color,
-        p1IsWinner: _p1Score > _p2Score,
-        p2IsWinner: _p2Score > _p1Score,
-        scoreUnit: 'boxes',
+      showNewBestBadge: _wasNewBest && isAi && _p1Score > _p2Score,
+      statsWidget: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          game_result.GameResultPlayersRow(
+            p1Label: isAi ? 'YOU' : 'P1',
+            p2Label: isAi ? 'AI'  : 'P2',
+            p1Score: _p1Score, p2Score: _p2Score,
+            p1Color: _kP1Color, p2Color: _kP2Color,
+            p1IsWinner: _p1Score > _p2Score,
+            p2IsWinner: _p2Score > _p1Score,
+            scoreUnit: 'boxes',
+          ),
+          if (isAi) ...[
+            const SizedBox(height: 12),
+            game_result.GameResultStatsRow(
+              stats: [
+                game_result.StatItem(
+                  label: 'BEST',
+                  value: ScoreService().getHighScore(kDotsAndBoxesGameId, subKey: _aiSubKey()),
+                  color: const Color(0xFF6C63FF),
+                ),
+              ],
+            ),
+          ],
+        ],
       ),
       actions: [
         game_result.GameResultAction(
@@ -842,16 +887,35 @@ class _ScorePill extends StatelessWidget {
           boxShadow: [BoxShadow(color: _kAccent.withValues(alpha: 0.12),
               blurRadius: 12, offset: const Offset(0, 6))],
         ),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          _col(isAi ? 'YOU' : 'P1', p1Score, _kP1Color),
-          Padding(padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Text('VS', style: TextStyle(
-                color: Colors.grey.shade400, fontSize: 11,
-                fontWeight: FontWeight.w800, letterSpacing: 1.2))),
-          _col(isAi ? 'AI' : 'P2', p2Score, _kP2Color),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Row(mainAxisSize: MainAxisSize.min, children: [
+            _col(isAi ? 'YOU' : 'P1', p1Score, _kP1Color),
+            Padding(padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Text('VS', style: TextStyle(
+                  color: Colors.grey.shade400, fontSize: 11,
+                  fontWeight: FontWeight.w800, letterSpacing: 1.2))),
+            _col(isAi ? 'AI' : 'P2', p2Score, _kP2Color),
+          ]),
+          if (isAi) _bestLabel(),
         ]),
       ),
     ]);
+  }
+
+  Widget _bestLabel() {
+    final subKey = switch (_diff) {
+      _Difficulty.easy   => kDotsAndBoxesSubKeyEasy,
+      _Difficulty.medium => kDotsAndBoxesSubKeyMedium,
+      _Difficulty.hard   => kDotsAndBoxesSubKeyHard,
+    };
+    final best = ScoreService().getHighScore(kDotsAndBoxesGameId, subKey: subKey);
+    if (best <= 0) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Text('best $best',
+          style: TextStyle(color: Colors.grey.shade500, fontSize: 10,
+              fontWeight: FontWeight.w600)),
+    );
   }
 
   Widget _col(String label, int value, Color color) => Column(

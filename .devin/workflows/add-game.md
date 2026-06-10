@@ -95,7 +95,7 @@ The screen MUST be a `StatefulWidget` with these sections:
    _isFavorite = ScoreService().isFavorite(kMyGameId);
    ```
 
-4. **_toggleFavorite** — toggle and setState
+4. **_toggleFavorite** — call `ScoreService().toggleFavorite(kMyGameId)` and setState (fires `favorite_toggled` analytics automatically)
 
 5. **_showHelp** — show tutorial:
    ```dart
@@ -109,18 +109,26 @@ The screen MUST be a `StatefulWidget` with these sections:
 
 6. **_startGame(_Difficulty diff)** — MUST call:
    ```dart
-   GameWrapper.of(context).setDifficultyAndMode(difficulty: diff.label);
+   GameWrapper.of(context).setDifficultyAndMode(difficulty: diff.label, subKey: diff.subKey);
    GameWrapper.of(context).startGame();
    GameWrapper.of(context).updateScore(0);
    ```
+   This fires `difficulty_selected` and `game_start` analytics events automatically.
 
-7. **_newGame** / **_backToPicker** — restart / return to picker:
+7. **_newGame** / **_backOrHome** — restart / exit game:
+   The back button during gameplay MUST always exit the game entirely (navigate out of GamePlayScreen). It must NOT go back to a difficulty picker.
    ```dart
-   void _backToPicker() {
-     GameWrapper.of(context).restartGame();
-     setState(() { _activeDifficulty = null; _score = 0; _gameOver = false; });
+   void _backOrHome() {
+     final wrapper = GameWrapper.of(context);
+     wrapper.handleExit(() {
+       // stop any tickers/timers before navigating
+       if (context.canPop()) context.pop(); else context.go('/home');
+     });
    }
    ```
+   `handleExit` bumps the interstitial ad counter and shows an interstitial if eligible (cooldown passed), then calls the navigate callback.
+   
+   The "Change Mode" / "Change Difficulty" action on the result screen should also use `_backOrHome`.
 
 7b. **Rewarded continue** (for applicable games):
    ```dart
@@ -129,6 +137,84 @@ The screen MUST be a `StatefulWidget` with these sections:
      setState(() { _gameOver = false; /* restore game state */ });
    }
    ```
+
+7c. **Rewarded undo** (for multiplayer board games with AI mode — e.g. tic_tac_toe, checkers, connect_four, reversi, go, gomoku):
+   The undo feature lets the player undo their last move by watching a rewarded ad. It is available **once per round, only in AI mode**, and only if `AdsService().isRewardedReady` is true. The flow:
+   1. After the human makes a move (before the AI responds), check if undo is available.
+   2. If available, enter an "undo window" — set `_inUndoWindow = true` and pause the AI move.
+   3. Show `RewardedUndoButton` in the UI (below the board, in a 44px-high `SizedBox`).
+   4. If the player taps undo and watches the ad, restore the board to the saved snapshot and let the player move again.
+   5. If the undo timer expires (`onExpired`), set `_inUndoWindow = false` and schedule the AI move.
+   6. Block all cell taps while `_inUndoWindow` is true.
+   
+   Required state fields:
+   ```dart
+   bool _undoUsedThisRound = false;
+   bool _inUndoWindow = false;
+   List<int>? _boardBeforeHumanMove;  // snapshot of board before move
+   // + any other state to restore (e.g. piece counts, score)
+   ```
+   
+   Required methods:
+   ```dart
+   bool get _canUndo => _inUndoWindow && !_gameOver;
+
+   void _saveStateForUndo() {
+     if (_mode != _Mode.ai || _undoUsedThisRound || _currentPlayer != humanPlayer) return;
+     _boardBeforeHumanMove = List.from(_board);
+     // save any other state needed to restore
+   }
+
+   void _performUndo() {
+     // restore board and state from snapshot
+     setState(() { _inUndoWindow = false; _undoUsedThisRound = true; });
+   }
+
+   void _onUndoExpired() {
+     if (!mounted || _gameOver || !_inUndoWindow) return;
+     setState(() => _inUndoWindow = false);
+     _scheduleAiMove();
+   }
+   ```
+   
+   In `_onCellTap`, block taps when `_inUndoWindow`.
+   In the move handler, after the human moves, call `_saveStateForUndo()` before the move, then:
+   ```dart
+   if (!_undoUsedThisRound && AdsService().isRewardedReady) {
+     setState(() { _currentPlayer = aiPlayer; _inUndoWindow = true; });
+     return; // don't schedule AI yet
+   }
+   _switchTurn(); // normal flow
+   ```
+   
+   In `_buildGame`, show the undo button:
+   ```dart
+   SizedBox(
+     height: 44,
+     child: _canUndo
+         ? Center(child: RewardedUndoButton(
+             key: ValueKey('undo_${_board.join()}'),
+             onUndo: _performUndo,
+             onExpired: _onUndoExpired,
+             accentColor: _kPlayerColor,
+           ))
+         : const SizedBox.shrink(),
+   ),
+   ```
+   
+   Import: `import '../shared/rewarded_undo_button.dart';`
+   
+   Reset `_undoUsedThisRound`, `_inUndoWindow`, and `_boardBeforeHumanMove` in `_resetBoard()`.
+   
+   **Undo window player strip UX:** During the undo window, the turn indicator (PlayerStrip) MUST show the human player as active, NOT the AI. Apply these rules to `isActive`:
+   ```dart
+   // AI player strip — NOT active during undo window
+   isActive: _currentPlayer == aiPlayer && !_inUndoWindow && !_gameOver,
+   // Human player strip — IS active during undo window
+   isActive: (_currentPlayer == humanPlayer || _inUndoWindow) && !_gameOver,
+   ```
+   
+   Reference: `lib/games/tic_tac_toe/tic_tac_toe_screen.dart` and `lib/games/checkers/checkers_screen.dart`.
 
 8. **build** — returns `_activeDifficulty == null ? _buildPicker() : _buildGame()`
 
@@ -146,18 +232,155 @@ The screen MUST be a `StatefulWidget` with these sections:
     - Game board/canvas
     - If game over → `_buildGameOverScreen()`
 
-11. **_buildGameOverScreen** — uses `GenericGameResultScreen` with:
-    - `rewardedContinueAction` (if applicable)
-    - Play Again, Change Mode, Home actions
-    - Stats row
-    - Calls `GameWrapper.of(context).endGame()` when game ends
+### Score Board Pill (Multiplayer Board Games)
+For multiplayer board games (AI + 2P modes), the HUD center content MUST use a `_ScoreBoardPill` with a **difficulty/mode tab** above the score body. The rule:
+- **AI mode** → tab shows the difficulty level (`EASY` / `MEDIUM` / `HARD`) with `AnimatedDifficultyIcon` and the difficulty color
+- **Friend mode** → tab shows `PASS & PLAY` with a neutral color
 
-### Score Handling
+This is **mandatory** for consistency. Never show a plain score pill without the tab on multiplayer games.
+
+Reference implementations: `tic_tac_toe_screen.dart`, `checkers_screen.dart`, `connect_four_screen.dart`, `reversi_screen.dart`, `dots_and_boxes_screen.dart`, `go_screen.dart`, `gomoku_screen.dart`, `mancala_screen.dart`.
+
+11. **_buildGameOverScreen** — uses `GenericGameResultScreen` with:
+    - `gameId: kMyGameId` — **required** for `result_action` and share analytics
+    - `score:` — pass current score
+    - `showNewBestBadge:` — pass `_isNewBest` / `_wasNewBest` (see "New High Score" section)
+    - `rewardedContinueAction` (if applicable)
+    - Play Again, Change Mode, Home actions — **each with `actionId:`** for analytics
+    - Stats row
+    - Calls `GameWrapper.of(context).endGame(result: ...)` when game ends — pass `'win'`, `'loss'`, or `'draw'`
+
+### Score Handling & High Score
+- **Pass `subKey` to `setDifficultyAndMode`** — this is **mandatory** so the wrapper loads the correct high score for the active difficulty:
+  ```dart
+  // Board games (AI mode):
+  _wrapper.setDifficultyAndMode(
+    difficulty: _diffLabel(_difficulty),
+    mode: mode == _Mode.ai ? 'ai' : '2_player',
+    subKey: _aiSubKey(),  // returns null for 2P → wrapper uses bare key
+  );
+  // Single-player games:
+  GameWrapper.of(context).setDifficultyAndMode(
+    difficulty: diff.label,
+    subKey: diff.subKey,
+  );
+  ```
+- **Call `updateScore`** whenever the score changes so the wrapper tracks it for `endGame()`:
+  - Single-player: `GameWrapper.of(context).updateScore(_score)` after each point change
+  - Board games (AI win): `_wrapper.updateScore(_streak)` before `endGame()` fires
 - Save scores: `ScoreService().saveScore(kMyGameId, score, subKey: diff.subKey)`
-- Update wrapper: `GameWrapper.of(context).updateScore(score)`
-- On game over: `GameWrapper.of(context).endGame()` (this triggers interstitial ad + analytics)
+- On game over: `GameWrapper.of(context).endGame(result: 'win')` or `endGame(result: 'loss')` or `endGame(result: 'draw')` — this triggers interstitial ad + analytics with the correct game outcome
 - Play sound on score: `AudioService().playScore()`
 - Play sound on game over: handled automatically by `GameWrapper.endGame()`
+- **Do NOT call** `ScoreService().incrementGamePlayCount()` directly — `GameWrapper.endGame()` already handles this centrally
+
+Without `subKey` and `updateScore`, the high score will always show as 0 in the wrapper.
+
+### Analytics Events (all centralized — no manual calls needed)
+The following events are fired automatically by the architecture. New games get them for free as long as they use the standard patterns:
+
+| Event | Fired by | Requirement |
+|---|---|---|
+| `game_open` | `GamePlayScreen.initState()` | Automatic |
+| `difficulty_selected` | `GameWrapper.setDifficultyAndMode()` | Call `setDifficultyAndMode` with difficulty |
+| `game_start` | `GameWrapper.startGame()` | Call `startGame()` |
+| `game_end` | `GameWrapper.endGame()` | Call `endGame(result: 'win'/'loss'/'draw')` |
+| `game_restart` | `GameWrapper.restartGame()` | Call `restartGame()` |
+| `result_action` | `GenericGameResultScreen` | Pass `actionId` on every `GameResultAction` |
+| `favorite_toggled` | `ScoreService.toggleFavorite()` | Wire up favorite button |
+| `tutorial_started/completed` | `showHowToPlaySheet()` | Pass `gameId:` to `showHowToPlaySheet()` |
+| `ad_shown/completed/skipped/failed` | `AdsService` | Automatic via `endGame()` |
+
+**Result values for `endGame(result:)`:**
+- Single-player (dies): `'loss'` (default)
+- Single-player (completes/solves): `'win'`
+- Board game AI mode: `'win'` if human wins, `'loss'` if AI wins, `'draw'` if draw
+- Board game Pass & Play: `'win'` (someone always wins)
+- Timer-based games (ends on timer): `'loss'` (default)
+
+### "New High Score" / "New Best" Badge
+Every game MUST show a **"New High Score"** or **"New Best"** indicator on the result screen when the player beats their previous best — but **only in AI mode (board games) or single-player mode**. Never in Pass & Play / friend mode.
+
+**Single-player games:**
+- Track `_isNewBest` (or `_isNewBestScore`) — set to `true` when `_score > _bestScore`
+- Pass `showNewBestBadge: _isNewBest` to `GenericGameResultScreen`
+- Show a `StatItem(label: 'BEST', value: _bestScore)` in the result stats row
+
+**Board games (AI mode):**
+- Track `_wasNewBest` — set via `ScoreService().saveScore(...).then((isNew) { if (isNew) _wasNewBest = true; })`
+- Only set `_wasNewBest = true` when `isAi && winner == humanPlayer` (never in 2P mode)
+- Reset `_wasNewBest = false` in `_initBoard()` / `_resetBoard()` and on AI win / draw
+- Display via either:
+  - `showNewBestBadge: _wasNewBest` on `GenericGameResultScreen`, OR
+  - Custom `_NewBestBadge` / `_NewBestChip` widget in `extraBadges` list
+- Gate the display: `_wasNewBest && isAi` (optionally `&& playerWins`)
+
+**Hangman (single-player streak game):**
+- Same as board games: `showNewBestBadge: _wasNewBest`, set only on win
+
+### "BEST" Stat in Result Screen
+Every board game and multiplayer game with AI mode MUST show a **BEST** stat in the result screen (AI mode only). This tells the player their best win streak or score at the current difficulty.
+
+**Games using `GameResultStatsRow` (tic_tac_toe, checkers, connect_four, reversi, go, gomoku, hangman):**
+```dart
+statsWidget: game_result.GameResultStatsRow(
+  stats: [
+    game_result.StatItem(label: isAi ? 'YOU' : 'P1', value: _p1Wins, color: _kP1Color),
+    game_result.StatItem(label: 'DRAWS', value: _draws, color: const Color(0xFF8B7BA7)),
+    game_result.StatItem(label: isAi ? 'AI' : 'P2', value: _p2Wins, color: _kP2Color),
+    if (isAi)
+      game_result.StatItem(
+        label: 'BEST',
+        value: ScoreService().getHighScore(kMyGameId, subKey: _aiSubKey()),
+        color: const Color(0xFF6C63FF),
+      ),
+  ],
+),
+```
+
+**Games using `GameResultPlayersRow` (mancala, dots_and_boxes, memory_match):**
+```dart
+statsWidget: Column(
+  mainAxisSize: MainAxisSize.min,
+  children: [
+    game_result.GameResultPlayersRow(...),
+    if (isAi) ...[
+      const SizedBox(height: 12),
+      game_result.GameResultStatsRow(
+        stats: [
+          game_result.StatItem(
+            label: 'BEST',
+            value: ScoreService().getHighScore(kMyGameId, subKey: _aiSubKey()),
+            color: const Color(0xFF6C63FF),
+          ),
+        ],
+      ),
+    ],
+  ],
+),
+```
+
+### "best X" in HUD Score Pill
+Board games and multiplayer AI games MUST show a small `best X` label inside the HUD score pill (below the VS row) when in AI mode and the player has a previous high score.
+
+```dart
+Widget _bestLabel(_Difficulty d) {
+  final subKey = switch (d) {
+    _Difficulty.easy => kMyGameSubKeyEasy,
+    _Difficulty.medium => kMyGameSubKeyMedium,
+    _Difficulty.hard => kMyGameSubKeyHard,
+  };
+  final best = ScoreService().getHighScore(kMyGameId, subKey: subKey);
+  if (best <= 0) return const SizedBox.shrink();
+  return Padding(
+    padding: const EdgeInsets.only(top: 4),
+    child: Text('best $best',
+        style: TextStyle(color: Colors.grey.shade500, fontSize: 10,
+            fontWeight: FontWeight.w600)),
+  );
+}
+```
+Wrap the existing `Row(children: [_scoreCol(...), VS, _scoreCol(...)])` inside a `Column` and add `if (isAi) _bestLabel(difficulty)` below.
 
 ### Auto-Pause (Real-Time Games Only)
 For games with timers/animation controllers (snake, dino, etc.), add `WidgetsBindingObserver`:
@@ -303,7 +526,16 @@ In `lib/games/game_stats_bootstrap.dart`:
 2. Confirm the game appears on the home screen
 3. Confirm picker → game → game over → result screen flow works
 4. Confirm tutorial shows on first visit
-5. Confirm analytics fires (game_start, game_end with difficulty, score, duration)
+5. Verify all analytics events fire correctly:
+   - `game_open` — automatic when game screen opens
+   - `difficulty_selected` — when calling `setDifficultyAndMode(difficulty:, subKey:)`
+   - `game_start` — when calling `startGame()`
+   - `game_end` — when calling `endGame(result: 'win'/'loss'/'draw')` with correct result
+   - `game_restart` — when calling `restartGame()` or `continueAfterGameOver()`
+   - `result_action` — every `GameResultAction` must have `actionId:` (`'play_again'`, `'change_mode'`, `'home'`)
+   - `favorite_toggled` — favorite button calls `ScoreService().toggleFavorite()`
+   - `tutorial_started/completed` — `showHowToPlaySheet()` passes `gameId:`
+   - Ad events — automatic via `endGame()` interstitial + rewarded continue/undo
 
 ## Step 9: Add Test Coverage
 
@@ -624,11 +856,19 @@ All tests MUST pass at every step. If any fail, fix the game code (not the tests
 - [ ] `GameInfo` added to `GameRegistry.allGames`
 - [ ] Stats registered in `game_stats_bootstrap.dart`
 - [ ] `GameWrapper` lifecycle wired (startGame, endGame, updateScore, setDifficultyAndMode)
-- [ ] `GameWrapper.restartGame()` called on back-to-picker
+- [ ] Back button (`_backOrHome`) exits game entirely via `handleExit` — does NOT go to picker
 - [ ] `GameWrapper.continueAfterGameOver()` wired if rewarded continue used
+- [ ] Rewarded undo wired (multiplayer board games with AI mode only — see step 7c)
+- [ ] Undo window PlayerStrip UX: human `isActive` during undo window, AI NOT active
 - [ ] `ScoreService` wired (saveScore, getHighScore, isFavorite)
 - [ ] `AudioService().playScore()` on point gain
 - [ ] Tutorial wired (showHowToPlaySheet with gameId)
+- [ ] `endGame(result:)` passes correct result — `'win'`/`'loss'`/`'draw'` (not bare `endGame()`)
+- [ ] Every `GameResultAction` has an `actionId:` (e.g. `'play_again'`, `'change_mode'`, `'home'`)
+- [ ] `GenericGameResultScreen` passes `gameId:` and `score:` for share/analytics
+- [ ] `showNewBestBadge:` wired correctly (AI/single-player mode only)
+- [ ] BEST stat shown in result screen (AI mode for board games, always for hangman)
+- [ ] `best X` label shown in HUD score pill (AI mode, board/multiplayer games)
 - [ ] Analytics wired (difficulty passed to setDifficultyAndMode)
 - [ ] WidgetsBindingObserver added (real-time games only)
 - [ ] No hardcoded strings — use AppStrings where applicable

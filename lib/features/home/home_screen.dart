@@ -143,6 +143,14 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                   ),
                 ),
 
+              if (favoriteIds.isNotEmpty)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+                    child: _buildFavoritesRow(favoriteIds),
+                  ),
+                ),
+
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
@@ -373,6 +381,70 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
     );
   }
 
+  Widget _buildFavoritesRow(List<String> favoriteIds) {
+    final games = favoriteIds
+        .map((id) => GameRegistry.getById(id))
+        .where((g) => g != null)
+        .cast<GameInfo>()
+        .toList();
+    if (games.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            _SectionHeader(
+              title: AppStrings.favorites,
+              accentColor: const Color(0xFFE85D75),
+            ),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE85D75).withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '${games.length}',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFFE85D75),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 88,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: games.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 10),
+            itemBuilder: (context, index) {
+              final game = games[index];
+              return _FavoriteCard(
+                game: game,
+                onTap: () {
+                  AnalyticsService().homeSectionTapped(
+                    section: 'favorites',
+                    gameId: game.id,
+                  );
+                  context.push('/game/${game.id}');
+                },
+              )
+                  .animate(delay: (index * 60).ms)
+                  .fadeIn(duration: 300.ms)
+                  .slideX(begin: 0.25);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildMasonryGrid({
     required List<String> recentIds,
     required List<String> favoriteIds,
@@ -465,6 +537,93 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
           spacing: spacing,
         );
       },
+    );
+  }
+}
+
+class _FavoriteCard extends StatelessWidget {
+  final GameInfo game;
+  final VoidCallback onTap;
+  const _FavoriteCard({required this.game, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 200,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: game.color.withValues(alpha: 0.12),
+              blurRadius: 16,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: game.bgColor,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: game.hasBrandedLogo
+                  ? game.buildBrandedLogo(size: 56)
+                  : Center(child: game.buildIcon(size: 28)),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    game.name,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                      color: Color(0xFF1A1A2E),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    game.category.label,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey.shade500,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: game.color.withValues(alpha: 0.10),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.play_arrow_rounded,
+                size: 18,
+                color: game.color,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -693,29 +852,30 @@ class _FavoritableGameTileState extends State<_FavoritableGameTile> {
             ),
             if (widget.tile.isFavorite)
               Positioned(
-                top: -6,
-                right: -6,
+                top: -5,
+                right: -5,
                 child: Container(
                   width: 24,
                   height: 24,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFE85D75),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.white,
-                      width: 2,
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFFFF6B8A), Color(0xFFE85D75)],
                     ),
-                    boxShadow: const [
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2.5),
+                    boxShadow: [
                       BoxShadow(
-                        color: Color(0x33000000),
-                        blurRadius: 4,
-                        offset: Offset(0, 2),
+                        color: const Color(0xFFE85D75).withValues(alpha: 0.40),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
                       ),
                     ],
                   ),
                   child: const Icon(
                     Icons.favorite_rounded,
-                    size: 10,
+                    size: 11,
                     color: Colors.white,
                   ),
                 ),

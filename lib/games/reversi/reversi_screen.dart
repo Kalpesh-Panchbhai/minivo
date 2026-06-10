@@ -90,6 +90,8 @@ class _ReversiScreenState extends State<ReversiScreen>
   bool _inUndoWindow = false;
 
   bool _isFavorite = false;
+  int _starter = 1;
+  bool _firstRoundOfSession = true;
   static const _gameId = kReversiGameId;
 
   final _audio = AudioService();
@@ -147,11 +149,13 @@ class _ReversiScreenState extends State<ReversiScreen>
       _streak = 0;
       _streakOwner = null;
       _showStreakBadge = false;
+      _firstRoundOfSession = true;
     });
     _resetBoard();
     _wrapper.setDifficultyAndMode(
       difficulty: _diffLabel(_difficulty),
       mode: mode == _Mode.ai ? 'ai' : '2_player',
+      subKey: _aiSubKey(),
     );
     _wrapper.startGame();
   }
@@ -165,6 +169,7 @@ class _ReversiScreenState extends State<ReversiScreen>
       _streak = 0;
       _streakOwner = null;
       _showStreakBadge = false;
+      _firstRoundOfSession = true;
     });
     _resetBoard(notify: false);
     _wrapper.restartGame();
@@ -175,6 +180,7 @@ class _ReversiScreenState extends State<ReversiScreen>
     _wrapper.setDifficultyAndMode(
       difficulty: _diffLabel(_difficulty),
       mode: _mode == _Mode.ai ? 'ai' : '2_player',
+      subKey: _aiSubKey(),
     );
     _wrapper.restartGame();
     _wrapper.startGame();
@@ -182,14 +188,20 @@ class _ReversiScreenState extends State<ReversiScreen>
 
   void _resetBoard({bool notify = true}) {
     void apply() {
+      if (_firstRoundOfSession) {
+        _starter = _rng.nextBool() ? 1 : 2;
+        _firstRoundOfSession = false;
+      } else {
+        _starter = _starter == 1 ? 2 : 1;
+      }
       _grid = _initialGrid();
-      _currentPlayer = 1;
+      _currentPlayer = _starter;
       _gameOver = false;
       _aiThinking = false;
       _wasNewBest = false;
       _showStreakBadge = false;
       _celebrating = false;
-      _validMoves = _getValidMoves(1);
+      _validMoves = _getValidMoves(_currentPlayer);
       _flippingFrom = {};
       _lastPlacedR = null;
       _lastPlacedC = null;
@@ -206,6 +218,9 @@ class _ReversiScreenState extends State<ReversiScreen>
     } else {
       apply();
     }
+    if (_mode == _Mode.ai && _currentPlayer == 2) {
+      _scheduleAiMove();
+    }
   }
 
   void _toggleFavorite() {
@@ -217,11 +232,13 @@ class _ReversiScreenState extends State<ReversiScreen>
   }
 
   void _backOrHome() {
-    if (context.canPop()) {
-      context.pop();
-    } else {
-      context.go('/home');
-    }
+    _wrapper.handleExit(() {
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/home');
+      }
+    });
   }
 
   void _showHelp() {
@@ -474,14 +491,19 @@ class _ReversiScreenState extends State<ReversiScreen>
       _wasNewBest = false;
     }
 
+    if (isAi && winner == 1) _wrapper.updateScore(_streak);
+
     setState(() {
       _gameOver = true;
       _validMoves = [];
       if (winner != null) _celebrating = true;
     });
 
+    final gameResult = winner == null
+        ? 'draw'
+        : isAi ? (winner == 1 ? 'win' : 'loss') : 'win';
     Future.delayed(const Duration(milliseconds: 1200), () {
-      if (mounted) _wrapper.endGame();
+      if (mounted) _wrapper.endGame(result: gameResult);
     });
   }
 
@@ -849,6 +871,12 @@ class _ReversiScreenState extends State<ReversiScreen>
           game_result.StatItem(label: isAi ? 'YOU' : 'P1', value: _p1Wins, color: const Color(0xFF333333)),
           game_result.StatItem(label: 'DRAWS', value: _draws, color: const Color(0xFF8B7BA7)),
           game_result.StatItem(label: isAi ? 'AI' : 'P2', value: _p2Wins, color: const Color(0xFF888888)),
+          if (isAi)
+            game_result.StatItem(
+              label: 'BEST',
+              value: ScoreService().getHighScore(_gameId, subKey: _aiSubKey()),
+              color: const Color(0xFF6C63FF),
+            ),
         ],
       ),
       actions: [
@@ -1350,19 +1378,41 @@ class _ScorePill extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
             boxShadow: [BoxShadow(color: _kAccent.withValues(alpha: 0.18), blurRadius: 12, offset: const Offset(0, 6))],
           ),
-          child: Row(
+          child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              _scoreCol(isAi ? 'YOU' : 'P1', p1Wins, const Color(0xFF333333)),
-              const SizedBox(width: 14),
-              const Text('VS', style: TextStyle(color: Color(0xFF8B7BA7), fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
-              const SizedBox(width: 14),
-              _scoreCol(isAi ? 'AI' : 'P2', p2Wins, const Color(0xFF888888)),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  _scoreCol(isAi ? 'YOU' : 'P1', p1Wins, const Color(0xFF333333)),
+                  const SizedBox(width: 14),
+                  const Text('VS', style: TextStyle(color: Color(0xFF8B7BA7), fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
+                  const SizedBox(width: 14),
+                  _scoreCol(isAi ? 'AI' : 'P2', p2Wins, const Color(0xFF888888)),
+                ],
+              ),
+              if (isAi) _bestLabel(difficulty),
             ],
           ),
         ),
       ],
+    );
+  }
+
+  Widget _bestLabel(_Difficulty d) {
+    final subKey = switch (d) {
+      _Difficulty.easy => kRvSubKeyEasy,
+      _Difficulty.medium => kRvSubKeyMedium,
+      _Difficulty.hard => kRvSubKeyHard,
+    };
+    final best = ScoreService().getHighScore(kReversiGameId, subKey: subKey);
+    if (best <= 0) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Text('best $best',
+          style: TextStyle(color: Colors.grey.shade500, fontSize: 10,
+              fontWeight: FontWeight.w600)),
     );
   }
 

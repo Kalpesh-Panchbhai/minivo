@@ -155,6 +155,7 @@ class _TicTacToeScreenState extends State<TicTacToeScreen>
     _wrapper.setDifficultyAndMode(
       difficulty: _difficultyMeta(_difficulty).label,
       mode: mode == _Mode.ai ? 'ai' : '2_player',
+      subKey: _aiSubKey(),
     );
     _wrapper.startGame();
   }
@@ -179,6 +180,7 @@ class _TicTacToeScreenState extends State<TicTacToeScreen>
     _wrapper.setDifficultyAndMode(
       difficulty: _difficultyMeta(_difficulty).label,
       mode: _mode == _Mode.ai ? 'ai' : '2_player',
+      subKey: _aiSubKey(),
     );
     _wrapper.restartGame();
     _wrapper.startGame();
@@ -231,11 +233,13 @@ class _TicTacToeScreenState extends State<TicTacToeScreen>
   }
 
   void _backOrHome() {
-    if (context.canPop()) {
-      context.pop();
-    } else {
-      context.go('/home');
-    }
+    _wrapper.handleExit(() {
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/home');
+      }
+    });
   }
 
   void _showHowToPlay(BuildContext context) {
@@ -532,11 +536,17 @@ class _TicTacToeScreenState extends State<TicTacToeScreen>
       _wasNewBest = false;
     }
 
+    if (isAi && player == 'X') _wrapper.updateScore(_streak);
+
     _winLineCtrl.forward(from: 0);
+    final isAiWin = isAi && player == 'X';
+    final isAiLoss = isAi && player == 'O';
+    final gameResult = isAi ? (isAiWin ? 'win' : 'loss') : 'win';
+
     _audio.playSuccess();
     _endGameTimer?.cancel();
     _endGameTimer = Timer(const Duration(milliseconds: 1700), () {
-      if (mounted) _wrapper.endGame();
+      if (mounted) _wrapper.endGame(result: gameResult);
     });
   }
 
@@ -556,7 +566,7 @@ class _TicTacToeScreenState extends State<TicTacToeScreen>
     });
     _endGameTimer?.cancel();
     _endGameTimer = Timer(const Duration(milliseconds: 1500), () {
-      if (mounted) _wrapper.endGame();
+      if (mounted) _wrapper.endGame(result: 'draw');
     });
   }
 
@@ -649,6 +659,12 @@ class _TicTacToeScreenState extends State<TicTacToeScreen>
           game_result.StatItem(label: isAi ? 'YOU' : 'P1', value: _xWins, color: _kXColor),
           game_result.StatItem(label: 'DRAWS', value: _draws, color: const Color(0xFF8B7BA7)),
           game_result.StatItem(label: isAi ? 'AI' : 'P2', value: _oWins, color: _kOColor),
+          if (isAi)
+            game_result.StatItem(
+              label: 'BEST',
+              value: ScoreService().getHighScore(kTicTacToeGameId, subKey: _aiSubKey()),
+              color: const Color(0xFF6C63FF),
+            ),
         ],
       ),
       actions: [
@@ -1370,27 +1386,49 @@ class _ScoreBoardPill extends StatelessWidget {
               ),
             ],
           ),
-          child: Row(
+          child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              _scoreColumn(leftLabel, xWins, _kXColor),
-              const SizedBox(width: 14),
-              const Text(
-                'VS',
-                style: TextStyle(
-                  color: Color(0xFF8B7BA7),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.2,
-                ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  _scoreColumn(leftLabel, xWins, _kXColor),
+                  const SizedBox(width: 14),
+                  const Text(
+                    'VS',
+                    style: TextStyle(
+                      color: Color(0xFF8B7BA7),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  _scoreColumn(rightLabel, oWins, _kOColor),
+                ],
               ),
-              const SizedBox(width: 14),
-              _scoreColumn(rightLabel, oWins, _kOColor),
+              if (isAi) _bestLabel(difficulty),
             ],
           ),
         ),
       ],
+    );
+  }
+
+  Widget _bestLabel(_Difficulty d) {
+    final subKey = switch (d) {
+      _Difficulty.easy => kTicTacToeSubKeyEasy,
+      _Difficulty.medium => kTicTacToeSubKeyMedium,
+      _Difficulty.hard => kTicTacToeSubKeyHard,
+    };
+    final best = ScoreService().getHighScore(kTicTacToeGameId, subKey: subKey);
+    if (best <= 0) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Text('best $best',
+          style: TextStyle(color: Colors.grey.shade500, fontSize: 10,
+              fontWeight: FontWeight.w600)),
     );
   }
 

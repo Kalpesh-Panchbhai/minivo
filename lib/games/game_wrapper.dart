@@ -46,8 +46,10 @@ class GameWrapperState extends State<GameWrapper> {
   // begin a new session by clearing the flag.
   bool _sessionCounted = false;
   bool _hasContinued = false;
+  bool _abandonCounted = false;
   String? _difficulty;
   String? _mode;
+  String? _subKey;
 
   String get gameId => widget.gameId;
   GameState get state => _state;
@@ -55,7 +57,7 @@ class GameWrapperState extends State<GameWrapper> {
   int get highScore => _highScore;
   bool get hasContinued => _hasContinued;
 
-  void setDifficultyAndMode({String? difficulty, String? mode}) {
+  void setDifficultyAndMode({String? difficulty, String? mode, String? subKey}) {
     if (difficulty != null && difficulty != _difficulty) {
       AnalyticsService().difficultySelected(
         gameId: widget.gameId,
@@ -64,6 +66,8 @@ class GameWrapperState extends State<GameWrapper> {
     }
     _difficulty = difficulty;
     _mode = mode;
+    _subKey = subKey;
+    _highScore = ScoreService().getHighScore(widget.gameId, subKey: subKey);
   }
 
   @override
@@ -72,10 +76,37 @@ class GameWrapperState extends State<GameWrapper> {
     _highScore = ScoreService().getHighScore(widget.gameId);
   }
 
+  @override
+  void dispose() {
+    if ((_state == GameState.playing || _state == GameState.paused) &&
+        !_abandonCounted) {
+      AdsService().notifyGameOver();
+    }
+    super.dispose();
+  }
+
+  /// Call from the game's back/home handler instead of navigating directly.
+  /// Bumps the interstitial counter and shows an ad if eligible, then
+  /// calls [navigate] to leave the screen.
+  void handleExit(VoidCallback navigate) {
+    if ((_state == GameState.playing || _state == GameState.paused) &&
+        !_abandonCounted) {
+      _abandonCounted = true;
+      AdsService().notifyGameOver();
+      AdsService().showInterstitial(
+        gameId: widget.gameId,
+        onComplete: navigate,
+      );
+    } else {
+      navigate();
+    }
+  }
+
   void startGame() {
     _startedAt = DateTime.now();
     _sessionCounted = false;
     _hasContinued = false;
+    _abandonCounted = false;
     setState(() {
       _state = GameState.playing;
       _score = 0;
@@ -116,12 +147,15 @@ class GameWrapperState extends State<GameWrapper> {
     }
   }
 
-  void endGame() {
+  String _lastResult = 'loss';
+
+  void endGame({String result = 'loss'}) {
+    _lastResult = result;
     AudioService().playGameOver();
     final isNew = _score > _highScore;
     if (isNew) {
       _highScore = _score;
-      ScoreService().saveScore(widget.gameId, _score);
+      ScoreService().saveScore(widget.gameId, _score, subKey: _subKey);
     }
     // Per-session bookkeeping (counts, coins, recents, analytics) fires
     // ONCE per session. After `continueAfterGameOver`, _state flips back
@@ -144,7 +178,7 @@ class GameWrapperState extends State<GameWrapper> {
           : DateTime.now().difference(_startedAt!).inSeconds;
       AnalyticsService().gameEnd(
         gameId: widget.gameId,
-        result: 'loss',
+        result: _lastResult,
         score: _score,
         durationSec: duration,
         isHighScore: isNew,
@@ -155,6 +189,7 @@ class GameWrapperState extends State<GameWrapper> {
         'game_id': widget.gameId,
         'score': _score,
         'duration_sec': duration,
+        'result': _lastResult,
         'is_high_score': isNew,
         'difficulty': _difficulty,
         'mode': _mode,
@@ -208,6 +243,7 @@ class GameWrapperState extends State<GameWrapper> {
     _startedAt = null;
     _sessionCounted = false;
     _hasContinued = false;
+    _abandonCounted = false;
     setState(() {
       _state = GameState.ready;
       _score = 0;
