@@ -643,6 +643,12 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen>
     setState(() => _mode = mode);
   }
 
+  void _backToPicker() {
+    _cancelAllTimers();
+    setState(() => _mode = null);
+    GameWrapper.of(context).restartGame();
+  }
+
   void _backOrHome() {
     final wrapper = GameWrapper.of(context);
     wrapper.handleExit(() {
@@ -935,7 +941,7 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen>
         game_result.GameResultAction(
           label: 'Change Mode',
           icon: Icons.tune_rounded,
-          onTap: _backOrHome,
+          onTap: _backToPicker,
           actionId: 'change_mode',
         ),
         game_result.GameResultAction(

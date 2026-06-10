@@ -310,6 +310,15 @@ class _FlappyTapScreenState extends State<FlappyTapScreen>
     _startTicker();
   }
 
+  void _backToPicker() {
+    _stopTicker();
+    setState(() {
+      _activeDifficulty = null;
+      _gameOver = false;
+    });
+    GameWrapper.of(context).restartGame();
+  }
+
   void _backOrHome() {
     final wrapper = GameWrapper.of(context);
     wrapper.handleExit(() {
@@ -622,7 +631,7 @@ class _FlappyTapScreenState extends State<FlappyTapScreen>
         game_result.GameResultAction(
           label: 'Change Mode',
           icon: Icons.tune_rounded,
-          onTap: _backOrHome,
+          onTap: _backToPicker,
           filled: false,
           actionId: 'change_mode',
         ),

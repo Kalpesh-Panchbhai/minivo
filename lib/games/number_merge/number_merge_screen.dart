@@ -213,6 +213,14 @@ class _NumberMergeScreenState extends State<NumberMergeScreen> {
 
   void _newGame() => _startGame(_activeDifficulty ?? _pickerDifficulty);
 
+  void _backToPicker() {
+    setState(() {
+      _activeDifficulty = null;
+      _gameOver = false;
+    });
+    GameWrapper.of(context).restartGame();
+  }
+
   void _backOrHome() {
     final wrapper = GameWrapper.of(context);
     wrapper.handleExit(() {
@@ -788,7 +796,7 @@ class _NumberMergeScreenState extends State<NumberMergeScreen> {
         game_result.GameResultAction(
           label: 'Change Mode',
           icon: Icons.tune_rounded,
-          onTap: _backOrHome,
+          onTap: _backToPicker,
           filled: false,
           actionId: 'change_mode',
         ),

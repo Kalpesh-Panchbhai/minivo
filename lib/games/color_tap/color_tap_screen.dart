@@ -385,6 +385,17 @@ class _ColorTapScreenState extends State<ColorTapScreen>
     _nextRound(diff);
   }
 
+  void _backToPicker() {
+    _roundTimer?.cancel();
+    _feedbackTimer?.cancel();
+    _timerCtrl.stop();
+    setState(() {
+      _activeDifficulty = null;
+      _gameOver = false;
+    });
+    GameWrapper.of(context).restartGame();
+  }
+
   void _backOrHome() {
     final wrapper = GameWrapper.of(context);
     wrapper.handleExit(() {
@@ -612,7 +623,7 @@ class _ColorTapScreenState extends State<ColorTapScreen>
         game_result.GameResultAction(
           label: 'Change Mode',
           icon: Icons.tune_rounded,
-          onTap: _backOrHome,
+          onTap: _backToPicker,
           filled: false,
           actionId: 'change_mode',
         ),

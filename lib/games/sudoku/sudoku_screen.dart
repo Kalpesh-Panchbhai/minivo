@@ -374,6 +374,13 @@ class _SudokuScreenState extends State<SudokuScreen> {
 
   void _newGame() => _startGame(_activeDiff ?? _pickerDiff);
 
+  void _backToPicker() {
+    _ticker?.cancel();
+    _stopwatch.stop();
+    setState(() => _mode = _Mode.picker);
+    GameWrapper.of(context).restartGame();
+  }
+
   void _backOrHome() {
     final wrapper = GameWrapper.of(context);
     wrapper.handleExit(() {
@@ -545,7 +552,7 @@ class _SudokuScreenState extends State<SudokuScreen> {
         game_result.GameResultAction(
           label: 'Change Difficulty',
           icon: Icons.tune_rounded,
-          onTap: _backOrHome,
+          onTap: _backToPicker,
           filled: false,
           actionId: 'change_mode',
         ),

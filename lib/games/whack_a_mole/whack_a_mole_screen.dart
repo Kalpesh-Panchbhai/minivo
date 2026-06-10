@@ -419,6 +419,16 @@ class _WhackAMoleScreenState extends State<WhackAMoleScreen>
 
   void _newGame() => _startGame(_activeDifficulty ?? _pickerDifficulty);
 
+  void _backToPicker() {
+    _spawnTimer?.cancel();
+    _tickTimer?.cancel();
+    setState(() {
+      _activeDifficulty = null;
+      _gameOver = false;
+    });
+    GameWrapper.of(context).restartGame();
+  }
+
   void _backOrHome() {
     final wrapper = GameWrapper.of(context);
     wrapper.handleExit(() {
@@ -571,7 +581,7 @@ class _WhackAMoleScreenState extends State<WhackAMoleScreen>
         game_result.GameResultAction(
           label: 'Change Mode',
           icon: Icons.tune_rounded,
-          onTap: _backOrHome,
+          onTap: _backToPicker,
           filled: false,
           actionId: 'change_mode',
         ),
