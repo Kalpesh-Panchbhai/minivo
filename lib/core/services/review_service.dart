@@ -9,10 +9,11 @@ class ReviewService {
   factory ReviewService() => _instance;
 
   static const _kLastPrompted = 'review_last_prompted';
-  static const _kCompleted = 'review_completed';
+  static const _kPromptCount = 'review_prompt_count';
 
   static const _minGamesPlayed = 5;
-  static const _minDaysBetweenPrompts = 7;
+  static const _minDaysBetweenPrompts = 30;
+  static const _maxLifetimePrompts = 3;
 
   bool _promptedThisSession = false;
 
@@ -21,7 +22,8 @@ class ReviewService {
 
     final prefs = await SharedPreferences.getInstance();
 
-    if (prefs.getBool(_kCompleted) ?? false) return;
+    final promptCount = prefs.getInt(_kPromptCount) ?? 0;
+    if (promptCount >= _maxLifetimePrompts) return;
 
     if (ScoreService().getTotalGamesPlayed() < _minGamesPlayed) return;
 
@@ -37,7 +39,7 @@ class ReviewService {
     _promptedThisSession = true;
     await prefs.setInt(
         _kLastPrompted, DateTime.now().millisecondsSinceEpoch);
-    await prefs.setBool(_kCompleted, true);
+    await prefs.setInt(_kPromptCount, promptCount + 1);
 
     await Future.delayed(const Duration(seconds: 2));
     await review.requestReview();

@@ -1,5 +1,3 @@
-import 'dart:io' show Platform;
-
 import 'package:flutter/material.dart';
 import 'package:in_app_review/in_app_review.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -153,17 +151,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             AnalyticsService()
                                 .externalLinkOpened(link: 'rate_app');
                             final review = InAppReview.instance;
-                            if (await review.isAvailable()) {
-                              await review.requestReview();
-                            } else {
-                              final url = Platform.isIOS
-                                  ? 'https://apps.apple.com/app/minivo/id0000000000' // TODO: replace with real App Store ID
-                                  : 'https://play.google.com/store/apps/details?id=com.puzzloragames.dropzy';
-                              launchUrl(
-                                Uri.parse(url),
-                                mode: LaunchMode.externalApplication,
-                              );
-                            }
+                            await review.openStoreListing(
+                              appStoreId: '6746498516',
+                            );
                           },
                         ),
                         _SettingsTile(

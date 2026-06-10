@@ -122,7 +122,6 @@ class GameWrapperState extends State<GameWrapper> {
     if (isNew) {
       _highScore = _score;
       ScoreService().saveScore(widget.gameId, _score);
-      ReviewService().maybeRequestReview();
     }
     // Per-session bookkeeping (counts, coins, recents, analytics) fires
     // ONCE per session. After `continueAfterGameOver`, _state flips back
@@ -131,6 +130,7 @@ class GameWrapperState extends State<GameWrapper> {
     if (!_sessionCounted) {
       _sessionCounted = true;
       ScoreService().incrementGamesPlayed();
+      ReviewService().maybeRequestReview();
       ScoreService().incrementGamePlayCount(widget.gameId);
       ScoreService().addRecentlyPlayed(widget.gameId);
 
