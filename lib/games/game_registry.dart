@@ -46,6 +46,12 @@ import 'solitaire/solitaire_logo.dart';
 import 'solitaire/solitaire_screen.dart';
 import 'sliding_puzzle/sliding_puzzle_logo.dart';
 import 'sliding_puzzle/sliding_puzzle_screen.dart';
+import 'number_sequence/number_sequence_logo.dart';
+import 'number_sequence/number_sequence_screen.dart';
+import 'water_sort/water_sort_logo.dart';
+import 'water_sort/water_sort_screen.dart';
+import 'nuts_and_bolts/nuts_and_bolts_logo.dart';
+import 'nuts_and_bolts/nuts_and_bolts_screen.dart';
 
 typedef GameWidgetBuilder = Widget Function();
 
@@ -76,6 +82,9 @@ class GameRegistry {
     'minesweeper': () => const MinesweeperScreen(),
     'solitaire': () => const SolitaireScreen(),
     'sliding_puzzle': () => const SlidingPuzzleScreen(),
+    'number_sequence': () => const NumberSequenceScreen(),
+    'water_sort': () => const WaterSortScreen(),
+    'nuts_and_bolts': () => const NutsAndBoltsScreen(),
   };
 
   static Widget buildGame(String gameId) {
@@ -511,18 +520,77 @@ class GameRegistry {
       playCount: 0,
       customLogo: buildSlidingPuzzleLogo,
     ),
+    const GameInfo(
+      id: 'number_sequence',
+      name: 'Number Sequence',
+      description: 'Find scattered numbers in order — race the clock!',
+      howToPlay:
+          'Choose your difficulty (Easy = 25 numbers, Medium = 50, Hard = 100).\n'
+          'Numbers are scattered randomly across the screen.\n'
+          'Tap them in ascending order: 1, 2, 3… as fast as you can!\n'
+          'Each correct tap makes the number disappear.\n'
+          'Wrong taps do nothing — no penalty, just keep searching.\n'
+          'Watch an ad for a hint that highlights the next number!',
+      category: GameCategory.puzzle,
+      icon: Icons.tag_rounded,
+      color: Color(0xFF6366F1),
+      bgColor: Color(0xFFEEF2FF),
+      playCount: 0,
+      customLogo: buildNumberSequenceLogo,
+    ),
+    const GameInfo(
+      id: 'water_sort',
+      name: 'Water Sort',
+      description: 'Pour and sort colored water into matching tubes!',
+      howToPlay:
+          'Choose your difficulty (Easy = 4 colors, Medium = 6, Hard = 9).\n'
+          'Tap a tube to select it, then tap another to pour the top color.\n'
+          'You can only pour into a tube with the same top color or an empty tube.\n'
+          'Sort all colors so each tube holds only one color to complete the level.\n'
+          'Levels get progressively harder — complete 1000+ levels per difficulty!\n'
+          'Watch an ad to unlock extra tube space when you\'re stuck!',
+      category: GameCategory.puzzle,
+      icon: Icons.science_rounded,
+      color: Color(0xFF0EA5E9),
+      bgColor: Color(0xFFE0F2FE),
+      playCount: 0,
+      customLogo: buildWaterSortLogo,
+    ),
+    const GameInfo(
+      id: 'nuts_and_bolts',
+      name: 'Nuts & Bolts',
+      hidden: true,
+      description: 'Sort colored nuts onto matching bolts!',
+      howToPlay:
+          'Choose your difficulty (Easy = 3 colors, Medium = 5, Hard = 7).\n'
+          'Tap a bolt to pick up the top nut, then tap another bolt to place it.\n'
+          'You can only place a nut on an empty bolt or on a nut of the same color.\n'
+          'Sort all nuts so each bolt holds only one color to complete the level.\n'
+          'Levels get progressively harder — complete 1000+ levels per difficulty!\n'
+          'Watch an ad to unlock extra bolt space when you\'re stuck!',
+      category: GameCategory.puzzle,
+      icon: Icons.hardware_rounded,
+      color: Color(0xFF78716C),
+      bgColor: Color(0xFFF5F5F4),
+      playCount: 0,
+      customLogo: buildNutsAndBoltsLogo,
+    ),
   ];
 
+  static List<GameInfo> get visibleGames {
+    return allGames.where((g) => !g.hidden).toList();
+  }
+
   static List<GameInfo> getByCategory(GameCategory category) {
-    return allGames.where((g) => g.category == category).toList();
+    return allGames.where((g) => !g.hidden && g.category == category).toList();
   }
 
   static List<GameInfo> get featured {
-    return allGames.where((g) => g.isFeatured).toList();
+    return allGames.where((g) => !g.hidden && g.isFeatured).toList();
   }
 
   static List<GameInfo> get trending {
-    final sorted = List<GameInfo>.from(allGames);
+    final sorted = List<GameInfo>.from(allGames.where((g) => !g.hidden));
     sorted.sort((a, b) => b.playCount.compareTo(a.playCount));
     return sorted;
   }
@@ -538,9 +606,10 @@ class GameRegistry {
   static List<GameInfo> search(String query) {
     final q = query.toLowerCase();
     return allGames.where((g) {
-      return g.name.toLowerCase().contains(q) ||
+      return !g.hidden &&
+          (g.name.toLowerCase().contains(q) ||
           g.category.label.toLowerCase().contains(q) ||
-          g.description.toLowerCase().contains(q);
+          g.description.toLowerCase().contains(q));
     }).toList();
   }
 }

@@ -152,7 +152,7 @@ class _SearchScreenState extends State<SearchScreen> {
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: GameRegistry.allGames.take(6).map((game) {
+            children: GameRegistry.visibleGames.take(6).map((game) {
               return GestureDetector(
                 onTap: () {
                   _controller.text = game.name;

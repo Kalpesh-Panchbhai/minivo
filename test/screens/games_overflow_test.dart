@@ -35,6 +35,12 @@ const _gameIds = [
   'tap_tap_dash',
   'tic_tac_toe',
   'whack_a_mole',
+  'minesweeper',
+  'solitaire',
+  'sliding_puzzle',
+  'number_sequence',
+  'water_sort',
+  'nuts_and_bolts',
 ];
 
 String _playButtonText(String gameId) => switch (gameId) {
@@ -48,7 +54,13 @@ String _playButtonText(String gameId) => switch (gameId) {
   'sudoku'       => 'Play Sudoku',
   'whack_a_mole' => 'Play Whack-a-Mole',
   'tap_tap_dash' => 'Play Tap Tap Dash',
-  'hangman'      => 'Play Hangman',
+  'hangman'       => 'Play Hangman',
+  'minesweeper'   => 'Play Minesweeper',
+  'solitaire'     => 'Play Solitaire',
+  'sliding_puzzle' => 'Play Sliding Puzzle',
+  'number_sequence' => 'Play Number Sequence',
+  'water_sort'    => 'Play Water Sort',
+  'nuts_and_bolts' => 'Play Nuts & Bolts',
   _              => 'Tap to Start',
 };
 

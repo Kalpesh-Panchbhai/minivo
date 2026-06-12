@@ -15,6 +15,7 @@ import 'core/services/ads_service.dart';
 import 'core/services/analytics_service.dart';
 import 'core/services/consent_service.dart';
 import 'core/services/crash_reporter.dart';
+import 'core/services/level_progress_service.dart';
 import 'core/services/score_service.dart';
 import 'games/game_stats_bootstrap.dart';
 import 'routing/app_router.dart';
@@ -43,6 +44,7 @@ Future<void> bootstrap({
 
     PerfLogger.startOp('score-service-init');
     await ScoreService().init();
+    await LevelProgressService().init();
     PerfLogger.endOp('score-service-init');
 
     registerAllGameStats();

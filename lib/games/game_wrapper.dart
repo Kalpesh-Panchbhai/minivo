@@ -147,6 +147,53 @@ class GameWrapperState extends State<GameWrapper> {
     }
   }
 
+  void completeLevelWithAd({required VoidCallback onComplete}) {
+    if (!_sessionCounted) {
+      _sessionCounted = true;
+      ScoreService().incrementGamesPlayed();
+      ReviewService().maybeRequestReview();
+      ScoreService().incrementGamePlayCount(widget.gameId);
+      ScoreService().addRecentlyPlayed(widget.gameId);
+
+      int coins = 5;
+      final isNew = _score > _highScore;
+      if (isNew) {
+        _highScore = _score;
+        ScoreService().saveScore(widget.gameId, _score, subKey: _subKey);
+        coins += 10;
+      }
+      if (_getStars() == 3) coins += 15;
+      ScoreService().addCoins(coins);
+
+      final duration = _startedAt == null
+          ? 0
+          : DateTime.now().difference(_startedAt!).inSeconds;
+      AnalyticsService().gameEnd(
+        gameId: widget.gameId,
+        result: 'win',
+        score: _score,
+        durationSec: duration,
+        isHighScore: isNew,
+        difficulty: _difficulty,
+        mode: _mode,
+      );
+      CrashReporter().log('game_end', {
+        'game_id': widget.gameId,
+        'score': _score,
+        'duration_sec': duration,
+        'result': 'win',
+        'is_high_score': isNew,
+        'difficulty': _difficulty,
+        'mode': _mode,
+      });
+    }
+    AdsService().notifyGameOver();
+    AdsService().showInterstitial(
+      gameId: widget.gameId,
+      onComplete: onComplete,
+    );
+  }
+
   String _lastResult = 'loss';
 
   void endGame({String result = 'loss'}) {

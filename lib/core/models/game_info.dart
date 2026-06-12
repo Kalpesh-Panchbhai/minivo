@@ -31,6 +31,7 @@ class GameInfo {
   final Color bgColor;
   final int playCount;
   final bool isFeatured;
+  final bool hidden;
 
   /// PNG/JPG asset path used as the full-tile brand logo. Mutually exclusive
   /// with [customLogo] in practice (asset is checked second).
@@ -51,6 +52,7 @@ class GameInfo {
     required this.bgColor,
     this.playCount = 0,
     this.isFeatured = false,
+    this.hidden = false,
     this.iconAsset,
     this.customLogo,
   });

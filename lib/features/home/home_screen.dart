@@ -459,7 +459,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
         final spacing = 12.0;
         final cellSize = (screenWidth - (columns - 1) * spacing) / columns;
 
-        final allGameIds = GameRegistry.allGames.map((g) => g.id).toList();
+        final allGameIds = GameRegistry.visibleGames.map((g) => g.id).toList();
 
         // Pick at most 2 "big" slots: prefer branded+trending games, spread them
         // out so they don't cluster on the same side (poki-style).

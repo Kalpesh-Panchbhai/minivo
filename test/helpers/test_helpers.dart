@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../lib/core/constants/app_theme.dart';
+import '../../lib/core/services/level_progress_service.dart';
 import '../../lib/core/services/score_service.dart';
 import 'screen_sizes.dart';
 import 'overflow_detector.dart';
@@ -34,6 +35,7 @@ Future<void> initTestDependencies() async {
     'tutorial_seen_sliding_puzzle': true,
   });
   await ScoreService().init();
+  await LevelProgressService().init();
 }
 
 GoRouter _buildTestRouter(Widget screen) {

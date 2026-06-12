@@ -20,7 +20,7 @@ class GameScoreRanker {
 
   static List<RankedGame> rankAllGames() {
     final service = ScoreService();
-    final allGames = GameRegistry.allGames;
+    final allGames = GameRegistry.visibleGames;
     final recentIds = service.getRecentlyPlayed();
     final favorites = service.getFavorites();
 

@@ -15,7 +15,7 @@ class LeaderboardScreen extends StatefulWidget {
 class _LeaderboardScreenState extends State<LeaderboardScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  String _selectedGame = GameRegistry.allGames.first.id;
+  String _selectedGame = GameRegistry.visibleGames.first.id;
 
   @override
   void initState() {
@@ -64,7 +64,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
                   isExpanded: true,
                   underline: const SizedBox(),
                   icon: const Icon(Icons.keyboard_arrow_down_rounded),
-                  items: GameRegistry.allGames.map((game) {
+                  items: GameRegistry.visibleGames.map((game) {
                     return DropdownMenuItem(
                       value: game.id,
                       child: Row(

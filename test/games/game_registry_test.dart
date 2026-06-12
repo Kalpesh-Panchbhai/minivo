@@ -9,13 +9,15 @@ void main() {
       expect(GameRegistry.allGames.isNotEmpty, isTrue);
     });
 
-    test('all 20 games are registered with builders', () {
+    test('all 26 games are registered with builders', () {
       const expectedIds = [
         'checkers', 'color_tap', 'connect_four', 'dino_run', 'dodge_ball',
         'dots_and_boxes', 'drop_merge', 'flappy_tap', 'go', 'gomoku',
-        'hangman', 'mancala', 'memory_match',
-        'number_merge', 'reversi', 'snake_classic', 'sudoku',
-        'tap_tap_dash', 'tic_tac_toe', 'whack_a_mole',
+        'hangman', 'mancala', 'memory_match', 'minesweeper',
+        'number_merge', 'number_sequence', 'nuts_and_bolts',
+        'reversi', 'sliding_puzzle', 'snake_classic', 'solitaire',
+        'sudoku', 'tap_tap_dash', 'tic_tac_toe',
+        'water_sort', 'whack_a_mole',
       ];
       for (final id in expectedIds) {
         expect(GameRegistry.hasGame(id), isTrue, reason: '$id must have a builder');
@@ -24,7 +26,7 @@ void main() {
     });
 
     test('allGames count matches builder count', () {
-      expect(GameRegistry.allGames.length, 20);
+      expect(GameRegistry.allGames.length, 26);
     });
 
     test('each game has unique id', () {
@@ -65,7 +67,7 @@ void main() {
 
     test('trending returns all games sorted by playCount descending', () {
       final trending = GameRegistry.trending;
-      expect(trending.length, GameRegistry.allGames.length);
+      expect(trending.length, GameRegistry.visibleGames.length);
       for (int i = 0; i < trending.length - 1; i++) {
         expect(trending[i].playCount, greaterThanOrEqualTo(trending[i + 1].playCount));
       }
@@ -100,7 +102,7 @@ void main() {
 
     test('search with empty query returns all games', () {
       final results = GameRegistry.search('');
-      expect(results.length, GameRegistry.allGames.length);
+      expect(results.length, GameRegistry.visibleGames.length);
     });
 
     test('buildGame returns a widget for known game', () {
