@@ -40,6 +40,12 @@ import 'gomoku/gomoku_logo.dart';
 import 'gomoku/gomoku_screen.dart';
 import 'hangman/hangman_logo.dart';
 import 'hangman/hangman_screen.dart';
+import 'minesweeper/minesweeper_logo.dart';
+import 'minesweeper/minesweeper_screen.dart';
+import 'solitaire/solitaire_logo.dart';
+import 'solitaire/solitaire_screen.dart';
+import 'sliding_puzzle/sliding_puzzle_logo.dart';
+import 'sliding_puzzle/sliding_puzzle_screen.dart';
 
 typedef GameWidgetBuilder = Widget Function();
 
@@ -67,6 +73,9 @@ class GameRegistry {
     'mancala': () => const MancalaScreen(),
     'gomoku': () => const GomokuScreen(),
     'hangman': () => const HangmanScreen(),
+    'minesweeper': () => const MinesweeperScreen(),
+    'solitaire': () => const SolitaireScreen(),
+    'sliding_puzzle': () => const SlidingPuzzleScreen(),
   };
 
   static Widget buildGame(String gameId) {
@@ -447,6 +456,60 @@ class GameRegistry {
       bgColor: Color(0xFFF5F3FF),
       playCount: 0,
       customLogo: buildHangmanLogo,
+    ),
+    const GameInfo(
+      id: 'minesweeper',
+      name: 'Minesweeper',
+      description: 'Clear the minefield without detonating any mines!',
+      howToPlay:
+          'Choose your difficulty (Easy = 9×9, Medium = 16×16, Hard = 16×30).\n'
+          'Tap a cell to reveal it. Numbers show how many adjacent mines there are.\n'
+          'Use Flag Mode or long-press to mark suspected mines with flags.\n'
+          'Reveal all safe cells to win — but hit a mine and it is game over!\n'
+          'Score is based on mines found and time taken.\n'
+          'Start with corners and edges for the safest first moves.',
+      category: GameCategory.puzzle,
+      icon: Icons.grid_view_rounded,
+      color: Color(0xFF4A7CFF),
+      bgColor: Color(0xFFF0F4FF),
+      playCount: 0,
+      customLogo: buildMinesweeperLogo,
+    ),
+    const GameInfo(
+      id: 'solitaire',
+      name: 'Solitaire',
+      description: 'Classic Klondike solitaire — stack cards from Ace to King!',
+      howToPlay:
+          'Choose your difficulty (Easy = Draw 1, Medium = Draw 3, Hard = Draw 3 + Timer).\n'
+          'Build tableau columns in descending order, alternating red and black.\n'
+          'Move Aces to foundation piles and build up by suit to King.\n'
+          'Tap the stock pile to draw new cards to the waste pile.\n'
+          'Complete all four foundation piles (Ace to King) to win!\n'
+          'Score is based on moves, time, and cards placed on foundations.',
+      category: GameCategory.card,
+      icon: Icons.style_rounded,
+      color: Color(0xFF22C55E),
+      bgColor: Color(0xFFE8F5E9),
+      playCount: 0,
+      customLogo: buildSolitaireLogo,
+    ),
+    const GameInfo(
+      id: 'sliding_puzzle',
+      name: 'Sliding Puzzle',
+      description: 'Slide tiles into order — numbers, animals, flags & more!',
+      howToPlay:
+          'Choose a grid size (3×3, 4×4, or 5×5) and a theme.\n'
+          'Tap a tile next to the empty space to slide it.\n'
+          'Arrange all tiles in numerical order (or match the pattern).\n'
+          'Fewer moves and faster time = higher score!\n'
+          'Choose from 6 themes: Numbers, Animals, Nature, Space, Food, and Flags.\n'
+          'Start by solving the top row first, then work downward.',
+      category: GameCategory.puzzle,
+      icon: Icons.grid_view_rounded,
+      color: Color(0xFF8B5CF6),
+      bgColor: Color(0xFFF3EEFF),
+      playCount: 0,
+      customLogo: buildSlidingPuzzleLogo,
     ),
   ];
 

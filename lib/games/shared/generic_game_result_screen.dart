@@ -9,11 +9,13 @@ import '../game_registry.dart';
 class StatItem {
   final String label;
   final int value;
+  final String? displayValue;
   final Color color;
 
   StatItem({
     required this.label,
     required this.value,
+    this.displayValue,
     required this.color,
   });
 }
@@ -309,6 +311,7 @@ class GameResultStatsRow extends StatelessWidget {
         _StatColumn(
           label: stats[i].label,
           value: stats[i].value,
+          displayValue: stats[i].displayValue,
           color: stats[i].color,
         ),
       );
@@ -344,11 +347,13 @@ class GameResultStatsRow extends StatelessWidget {
 class _StatColumn extends StatelessWidget {
   final String label;
   final int value;
+  final String? displayValue;
   final Color color;
 
   const _StatColumn({
     required this.label,
     required this.value,
+    this.displayValue,
     required this.color,
   });
 
@@ -367,7 +372,7 @@ class _StatColumn extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          '$value',
+          displayValue ?? '$value',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(

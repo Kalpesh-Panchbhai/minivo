@@ -24,6 +24,14 @@ Future<void> initTestDependencies() async {
     'tutorial_seen_tap_tap_dash': true,
     'tutorial_seen_connect_four': true,
     'tutorial_seen_reversi': true,
+    'tutorial_seen_checkers': true,
+    'tutorial_seen_go': true,
+    'tutorial_seen_mancala': true,
+    'tutorial_seen_gomoku': true,
+    'tutorial_seen_hangman': true,
+    'tutorial_seen_minesweeper': true,
+    'tutorial_seen_solitaire': true,
+    'tutorial_seen_sliding_puzzle': true,
   });
   await ScoreService().init();
 }

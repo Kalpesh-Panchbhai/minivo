@@ -18,6 +18,9 @@ import 'go/go_stats.dart';
 import 'mancala/mancala_stats.dart';
 import 'gomoku/gomoku_stats.dart';
 import 'hangman/hangman_stats.dart';
+import 'minesweeper/minesweeper_stats.dart';
+import 'solitaire/solitaire_stats.dart';
+import 'sliding_puzzle/sliding_puzzle_stats.dart';
 
 /// Single entry point for registering all per-game custom stats builders.
 /// Add new games here as they ship.
@@ -45,4 +48,7 @@ void registerAllGameStats() {
   registerMancalaStats();
   registerGomokuStats();
   registerHangmanStats();
+  registerMinesweeperStats();
+  registerSolitaireStats();
+  registerSlidingPuzzleStats();
 }
