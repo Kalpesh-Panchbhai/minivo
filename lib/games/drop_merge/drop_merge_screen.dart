@@ -291,8 +291,8 @@ class _DropMergeScreenState extends State<DropMergeScreen> {
   bool        _dropping    = false;
   bool        _isFavorite  = false;
 
-  // Undo support (1 per game)
-  bool  _undoUsed = false;
+  int   _undosUsed = 0;
+  static const _kMaxUndos = 2;
   bool  _inUndoWindow = false;
   _Grid? _prevGrid;
   int?   _prevScore;
@@ -337,7 +337,7 @@ class _DropMergeScreenState extends State<DropMergeScreen> {
     _stepTimer?.cancel();
     _fallTimer?.cancel();
     _currentTile   = _nextTile(_difficulty, _rng);
-    _undoUsed      = false;
+    _undosUsed     = 0;
     _inUndoWindow  = false;
     _prevGrid      = null;
     _prevScore     = null;
@@ -450,7 +450,7 @@ class _DropMergeScreenState extends State<DropMergeScreen> {
       return;
     }
 
-    final undoAvailable = !_undoUsed && AdsService().isRewardedReady;
+    final undoAvailable = _undosUsed < _kMaxUndos && AdsService().isRewardedReady;
     if (undoAvailable) {
       setState(() => _inUndoWindow = true);
     }
@@ -475,7 +475,7 @@ class _DropMergeScreenState extends State<DropMergeScreen> {
       _grid = prev;
       _score = prevS;
       _currentTile = prevT;
-      _undoUsed = true;
+      _undosUsed++;
       _inUndoWindow = false;
       _prevGrid = null;
       _prevScore = null;

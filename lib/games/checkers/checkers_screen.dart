@@ -77,7 +77,8 @@ class _CheckersScreenState extends State<CheckersScreen>
   Color _bannerColor = _kDrawColor;
   bool _showWinBanner = false;
 
-  bool _undoUsedThisRound = false;
+  int _undosUsed = 0;
+  static const _kMaxUndos = 2;
   bool _inUndoWindow = false;
   List<int>? _boardBeforeHumanMove;
   int _redCountBeforeMove = 12;
@@ -187,7 +188,7 @@ class _CheckersScreenState extends State<CheckersScreen>
       _celebrating = false;
       _showWinBanner = false;
       _bannerLabel = null;
-      _undoUsedThisRound = false;
+      _undosUsed = 0;
       _inUndoWindow = false;
       _boardBeforeHumanMove = null;
     });
@@ -246,7 +247,7 @@ class _CheckersScreenState extends State<CheckersScreen>
       _blackCount = _blackCountBeforeMove;
       _currentPlayer = 1;
       _inUndoWindow = false;
-      _undoUsedThisRound = true;
+      _undosUsed++;
       _boardBeforeHumanMove = null;
       _selectedCell = null;
       _validMoves = [];
@@ -255,7 +256,7 @@ class _CheckersScreenState extends State<CheckersScreen>
   }
 
   void _saveStateForUndo() {
-    if (_mode != _Mode.ai || _undoUsedThisRound || _currentPlayer != 1) return;
+    if (_mode != _Mode.ai || _undosUsed >= _kMaxUndos || _currentPlayer != 1) return;
     _boardBeforeHumanMove = List.from(_board);
     _redCountBeforeMove = _redCount;
     _blackCountBeforeMove = _blackCount;
@@ -428,7 +429,7 @@ class _CheckersScreenState extends State<CheckersScreen>
 
   void _afterHumanMove(bool isHumanInitiated) {
     if (isHumanInitiated && _mode == _Mode.ai) {
-      final undoAvail = !_undoUsedThisRound && AdsService().isRewardedReady;
+      final undoAvail = _undosUsed < _kMaxUndos && AdsService().isRewardedReady;
       if (undoAvail) {
         setState(() {
           _currentPlayer = 2;

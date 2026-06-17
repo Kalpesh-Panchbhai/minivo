@@ -86,7 +86,8 @@ class _ReversiScreenState extends State<ReversiScreen>
 
   List<List<int>>? _undoGridSnapshot;
   List<List<int>> _undoPrevValidMoves = [];
-  bool _undoUsedThisRound = false;
+  int _undosUsed = 0;
+  static const _kMaxUndos = 2;
   bool _inUndoWindow = false;
 
   bool _isFavorite = false;
@@ -209,7 +210,7 @@ class _ReversiScreenState extends State<ReversiScreen>
       _pendingEnd = false;
       _undoGridSnapshot = null;
       _undoPrevValidMoves = [];
-      _undoUsedThisRound = false;
+      _undosUsed = 0;
       _inUndoWindow = false;
     }
 
@@ -281,7 +282,7 @@ class _ReversiScreenState extends State<ReversiScreen>
       _validMoves = _undoPrevValidMoves;
       _inUndoWindow = false;
       _undoGridSnapshot = null;
-      _undoUsedThisRound = true;
+      _undosUsed++;
       _lastPlacedR = null;
       _lastPlacedC = null;
     });
@@ -376,7 +377,7 @@ class _ReversiScreenState extends State<ReversiScreen>
     } else {
       if (oppMoves.isNotEmpty) {
         final undoAvail = _mode == _Mode.ai && _currentPlayer == 1 &&
-            !_undoUsedThisRound && AdsService().isRewardedReady;
+            _undosUsed < _kMaxUndos && AdsService().isRewardedReady;
         if (undoAvail) {
           _pendingOpponent = opponent;
           _pendingOppMoves = oppMoves;
@@ -416,7 +417,7 @@ class _ReversiScreenState extends State<ReversiScreen>
       return;
     }
     final undoAvail = _mode == _Mode.ai && _pendingOpponent == 2 &&
-        !_undoUsedThisRound && AdsService().isRewardedReady;
+        _undosUsed < _kMaxUndos && AdsService().isRewardedReady;
     if (undoAvail) {
       _updateScore();
       setState(() => _inUndoWindow = true);

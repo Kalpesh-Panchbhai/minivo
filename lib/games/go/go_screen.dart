@@ -82,7 +82,8 @@ class _GoScreenState extends State<GoScreen> with TickerProviderStateMixin {
   int _undoBlackCaptures = 0;
   int _undoWhiteCaptures = 0;
   List<int>? _undoPrevBoard;
-  bool _undoUsedThisRound = false;
+  int _undosUsed = 0;
+  static const _kMaxUndos = 3;
   bool _inUndoWindow = false;
 
   final _rng = math.Random();
@@ -167,7 +168,7 @@ class _GoScreenState extends State<GoScreen> with TickerProviderStateMixin {
       _showWinBanner = false;
       _bannerLabel = null;
       _undoBoardSnapshot = null;
-      _undoUsedThisRound = false;
+      _undosUsed = 0;
       _inUndoWindow = false;
     });
     if (_mode == _Mode.ai && _currentPlayer == 2) {
@@ -222,7 +223,7 @@ class _GoScreenState extends State<GoScreen> with TickerProviderStateMixin {
       _consecutivePasses = 0;
       _inUndoWindow = false;
       _undoBoardSnapshot = null;
-      _undoUsedThisRound = true;
+      _undosUsed++;
     });
   }
 
@@ -363,7 +364,7 @@ class _GoScreenState extends State<GoScreen> with TickerProviderStateMixin {
 
   void _switchTurn() {
     final wasHuman = _mode == _Mode.ai && _currentPlayer == 1;
-    final undoAvailable = wasHuman && !_undoUsedThisRound && AdsService().isRewardedReady;
+    final undoAvailable = wasHuman && _undosUsed < _kMaxUndos && AdsService().isRewardedReady;
     setState(() => _currentPlayer = _currentPlayer == 1 ? 2 : 1);
     if (_mode == _Mode.ai && _currentPlayer == 2 && !_gameOver) {
       if (undoAvailable) {

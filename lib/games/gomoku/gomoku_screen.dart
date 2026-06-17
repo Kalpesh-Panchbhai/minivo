@@ -78,7 +78,8 @@ class _GomokuScreenState extends State<GomokuScreen> {
   int _moveCount = 0;
 
   int? _lastHumanMoveIdx;
-  bool _undoUsedThisRound = false;
+  int _undosUsed = 0;
+  static const _kMaxUndos = 2;
   bool _inUndoWindow = false;
 
   final _rng = math.Random();
@@ -169,7 +170,7 @@ class _GomokuScreenState extends State<GomokuScreen> {
       _bannerLabel = null;
       _moveCount = 0;
       _lastHumanMoveIdx = null;
-      _undoUsedThisRound = false;
+      _undosUsed = 0;
       _inUndoWindow = false;
     });
     if (_mode == _Mode.ai && _currentPlayer == 2) _scheduleAiMove();
@@ -219,7 +220,7 @@ class _GomokuScreenState extends State<GomokuScreen> {
       _currentPlayer = 1;
       _inUndoWindow = false;
       _lastHumanMoveIdx = null;
-      _undoUsedThisRound = true;
+      _undosUsed++;
     });
   }
 
@@ -252,7 +253,7 @@ class _GomokuScreenState extends State<GomokuScreen> {
     }
 
     final undoAvailable = _mode == _Mode.ai && _currentPlayer == 1
-        && !_undoUsedThisRound && AdsService().isRewardedReady;
+        && _undosUsed < _kMaxUndos && AdsService().isRewardedReady;
 
     setState(() {
       _currentPlayer = _currentPlayer == 1 ? 2 : 1;

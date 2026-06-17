@@ -140,8 +140,8 @@ class _NumberMergeScreenState extends State<NumberMergeScreen> {
   bool _continueAfterWin = false;
   bool _gameOver = false;
 
-  // Undo support (1 per game)
-  bool _undoUsed = false;
+  int _undosUsed = 0;
+  static const _kMaxUndos = 3;
   bool _inUndoWindow = false;
   List<_Tile>? _prevTiles;
   int? _prevScore;
@@ -196,7 +196,7 @@ class _NumberMergeScreenState extends State<NumberMergeScreen> {
       _won = false;
       _continueAfterWin = false;
       _gameOver = false;
-      _undoUsed = false;
+      _undosUsed = 0;
       _inUndoWindow = false;
       _prevTiles = null;
       _prevScore = null;
@@ -507,7 +507,7 @@ class _NumberMergeScreenState extends State<NumberMergeScreen> {
         GameWrapper.of(context).endGame();
         return;
       }
-      final undoAvailable = !_undoUsed && AdsService().isRewardedReady;
+      final undoAvailable = _undosUsed < _kMaxUndos && AdsService().isRewardedReady;
       if (undoAvailable) {
         setState(() {
           _inUndoWindow = true;
@@ -534,7 +534,7 @@ class _NumberMergeScreenState extends State<NumberMergeScreen> {
     setState(() {
       _tiles = prev;
       _score = prevS;
-      _undoUsed = true;
+      _undosUsed++;
       _inUndoWindow = false;
       _prevTiles = null;
       _prevScore = null;
