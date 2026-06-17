@@ -81,6 +81,7 @@ class _HangmanScreenState extends State<HangmanScreen> {
   bool _wasNewBest = false;
   bool _isFavorite = false;
   int _consecutiveWrongs = 0;
+  bool _hintUsed = false;
   Timer? _idleTimer;
   bool _idleStuck = false;
   static const _kStuckWrongs = 2;
@@ -120,6 +121,7 @@ class _HangmanScreenState extends State<HangmanScreen> {
       _won = false;
       _wasNewBest = false;
       _consecutiveWrongs = 0;
+      _hintUsed = false;
       _idleStuck = false;
     });
     _resetIdleTimer();
@@ -146,6 +148,7 @@ class _HangmanScreenState extends State<HangmanScreen> {
       _won = false;
       _wasNewBest = false;
       _consecutiveWrongs = 0;
+      _hintUsed = false;
       _idleStuck = false;
     });
     _resetIdleTimer();
@@ -229,7 +232,7 @@ class _HangmanScreenState extends State<HangmanScreen> {
   }
 
   void _useHint() {
-    if (_gameOver) return;
+    if (_gameOver || _hintUsed) return;
     if (!AdsService().isRewardedReady) return;
     _audio.playTap();
     const vowels = {'A', 'E', 'I', 'O', 'U'};
@@ -250,6 +253,7 @@ class _HangmanScreenState extends State<HangmanScreen> {
         if (!earned || !mounted) return;
         _consecutiveWrongs = 0;
         _idleStuck = false;
+        _hintUsed = true;
         _resetIdleTimer();
         final pick = candidates[_rng.nextInt(candidates.length)];
         setState(() {
@@ -434,9 +438,9 @@ class _HangmanScreenState extends State<HangmanScreen> {
             const SizedBox(height: 8),
             if (!_gameOver)
               Opacity(
-                opacity: AdsService().isRewardedReady ? 1.0 : 0.0,
+                opacity: AdsService().isRewardedReady && !_hintUsed ? 1.0 : 0.0,
                 child: IgnorePointer(
-                  ignoring: !AdsService().isRewardedReady,
+                  ignoring: !AdsService().isRewardedReady || _hintUsed,
                   child: _HangmanHintNudge(onTap: _useHint, isStuck: _isStuck),
                 ),
               ),

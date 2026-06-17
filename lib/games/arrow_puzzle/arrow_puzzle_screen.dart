@@ -175,6 +175,8 @@ class _ArrowPuzzleScreenState extends State<ArrowPuzzleScreen> with TickerProvid
   final ValueNotifier<double> _hintNotifier = ValueNotifier(0);
   int _consecutiveBlocks = 0;
   static const _kStuckThreshold = 3;
+  int _hintsUsed = 0;
+  static const _kMaxHints = 3;
   Timer? _idleTimer;
   bool _idleStuck = false;
   static const _kIdleTimeout = Duration(seconds: 30);
@@ -222,6 +224,7 @@ class _ArrowPuzzleScreenState extends State<ArrowPuzzleScreen> with TickerProvid
     _freedCount = 0;
     _consecutiveBlocks = 0;
     _idleStuck = false;
+    _hintsUsed = 0;
     _generateLevel(diff);
     _resetIdleTimer();
 
@@ -686,6 +689,7 @@ class _ArrowPuzzleScreenState extends State<ArrowPuzzleScreen> with TickerProvid
 
   void _onHint() {
     if (_gameOver || _won || _flyingArrowId != null || _blockedArrowId != null) return;
+    if (_hintsUsed >= _kMaxHints) return;
     if (!AdsService().isRewardedReady) return;
     final freeArrow = _arrows.cast<_Arrow?>().firstWhere(
       (a) => a != null && !a.freed && a.canBeFree(_arrows),
@@ -703,6 +707,7 @@ class _ArrowPuzzleScreenState extends State<ArrowPuzzleScreen> with TickerProvid
         if (!earned || !mounted) return;
         _consecutiveBlocks = 0;
         _idleStuck = false;
+        _hintsUsed++;
         _resetIdleTimer();
         _showHint(freeArrow.id);
       },
@@ -937,9 +942,9 @@ class _ArrowPuzzleScreenState extends State<ArrowPuzzleScreen> with TickerProvid
             ),
             if (!_gameOver && !_won)
               Opacity(
-                opacity: AdsService().isRewardedReady && _hintArrowId == null ? 1.0 : 0.0,
+                opacity: AdsService().isRewardedReady && _hintArrowId == null && _hintsUsed < _kMaxHints ? 1.0 : 0.0,
                 child: IgnorePointer(
-                  ignoring: !AdsService().isRewardedReady || _hintArrowId != null,
+                  ignoring: !AdsService().isRewardedReady || _hintArrowId != null || _hintsUsed >= _kMaxHints,
                   child: _HintNudge(onTap: _onHint, isStuck: _isStuck),
                 ),
               ),

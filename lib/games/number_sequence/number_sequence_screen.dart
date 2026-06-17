@@ -55,6 +55,8 @@ class _NumberSequenceScreenState extends State<NumberSequenceScreen> with Widget
   bool _isNewBest = false;
   bool _gameOver = false;
   int _hintNumber = -1;
+  int _hintsUsed = 0;
+  static const _kMaxHints = 3;
   Timer? _idleTimer;
   bool _idleStuck = false;
   static const _kIdleTimeout = Duration(seconds: 15);
@@ -126,6 +128,7 @@ class _NumberSequenceScreenState extends State<NumberSequenceScreen> with Widget
     _isNewBest = false;
     _gameOver = false;
     _hintNumber = -1;
+    _hintsUsed = 0;
     _idleStuck = false;
     _elapsedSeconds = 0;
     _stopwatch.reset();
@@ -234,6 +237,7 @@ class _NumberSequenceScreenState extends State<NumberSequenceScreen> with Widget
 
   void _onHint() {
     if (_gameOver || _activeDifficulty == null) return;
+    if (_hintsUsed >= _kMaxHints) return;
     if (!AdsService().isRewardedReady) return;
     AudioService().playTap();
     bool earned = false;
@@ -244,6 +248,7 @@ class _NumberSequenceScreenState extends State<NumberSequenceScreen> with Widget
       onComplete: () {
         if (!earned || !mounted) return;
         _idleStuck = false;
+        _hintsUsed++;
         _resetIdleTimer();
         setState(() {
           _hintNumber = _nextNumber;
@@ -434,9 +439,9 @@ class _NumberSequenceScreenState extends State<NumberSequenceScreen> with Widget
             ),
             if (!_gameOver)
               Opacity(
-                opacity: AdsService().isRewardedReady ? 1.0 : 0.0,
+                opacity: AdsService().isRewardedReady && _hintsUsed < _kMaxHints ? 1.0 : 0.0,
                 child: IgnorePointer(
-                  ignoring: !AdsService().isRewardedReady,
+                  ignoring: !AdsService().isRewardedReady || _hintsUsed >= _kMaxHints,
                   child: _NumberSequenceHintNudge(onTap: _onHint, isStuck: _isStuck),
                 ),
               ),

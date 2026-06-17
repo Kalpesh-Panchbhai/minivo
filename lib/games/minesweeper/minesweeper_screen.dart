@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/services/ads_service.dart';
 import '../../core/services/audio_service.dart';
 import '../../core/services/score_service.dart';
 import '../../core/widgets/how_to_play_sheet.dart';
@@ -79,6 +80,12 @@ class _MinesweeperScreenState extends State<MinesweeperScreen> {
   final Stopwatch _stopwatch = Stopwatch();
   int _elapsedSeconds = 0;
 
+  int _hintsUsed = 0;
+  static const _kMaxHints = 2;
+  Timer? _idleTimer;
+  bool _idleStuck = false;
+  static const _kIdleTimeout = Duration(seconds: 15);
+
   bool _flagMode = false;
 
   bool _showingBlast = false;
@@ -96,6 +103,7 @@ class _MinesweeperScreenState extends State<MinesweeperScreen> {
   void dispose() {
     _ticker?.cancel();
     _blastTimer?.cancel();
+    _idleTimer?.cancel();
     _stopwatch.stop();
     super.dispose();
   }
@@ -126,15 +134,20 @@ class _MinesweeperScreenState extends State<MinesweeperScreen> {
     _isNewBest = false;
     _elapsedSeconds = 0;
     _flagMode = false;
+    _idleStuck = false;
+    _hintsUsed = 0;
     _showingBlast = false;
     _hitRow = -1;
     _hitCol = -1;
     _blastTimer?.cancel();
+    _ticker?.cancel();
     _stopwatch.reset();
 
     setState(() {
       _activeDifficulty = diff;
     });
+
+    _startTimer();
 
     if (mounted) {
       GameWrapper.of(context).setDifficultyAndMode(difficulty: diff.label, subKey: diff.subKey);
@@ -143,11 +156,49 @@ class _MinesweeperScreenState extends State<MinesweeperScreen> {
     }
   }
 
+  void _onHint() {
+    if (_gameOver || _firstTap || _activeDifficulty == null) return;
+    if (_hintsUsed >= _kMaxHints) return;
+    if (!AdsService().isRewardedReady) return;
+    AudioService().playTap();
+    bool earned = false;
+    AdsService().showRewarded(
+      rewardType: RewardType.hint,
+      gameId: kMinesweeperGameId,
+      onRewarded: (_) => earned = true,
+      onComplete: () {
+        if (!earned || !mounted) return;
+        _idleStuck = false;
+        _hintsUsed++;
+        _resetIdleTimer();
+        final diff = _activeDifficulty!;
+        final safeCells = <List<int>>[];
+        for (int r = 0; r < diff.rows; r++) {
+          for (int c = 0; c < diff.cols; c++) {
+            final cell = _grid[r][c];
+            if (!cell.isMine && cell.state == _CellState.hidden) {
+              safeCells.add([r, c]);
+            }
+          }
+        }
+        if (safeCells.isEmpty) return;
+        final pick = safeCells[math.Random().nextInt(safeCells.length)];
+        _reveal(pick[0], pick[1], diff);
+        _score = _revealedCount;
+        AudioService().playScore();
+        GameWrapper.of(context).updateScore(_score);
+        _checkWin(diff);
+        setState(() {});
+      },
+    );
+  }
+
   void _newGame() => _startGame(_activeDifficulty ?? _pickerDifficulty);
 
   void _backToPicker() {
     _ticker?.cancel();
     _blastTimer?.cancel();
+    _idleTimer?.cancel();
     _stopwatch.stop();
     setState(() {
       _activeDifficulty = null;
@@ -161,6 +212,7 @@ class _MinesweeperScreenState extends State<MinesweeperScreen> {
     wrapper.handleExit(() {
       _ticker?.cancel();
       _blastTimer?.cancel();
+      _idleTimer?.cancel();
       _stopwatch.stop();
       if (context.canPop()) context.pop(); else context.go('/home');
     });
@@ -199,6 +251,19 @@ class _MinesweeperScreenState extends State<MinesweeperScreen> {
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() => _elapsedSeconds = _stopwatch.elapsed.inSeconds);
     });
+    _resetIdleTimer();
+  }
+
+  bool get _isStuck => _idleStuck;
+
+  void _resetIdleTimer() {
+    _idleTimer?.cancel();
+    if (_idleStuck) setState(() => _idleStuck = false);
+    _idleTimer = Timer(_kIdleTimeout, () {
+      if (mounted && _activeDifficulty != null && !_gameOver) {
+        setState(() => _idleStuck = true);
+      }
+    });
   }
 
   void _onCellTap(int row, int col) {
@@ -212,11 +277,11 @@ class _MinesweeperScreenState extends State<MinesweeperScreen> {
     }
 
     if (cell.state == _CellState.flagged || cell.state == _CellState.revealed) return;
+    _resetIdleTimer();
 
     if (_firstTap) {
       _firstTap = false;
       _placeMines(diff, row, col);
-      _startTimer();
     }
 
     if (cell.isMine) {
@@ -245,6 +310,7 @@ class _MinesweeperScreenState extends State<MinesweeperScreen> {
     if (_gameOver || _showingBlast || _firstTap) return;
     final cell = _grid[row][col];
     if (cell.state == _CellState.revealed) return;
+    _resetIdleTimer();
 
     setState(() {
       if (cell.state == _CellState.flagged) {
@@ -439,6 +505,14 @@ class _MinesweeperScreenState extends State<MinesweeperScreen> {
             ),
             const SizedBox(height: 8),
             Expanded(child: _buildGrid(rows, cols)),
+            if (!_gameOver && !_showingBlast)
+              Opacity(
+                opacity: AdsService().isRewardedReady && _hintsUsed < _kMaxHints ? 1.0 : 0.0,
+                child: IgnorePointer(
+                  ignoring: !AdsService().isRewardedReady || _hintsUsed >= _kMaxHints,
+                  child: _MinesweeperHintNudge(onTap: _onHint, isStuck: _isStuck),
+                ),
+              ),
             _buildModeToggle(diff),
             const SizedBox(height: 8),
           ],
@@ -884,4 +958,200 @@ class _MinesweeperScorePill extends StatelessWidget {
       child: Container(width: 1, height: 24, color: const Color(0xFFE2E8F0)),
     );
   }
+}
+
+class _MinesweeperHintNudge extends StatefulWidget {
+  final VoidCallback onTap;
+  final bool isStuck;
+  const _MinesweeperHintNudge({required this.onTap, required this.isStuck});
+  @override
+  State<_MinesweeperHintNudge> createState() => _MinesweeperHintNudgeState();
+}
+
+class _MinesweeperHintNudgeState extends State<_MinesweeperHintNudge> with TickerProviderStateMixin {
+  static const _kBg = Color(0xFFFFD43B);
+  static const _kFg = Color(0xFF5C4600);
+
+  late final AnimationController _pulseCtrl;
+  late final AnimationController _slideCtrl;
+  late final Animation<double> _slideAnim;
+  late final Animation<double> _fadeAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1000));
+    _slideCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 400));
+    _slideAnim = CurvedAnimation(parent: _slideCtrl, curve: Curves.easeOutBack);
+    _fadeAnim = CurvedAnimation(parent: _slideCtrl, curve: Curves.easeOut);
+    if (widget.isStuck) {
+      _pulseCtrl.repeat(reverse: true);
+      _slideCtrl.forward();
+    }
+  }
+
+  @override
+  void didUpdateWidget(_MinesweeperHintNudge old) {
+    super.didUpdateWidget(old);
+    if (widget.isStuck && !old.isStuck) {
+      _pulseCtrl.repeat(reverse: true);
+      _slideCtrl.forward();
+    } else if (!widget.isStuck && old.isStuck) {
+      _pulseCtrl.stop();
+      _pulseCtrl.value = 0;
+      _slideCtrl.reverse();
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulseCtrl.dispose();
+    _slideCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Stack(
+        alignment: Alignment.bottomCenter,
+        clipBehavior: Clip.none,
+        children: [
+          AnimatedBuilder(
+            animation: _pulseCtrl,
+            builder: (context, child) {
+              final glow = widget.isStuck ? _pulseCtrl.value : 0.0;
+              final scale = 1.0 + glow * 0.05;
+              return Transform.scale(
+                scale: scale,
+                child: GestureDetector(
+                  onTap: widget.onTap,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: _kBg,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: const Color(0xFFE6BE00), width: 1.5),
+                      boxShadow: [
+                        BoxShadow(
+                          color: _kBg.withValues(alpha: 0.30 + glow * 0.40),
+                          blurRadius: 12 + glow * 12,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.lightbulb_rounded, size: 16, color: _kFg),
+                        const SizedBox(width: 6),
+                        const Text(
+                          'HINT',
+                          style: TextStyle(
+                            color: _kFg,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1.0,
+                            height: 1,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: _kFg.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.play_arrow_rounded, size: 12, color: _kFg),
+                              SizedBox(width: 2),
+                              Text(
+                                'AD',
+                                style: TextStyle(
+                                  color: _kFg,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.8,
+                                  height: 1,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+          Positioned(
+            bottom: 38,
+            child: AnimatedBuilder(
+              animation: _slideCtrl,
+              builder: (context, child) {
+                return FadeTransition(
+                  opacity: _fadeAnim,
+                  child: Transform.translate(
+                    offset: Offset(0, (1 - _slideAnim.value.clamp(0.0, 1.0)) * 8),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: _kAccent,
+                            borderRadius: BorderRadius.circular(10),
+                            boxShadow: [
+                              BoxShadow(
+                                color: _kAccent.withValues(alpha: 0.25),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: const Text(
+                            'Stuck? Try a hint!',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ),
+                        CustomPaint(
+                          size: const Size(14, 7),
+                          painter: _MSBubbleTailPainter(),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MSBubbleTailPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = _kAccent;
+    final path = Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width / 2, size.height)
+      ..lineTo(size.width, 0)
+      ..close();
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

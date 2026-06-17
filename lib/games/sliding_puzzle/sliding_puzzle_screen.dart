@@ -91,6 +91,8 @@ class _SlidingPuzzleScreenState extends State<SlidingPuzzleScreen> {
   int _bestTime = 0;
   bool _isNewBest = false;
   bool _gameOver = false;
+  int _hintsUsed = 0;
+  static const _kMaxHints = 3;
   Timer? _idleTimer;
   bool _idleStuck = false;
   static const _kIdleTimeout = Duration(seconds: 15);
@@ -163,6 +165,7 @@ class _SlidingPuzzleScreenState extends State<SlidingPuzzleScreen> {
     _bestTime = ScoreService().getHighScore(kSlidingPuzzleGameId, subKey: gs.subKey);
     _isNewBest = false;
     _gameOver = false;
+    _hintsUsed = 0;
     _idleStuck = false;
     _elapsedSeconds = 0;
     _stopwatch.reset();
@@ -273,6 +276,7 @@ class _SlidingPuzzleScreenState extends State<SlidingPuzzleScreen> {
 
   void _onHint() {
     if (_gameOver || _activeGridSize == null) return;
+    if (_hintsUsed >= _kMaxHints) return;
     if (!AdsService().isRewardedReady) return;
     AudioService().playTap();
     bool earned = false;
@@ -283,6 +287,7 @@ class _SlidingPuzzleScreenState extends State<SlidingPuzzleScreen> {
       onComplete: () {
         if (!earned || !mounted) return;
         _idleStuck = false;
+        _hintsUsed++;
         _resetIdleTimer();
         for (int i = 0; i < _tiles.length - 1; i++) {
           if (_tiles[i] != i + 1) {
@@ -408,9 +413,9 @@ class _SlidingPuzzleScreenState extends State<SlidingPuzzleScreen> {
             Expanded(child: _buildGrid(n)),
             if (!_gameOver)
               Opacity(
-                opacity: AdsService().isRewardedReady ? 1.0 : 0.0,
+                opacity: AdsService().isRewardedReady && _hintsUsed < _kMaxHints ? 1.0 : 0.0,
                 child: IgnorePointer(
-                  ignoring: !AdsService().isRewardedReady,
+                  ignoring: !AdsService().isRewardedReady || _hintsUsed >= _kMaxHints,
                   child: _SlidingPuzzleHintNudge(onTap: _onHint, isStuck: _isStuck),
                 ),
               ),
