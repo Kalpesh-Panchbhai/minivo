@@ -23,7 +23,6 @@ import 'solitaire/solitaire_stats.dart';
 import 'sliding_puzzle/sliding_puzzle_stats.dart';
 import 'number_sequence/number_sequence_stats.dart';
 import 'water_sort/water_sort_stats.dart';
-import 'nuts_and_bolts/nuts_and_bolts_stats.dart';
 import 'arrow_puzzle/arrow_puzzle_stats.dart';
 
 /// Single entry point for registering all per-game custom stats builders.
@@ -57,6 +56,5 @@ void registerAllGameStats() {
   registerSlidingPuzzleStats();
   registerNumberSequenceStats();
   registerWaterSortStats();
-  registerNutsAndBoltsStats();
   registerArrowPuzzleStats();
 }

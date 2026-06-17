@@ -50,8 +50,6 @@ import 'number_sequence/number_sequence_logo.dart';
 import 'number_sequence/number_sequence_screen.dart';
 import 'water_sort/water_sort_logo.dart';
 import 'water_sort/water_sort_screen.dart';
-import 'nuts_and_bolts/nuts_and_bolts_logo.dart';
-import 'nuts_and_bolts/nuts_and_bolts_screen.dart';
 import 'arrow_puzzle/arrow_puzzle_logo.dart';
 import 'arrow_puzzle/arrow_puzzle_screen.dart';
 
@@ -86,7 +84,6 @@ class GameRegistry {
     'sliding_puzzle': () => const SlidingPuzzleScreen(),
     'number_sequence': () => const NumberSequenceScreen(),
     'water_sort': () => const WaterSortScreen(),
-    'nuts_and_bolts': () => const NutsAndBoltsScreen(),
     'arrow_puzzle': () => const ArrowPuzzleScreen(),
   };
 
@@ -575,25 +572,6 @@ class GameRegistry {
       bgColor: Color(0xFFF0F5FF),
       playCount: 1000,
       customLogo: buildGomokuLogo,
-    ),
-    const GameInfo(
-      id: 'nuts_and_bolts',
-      name: 'Nuts & Bolts',
-      hidden: true,
-      description: 'Sort colored nuts onto matching bolts!',
-      howToPlay:
-          'Choose your difficulty (Easy = 3 colors, Medium = 5, Hard = 7).\n'
-          'Tap a bolt to pick up the top nut, then tap another bolt to place it.\n'
-          'You can only place a nut on an empty bolt or on a nut of the same color.\n'
-          'Sort all nuts so each bolt holds only one color to complete the level.\n'
-          'Levels get progressively harder — complete 1000+ levels per difficulty!\n'
-          'Watch an ad to unlock extra bolt space when you\'re stuck!',
-      category: GameCategory.puzzle,
-      icon: Icons.hardware_rounded,
-      color: Color(0xFF78716C),
-      bgColor: Color(0xFFF5F5F4),
-      playCount: 0,
-      customLogo: buildNutsAndBoltsLogo,
     ),
   ];
 
