@@ -6,6 +6,26 @@ description: Add a new mini game to Minivo — scaffolds all files, registers th
 
 When the user requests a new game, follow these steps **in order**. Every game MUST follow the existing patterns exactly.
 
+## Speed-Run Checklist (TL;DR)
+
+For experienced use — execute these in order, refer to sections below only when needed:
+
+1. **Pick reference game** from decision tree below based on game type
+2. **Read the reference game's screen file** end-to-end as your template
+3. **Create folder** `lib/games/<game_id>/` with 4 files:
+   - `<game_id>_screen.dart` — copy reference, replace game logic
+   - `<game_id>_logo.dart` — CustomPaint logo
+   - `<game_id>_tutorial.dart` — 2-4 animated steps
+   - `<game_id>_stats.dart` — stats builder
+4. **Register in `game_registry.dart`** — add imports, builder, GameInfo (at correct trending position)
+5. **Register stats in `game_stats_bootstrap.dart`** — add import + call
+6. **Update tests:**
+   - `test/games/game_registry_test.dart` — add ID to expectedIds, bump count to N+1
+   - `test/screens/games_overflow_test.dart` — add ID to _gameIds + _playButtonText
+   - Create `test/games/<game_id>_test.dart` from template below
+7. **Run:** `flutter analyze lib/` then `flutter test --reporter compact`
+8. **Never commit** — user handles git
+
 ## Quick Reference — Game Type Decision Tree
 
 Pick the reference game based on game type:
@@ -15,7 +35,7 @@ Pick the reference game based on game type:
 | **Score-based action** | `snake_classic/` | `ScoreService` | High score per difficulty | Snake, Flappy Tap, Dino Run |
 | **Score-based arcade** | `color_tap/` | `ScoreService` | High score per difficulty | Color Tap, Whack-a-Mole |
 | **Score-based puzzle** | `number_merge/` | `ScoreService` | High score per difficulty | 2048, Drop Merge |
-| **Level-based puzzle** | `water_sort/` | `LevelProgressService` | Level progress per difficulty | Water Sort, Nuts & Bolts |
+| **Level-based puzzle** | `water_sort/` | `LevelProgressService` | Level progress per difficulty | Water Sort |
 | **Board game (AI + 2P)** | `checkers/` | `ScoreService` | Win streak per AI difficulty | Checkers, Reversi, Go |
 | **Card game** | `solitaire/` | `ScoreService` | High score per difficulty | Solitaire |
 | **Timed puzzle** | `sudoku/` | `ScoreService` | Best time per difficulty | Sudoku, Minesweeper |
@@ -439,7 +459,7 @@ class _MyGameScreenState extends State<MyGameScreen>
 ```
 This is NOT needed for turn-based games (sudoku, tic-tac-toe, memory match, etc.).
 
-### Level-Based Games (Water Sort / Nuts & Bolts pattern)
+### Level-Based Games (Water Sort pattern)
 
 Level-based games differ from score-based games in these ways:
 
@@ -628,7 +648,7 @@ Every new game MUST be wired into **three** test files. Forgetting any of them m
 ### 9a. Update `test/games/game_registry_test.dart`
 
 1. Add `'<game_id>'` to the `expectedIds` list (keep alphabetical order).
-2. Bump the count in `allGames count matches builder count` from N to N+1 (currently 26 total including hidden games).
+2. Bump the count in `allGames count matches builder count` from N to N+1.
 
 **Note:** Tests for `trending` and `search` use `GameRegistry.visibleGames.length` (excludes hidden games). Tests for `allGames` count use `GameRegistry.allGames.length` (includes hidden). If the new game is `hidden: true`, only the `allGames` count changes.
 
@@ -1011,6 +1031,6 @@ For reference, the current `allGames` order and `playCount` values:
 | 23 | Go | `go` | board | 2000 |
 | 24 | Mancala | `mancala` | board | 1500 |
 | 25 | Gomoku | `gomoku` | board | 1000 |
-| — | Nuts & Bolts | `nuts_and_bolts` | puzzle | 0 (hidden) |
+| 26 | Arrow Puzzle | `arrow_puzzle` | puzzle | 800 |
 
 When adding a new game, estimate its global popularity relative to this list and insert at the appropriate position with a `playCount` between its neighbors.

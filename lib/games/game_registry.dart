@@ -52,6 +52,8 @@ import 'water_sort/water_sort_logo.dart';
 import 'water_sort/water_sort_screen.dart';
 import 'arrow_puzzle/arrow_puzzle_logo.dart';
 import 'arrow_puzzle/arrow_puzzle_screen.dart';
+import 'zip/zip_logo.dart';
+import 'zip/zip_screen.dart';
 
 typedef GameWidgetBuilder = Widget Function();
 
@@ -85,6 +87,7 @@ class GameRegistry {
     'number_sequence': () => const NumberSequenceScreen(),
     'water_sort': () => const WaterSortScreen(),
     'arrow_puzzle': () => const ArrowPuzzleScreen(),
+    'zip': () => const ZipScreen(),
   };
 
   static Widget buildGame(String gameId) {
@@ -355,6 +358,25 @@ class GameRegistry {
       bgColor: Color(0xFFF3EEFF),
       playCount: 13000,
       customLogo: buildSlidingPuzzleLogo,
+    ),
+    const GameInfo(
+      id: 'zip',
+      name: 'Zip',
+      description: 'Draw a single path through every cell — visit checkpoints in order!',
+      howToPlay:
+          'Choose your difficulty — grids grow larger and walls appear as you progress.\n'
+          'Draw a continuous path that visits every cell exactly once.\n'
+          'Numbered checkpoints must be visited in ascending order (1 → 2 → 3...).\n'
+          'Walls block your path — plan your route around them!\n'
+          'Swipe to draw your path — only up, down, left, right moves allowed.\n'
+          'Backtrack by dragging over the previous cell.\n'
+          'Fill every cell to complete the level!',
+      category: GameCategory.puzzle,
+      icon: Icons.route_rounded,
+      color: Color(0xFF818CF8),
+      bgColor: Color(0xFFE0E7FF),
+      playCount: 12000,
+      customLogo: buildZipLogo,
     ),
     const GameInfo(
       id: 'whack_a_mole',
