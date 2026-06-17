@@ -95,7 +95,6 @@ class _WaterSortScreenState extends State<WaterSortScreen> with TickerProviderSt
   int _moves = 0;
   bool _gameOver = false;
   bool _won = false;
-  int _bestMoves = 0;
 
   List<List<int>> _tubes = [];
   int _selectedTube = -1;
@@ -168,8 +167,6 @@ class _WaterSortScreenState extends State<WaterSortScreen> with TickerProviderSt
   void _startGame(_Difficulty diff) {
     final lps = LevelProgressService();
     _level = lps.getCurrentLevel(kWaterSortGameId, diff.subKey);
-    _bestMoves = lps.getLevelBest(kWaterSortGameId, diff.subKey, _level);
-
     _gameOver = false;
     _won = false;
     _selectedTube = -1;
@@ -348,9 +345,6 @@ class _WaterSortScreenState extends State<WaterSortScreen> with TickerProviderSt
     if (won) {
       final diff = _activeDifficulty!;
       final lps = LevelProgressService();
-      final isNewBest = lps.getLevelBest(kWaterSortGameId, diff.subKey, _level);
-      if (isNewBest == 0 || _moves < isNewBest) _bestMoves = _moves;
-      lps.saveLevelBest(kWaterSortGameId, diff.subKey, _level, _moves);
       lps.advanceLevel(kWaterSortGameId, diff.subKey);
       lps.clearGameState(kWaterSortGameId, diff.subKey);
       GameWrapper.of(context).updateScore(_level);
@@ -402,7 +396,6 @@ class _WaterSortScreenState extends State<WaterSortScreen> with TickerProviderSt
       _completedTubes.clear();
       _celebratingTubes.clear();
     });
-    _bestMoves = LevelProgressService().getLevelBest(kWaterSortGameId, diff.subKey, _level);
     _generateLevel(diff);
     GameWrapper.of(context).restartGame();
     GameWrapper.of(context).startGame();
@@ -498,8 +491,7 @@ class _WaterSortScreenState extends State<WaterSortScreen> with TickerProviderSt
       bestScore: LevelProgressService().getHighestLevel(kWaterSortGameId, d.subKey),
       bestLabel: (s) {
         if (s <= 0) return '';
-        final ob = LevelProgressService().getOverallBest(kWaterSortGameId, d.subKey);
-        return ob > 0 ? 'Level $s · Best: $ob moves' : 'Completed: Level $s';
+        return 'Completed: Level $s';
       },
     )).toList();
 
@@ -1089,11 +1081,6 @@ class _WaterSortScreenState extends State<WaterSortScreen> with TickerProviderSt
               _statCol('LEVEL', '$_level', color),
               _pillDivider(),
               _statCol('MOVES', '$_moves', const Color(0xFF6B7280)),
-              _pillDivider(),
-              Builder(builder: (_) {
-                final ob = LevelProgressService().getOverallBest(kWaterSortGameId, _activeDifficulty!.subKey);
-                return _statCol('BEST', ob > 0 ? '$ob' : '—', const Color(0xFFFEC84B));
-              }),
             ],
           ),
         ),
@@ -1121,25 +1108,20 @@ class _WaterSortScreenState extends State<WaterSortScreen> with TickerProviderSt
 
   Widget _buildResult() {
     final diff = _activeDifficulty!;
-    final isNewBest = _won && (_bestMoves == _moves);
     return game_result.GenericGameResultScreen(
       headline: _won ? 'Level $_level Complete!' : 'Stuck!',
-      subtitle: _won ? '$_moves moves${isNewBest ? ' — New Best!' : ''}' : 'Try again or restart',
+      subtitle: _won ? '$_moves moves' : 'Try again or restart',
       badgeContent: _won ? '💧' : '😔',
       badgeColor: diff.color,
-      showNewBestBadge: isNewBest,
+      showNewBestBadge: false,
       gameId: kWaterSortGameId,
       score: _level,
-      statsWidget: Builder(builder: (_) {
-        final ob = LevelProgressService().getOverallBest(kWaterSortGameId, diff.subKey);
-        return game_result.GameResultStatsRow(
-          stats: [
-            game_result.StatItem(label: 'LEVEL', value: _level, color: diff.color),
-            game_result.StatItem(label: 'MOVES', value: _moves, color: const Color(0xFF6B7280)),
-            game_result.StatItem(label: 'BEST', value: ob, displayValue: ob > 0 ? '$ob' : '—', color: const Color(0xFFFEC84B)),
-          ],
-        );
-      }),
+      statsWidget: game_result.GameResultStatsRow(
+        stats: [
+          game_result.StatItem(label: 'LEVEL', value: _level, color: diff.color),
+          game_result.StatItem(label: 'MOVES', value: _moves, color: const Color(0xFF6B7280)),
+        ],
+      ),
       actions: [
         if (_won)
           game_result.GameResultAction(

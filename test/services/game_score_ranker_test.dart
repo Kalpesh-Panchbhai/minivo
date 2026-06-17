@@ -18,11 +18,11 @@ void main() {
 
     test('returns one ranked entry per registered game', () {
       final ranked = GameScoreRanker.rankAllGames();
-      expect(ranked.length, GameRegistry.allGames.length);
-      // Every registered game must appear exactly once.
+      expect(ranked.length, GameRegistry.visibleGames.length);
+      // Every visible game must appear exactly once.
       final ids = ranked.map((r) => r.game.id).toSet();
       expect(ids.length, ranked.length);
-      expect(ids, containsAll(GameRegistry.allGames.map((g) => g.id)));
+      expect(ids, containsAll(GameRegistry.visibleGames.map((g) => g.id)));
     });
 
     test('scores are clamped between 0 and 100', () {

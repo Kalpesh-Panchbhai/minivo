@@ -6,6 +6,35 @@ description: Add a new mini game to Minivo — scaffolds all files, registers th
 
 When the user requests a new game, follow these steps **in order**. Every game MUST follow the existing patterns exactly.
 
+## Quick Reference — Game Type Decision Tree
+
+Pick the reference game based on game type:
+
+| Game Type | Reference Game | Key Service | Score Pattern | Example |
+|-----------|---------------|-------------|---------------|---------|
+| **Score-based action** | `snake_classic/` | `ScoreService` | High score per difficulty | Snake, Flappy Tap, Dino Run |
+| **Score-based arcade** | `color_tap/` | `ScoreService` | High score per difficulty | Color Tap, Whack-a-Mole |
+| **Score-based puzzle** | `number_merge/` | `ScoreService` | High score per difficulty | 2048, Drop Merge |
+| **Level-based puzzle** | `water_sort/` | `LevelProgressService` | Level progress per difficulty | Water Sort, Nuts & Bolts |
+| **Board game (AI + 2P)** | `checkers/` | `ScoreService` | Win streak per AI difficulty | Checkers, Reversi, Go |
+| **Card game** | `solitaire/` | `ScoreService` | High score per difficulty | Solitaire |
+| **Timed puzzle** | `sudoku/` | `ScoreService` | Best time per difficulty | Sudoku, Minesweeper |
+
+## Naming Convention Cheat Sheet
+
+For a game called "Brick Breaker" with ID `brick_breaker`:
+
+| Item | Convention | Example |
+|------|-----------|---------|
+| Folder | `lib/games/<game_id>/` | `lib/games/brick_breaker/` |
+| Screen class | `<PascalName>Screen` | `BrickBreakerScreen` |
+| Game ID constant | `k<PascalName>GameId` | `kBrickBreakerGameId` |
+| Logo builder | `build<PascalName>Logo` | `buildBrickBreakerLogo` |
+| Stats register fn | `register<PascalName>Stats` | `registerBrickBreakerStats` |
+| Tutorial steps fn | `<camelName>Steps()` | `brickBreakerSteps()` |
+| Stats sub-keys | `k<Abbrev>SubKeyEasy` etc. | `kBBSubKeyEasy` |
+| Test file | `test/games/<game_id>_test.dart` | `test/games/brick_breaker_test.dart` |
+
 ## Prerequisites — Read Before Starting
 
 Before writing any code, read these reference files to understand the patterns:
@@ -410,6 +439,51 @@ class _MyGameScreenState extends State<MyGameScreen>
 ```
 This is NOT needed for turn-based games (sudoku, tic-tac-toe, memory match, etc.).
 
+### Level-Based Games (Water Sort / Nuts & Bolts pattern)
+
+Level-based games differ from score-based games in these ways:
+
+1. **Use `LevelProgressService`** instead of (or alongside) `ScoreService` for level tracking:
+   ```dart
+   import '../../core/services/level_progress_service.dart';
+   ```
+
+2. **Level state fields** (replace score fields):
+   ```dart
+   int _currentLevel = 1;
+   int _totalLevels = 1000; // per difficulty
+   bool _levelComplete = false;
+   ```
+
+3. **Level progression**: On level complete, increment level and show `LevelCompleteOverlay`:
+   ```dart
+   void _onLevelComplete() {
+     LevelProgressService().saveLevel(kMyGameId, _difficulty.subKey, _currentLevel);
+     setState(() => _levelComplete = true);
+   }
+   ```
+
+4. **HUD shows level instead of score**: `GameHudBar` center shows `Level $_currentLevel` or progress bar
+
+5. **Result screen**: Shows levels completed, not score. Use `game_result.GenericGameResultScreen` with level-specific stats.
+
+6. **Rewarded continue**: Typically "extra space" or "undo last move" rather than "continue from score"
+
+Reference: Study `lib/games/water_sort/water_sort_screen.dart` for the full pattern.
+
+### AnimatedDifficultyIcon in Picker
+
+Every picker screen should use `AnimatedDifficultyIcon` as the mascot/icon ring. It animates on difficulty change:
+
+```dart
+AnimatedDifficultyIcon(
+  difficulty: _pickerDifficulty.kind,
+  child: build<PascalName>Logo(80),
+)
+```
+
+Import: `import '../shared/animated_difficulty_icon.dart';`
+
 ## Step 3: Create the Logo File (`<game_id>_logo.dart`)
 
 ```dart
@@ -489,7 +563,12 @@ In `lib/games/game_registry.dart`:
    '<game_id>': () => const MyGameScreen(),
    ```
 
-3. **Add GameInfo** to `allGames` list (add at the end or in category order):
+3. **Add GameInfo** to `allGames` list.
+   
+   **Ordering:** The `allGames` list is ordered by global trending popularity (descending). Insert the new game at the appropriate position based on how popular the game genre is globally. The `playCount` values serve as a static popularity seed for the home screen ranking algorithm — they are NOT real play counts.
+   
+   **Current `playCount` range:** 52000 (Solitaire, #1) → 1000 (Gomoku, #25). Space new games proportionally.
+   
    ```dart
    const GameInfo(
      id: '<game_id>',
@@ -500,10 +579,15 @@ In `lib/games/game_registry.dart`:
      icon: Icons.some_icon_rounded,
      color: Color(0xFF...),          // primary accent color
      bgColor: Color(0xFF...),        // light pastel background
-     playCount: 0,
+     playCount: <number>,            // see ordering note above
      customLogo: buildMyGameLogo,
    ),
    ```
+   
+   **Optional fields:**
+   - `isFeatured: true` — set for top ~7 most popular games (appears in featured carousel on home screen)
+   - `hidden: true` — set for WIP games that are not ready for release; hidden from home, search, leaderboard, and trending but code remains intact. Remove when ready to release.
+   - `iconAsset: 'assets/images/<game_id>_logo.png'` — use for PNG/JPG logos instead of `customLogo`
 
 ## Step 7: Register Stats
 
@@ -544,7 +628,9 @@ Every new game MUST be wired into **three** test files. Forgetting any of them m
 ### 9a. Update `test/games/game_registry_test.dart`
 
 1. Add `'<game_id>'` to the `expectedIds` list (keep alphabetical order).
-2. Bump the count in `allGames count matches builder count` from N to N+1.
+2. Bump the count in `allGames count matches builder count` from N to N+1 (currently 26 total including hidden games).
+
+**Note:** Tests for `trending` and `search` use `GameRegistry.visibleGames.length` (excludes hidden games). Tests for `allGames` count use `GameRegistry.allGames.length` (includes hidden). If the new game is `hidden: true`, only the `allGames` count changes.
 
 ### 9b. Update `test/screens/games_overflow_test.dart`
 
@@ -853,7 +939,7 @@ All tests MUST pass at every step. If any fail, fix the game code (not the tests
 - [ ] `<game_id>_tutorial.dart` — animated tutorial steps
 - [ ] `<game_id>_stats.dart` — stats builder for leaderboard/profile
 - [ ] Registered in `GameRegistry._builders`
-- [ ] `GameInfo` added to `GameRegistry.allGames`
+- [ ] `GameInfo` added to `GameRegistry.allGames` at correct trending position with appropriate `playCount`
 - [ ] Stats registered in `game_stats_bootstrap.dart`
 - [ ] `GameWrapper` lifecycle wired (startGame, endGame, updateScore, setDifficultyAndMode)
 - [ ] Back button (`_backOrHome`) exits game entirely via `handleExit` — does NOT go to picker
@@ -893,3 +979,38 @@ All tests MUST pass at every step. If any fail, fix the game code (not the tests
 - Keep it lightweight — no heavy assets, pure Flutter widgets or CustomPaint
 - Game logic MUST be self-contained in the game folder
 - Reuse shared widgets: GamePickerScaffold, GameHudBar, GameSinglePickerBody, GenericGameResultScreen, AnimatedBackground, RewardedContinueAction
+
+## Current Game Roster (ordered by trending popularity)
+
+For reference, the current `allGames` order and `playCount` values:
+
+| # | Game | ID | Category | playCount |
+|---|------|----|----------|-----------|
+| 1 | Solitaire | `solitaire` | card | 52000 |
+| 2 | 2048 Merge | `number_merge` | puzzle | 48000 |
+| 3 | Water Sort | `water_sort` | puzzle | 45000 |
+| 4 | Sudoku | `sudoku` | puzzle | 42000 |
+| 5 | Snake Classic | `snake_classic` | action | 38000 |
+| 6 | Minesweeper | `minesweeper` | puzzle | 35000 |
+| 7 | Flappy Tap | `flappy_tap` | action | 32000 |
+| 8 | Dino Run | `dino_run` | action | 28000 |
+| 9 | Checkers | `checkers` | board | 25000 |
+| 10 | Tic Tac Toe | `tic_tac_toe` | board | 22000 |
+| 11 | Memory Match | `memory_match` | puzzle | 19000 |
+| 12 | Connect Four | `connect_four` | board | 17000 |
+| 13 | Hangman | `hangman` | puzzle | 15000 |
+| 14 | Sliding Puzzle | `sliding_puzzle` | puzzle | 13000 |
+| 15 | Whack-a-Mole | `whack_a_mole` | arcade | 11000 |
+| 16 | Color Tap | `color_tap` | arcade | 9500 |
+| 17 | Reversi | `reversi` | board | 8000 |
+| 18 | Drop Merge | `drop_merge` | puzzle | 7000 |
+| 19 | Dots & Boxes | `dots_and_boxes` | board | 5500 |
+| 20 | Dodge Ball | `dodge_ball` | action | 4000 |
+| 21 | Tap Tap Dash | `tap_tap_dash` | action | 3200 |
+| 22 | Number Sequence | `number_sequence` | puzzle | 2500 |
+| 23 | Go | `go` | board | 2000 |
+| 24 | Mancala | `mancala` | board | 1500 |
+| 25 | Gomoku | `gomoku` | board | 1000 |
+| — | Nuts & Bolts | `nuts_and_bolts` | puzzle | 0 (hidden) |
+
+When adding a new game, estimate its global popularity relative to this list and insert at the appropriate position with a `playCount` between its neighbors.

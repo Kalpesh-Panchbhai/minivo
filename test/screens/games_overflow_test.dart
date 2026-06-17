@@ -15,6 +15,7 @@ import '../helpers/overflow_detector.dart';
 // Every gameId registered in GameRegistry. Adding a new game and forgetting
 // to wire it here means we lose responsive coverage — keep this in sync.
 const _gameIds = [
+  'arrow_puzzle',
   'checkers',
   'color_tap',
   'connect_four',
@@ -60,6 +61,7 @@ String _playButtonText(String gameId) => switch (gameId) {
   'sliding_puzzle' => 'Play Sliding Puzzle',
   'number_sequence' => 'Play Number Sequence',
   'water_sort'    => 'Play Water Sort',
+  'arrow_puzzle'    => 'Play Arrow Puzzle',
   'nuts_and_bolts' => 'Play Nuts & Bolts',
   _              => 'Tap to Start',
 };

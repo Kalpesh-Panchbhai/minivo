@@ -250,7 +250,11 @@ class _SolitaireScreenState extends State<SolitaireScreen> with TickerProviderSt
   int _moves = 0;
   int _bestTime = 0;
   bool _isNewBest = false;
-  bool _hintUsed = false;
+  int _consecutiveShakes = 0;
+  Timer? _idleTimer;
+  bool _idleStuck = false;
+  static const _kStuckShakes = 3;
+  static const _kIdleTimeout = Duration(seconds: 45);
 
   Timer? _ticker;
   final Stopwatch _stopwatch = Stopwatch();
@@ -290,6 +294,7 @@ class _SolitaireScreenState extends State<SolitaireScreen> with TickerProviderSt
   void dispose() {
     _ticker?.cancel();
     _stopwatch.stop();
+    _idleTimer?.cancel();
     _flyCtrl?.dispose();
     _shakeCtrl?.dispose();
     _drawSlideCtrl?.dispose();
@@ -337,7 +342,8 @@ class _SolitaireScreenState extends State<SolitaireScreen> with TickerProviderSt
     _won = false;
     _moves = 0;
     _isNewBest = false;
-    _hintUsed = false;
+    _consecutiveShakes = 0;
+    _idleStuck = false;
     _elapsedSeconds = 0;
     _flyingCards = null;
     _flyCtrl?.dispose();
@@ -365,6 +371,7 @@ class _SolitaireScreenState extends State<SolitaireScreen> with TickerProviderSt
       GameWrapper.of(context).updateScore(0);
     }
 
+    _resetIdleTimer();
     _stopwatch.start();
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
@@ -396,6 +403,21 @@ class _SolitaireScreenState extends State<SolitaireScreen> with TickerProviderSt
 
   void _countMove() {
     _moves++;
+    _consecutiveShakes = 0;
+    _idleStuck = false;
+    _resetIdleTimer();
+  }
+
+  bool get _isStuck => _consecutiveShakes >= _kStuckShakes || _idleStuck;
+
+  void _resetIdleTimer() {
+    _idleTimer?.cancel();
+    if (_idleStuck) setState(() => _idleStuck = false);
+    _idleTimer = Timer(_kIdleTimeout, () {
+      if (mounted && _activeDifficulty != null && !_gameOver && !_won) {
+        setState(() => _idleStuck = true);
+      }
+    });
   }
 
   void _drawFromStock() {
@@ -725,7 +747,7 @@ class _SolitaireScreenState extends State<SolitaireScreen> with TickerProviderSt
   }
 
   void _onHint() {
-    if (_hintUsed || _gameOver) return;
+    if (_gameOver) return;
     if (!AdsService().isRewardedReady) return;
     AudioService().playTap();
     bool earned = false;
@@ -735,6 +757,9 @@ class _SolitaireScreenState extends State<SolitaireScreen> with TickerProviderSt
       onRewarded: (_) => earned = true,
       onComplete: () {
         if (!earned || !mounted) return;
+        _consecutiveShakes = 0;
+        _idleStuck = false;
+        _resetIdleTimer();
         _clearSel();
         for (int c = 0; c < 7; c++) {
           if (_tableau[c].isEmpty) continue;
@@ -743,7 +768,7 @@ class _SolitaireScreenState extends State<SolitaireScreen> with TickerProviderSt
           for (int f = 0; f < 4; f++) {
             final top = _foundations[f].isEmpty ? null : _foundations[f].last;
             if (card.canStackOnFoundation(top)) {
-              setState(() { _hintUsed = true; _selCol = c; _selIdx = _tableau[c].length - 1; });
+              setState(() { _selCol = c; _selIdx = _tableau[c].length - 1; });
               _computeValidDests();
               setState(() {});
               return;
@@ -755,7 +780,7 @@ class _SolitaireScreenState extends State<SolitaireScreen> with TickerProviderSt
           for (int f = 0; f < 4; f++) {
             final top = _foundations[f].isEmpty ? null : _foundations[f].last;
             if (card.canStackOnFoundation(top)) {
-              setState(() { _hintUsed = true; _selCol = -1; _selIdx = _waste.length - 1; });
+              setState(() { _selCol = -1; _selIdx = _waste.length - 1; });
               _computeValidDests();
               setState(() {});
               return;
@@ -764,13 +789,13 @@ class _SolitaireScreenState extends State<SolitaireScreen> with TickerProviderSt
           for (int d = 0; d < 7; d++) {
             if (_tableau[d].isEmpty) {
               if (card.rank == 13) {
-                setState(() { _hintUsed = true; _selCol = -1; _selIdx = _waste.length - 1; });
+                setState(() { _selCol = -1; _selIdx = _waste.length - 1; });
                 _computeValidDests();
                 setState(() {});
                 return;
               }
             } else if (_tableau[d].last.faceUp && card.canStackOnTableau(_tableau[d].last)) {
-              setState(() { _hintUsed = true; _selCol = -1; _selIdx = _waste.length - 1; });
+              setState(() { _selCol = -1; _selIdx = _waste.length - 1; });
               _computeValidDests();
               setState(() {});
               return;
@@ -788,20 +813,20 @@ class _SolitaireScreenState extends State<SolitaireScreen> with TickerProviderSt
             if (d == s) continue;
             if (_tableau[d].isEmpty) {
               if (card.rank == 13 && first > 0) {
-                setState(() { _hintUsed = true; _selCol = s; _selIdx = first; });
+                setState(() { _selCol = s; _selIdx = first; });
                 _computeValidDests();
                 setState(() {});
                 return;
               }
             } else if (_tableau[d].last.faceUp && card.canStackOnTableau(_tableau[d].last)) {
-              setState(() { _hintUsed = true; _selCol = s; _selIdx = first; });
+              setState(() { _selCol = s; _selIdx = first; });
               _computeValidDests();
               setState(() {});
               return;
             }
           }
         }
-        setState(() => _hintUsed = true);
+        setState(() {});
       },
     );
   }
@@ -854,6 +879,8 @@ class _SolitaireScreenState extends State<SolitaireScreen> with TickerProviderSt
   }
 
   void _triggerShake({int col = -1, int idx = -1, bool waste = false}) {
+    _consecutiveShakes++;
+    _resetIdleTimer();
     _shakeCol = col;
     _shakeIdx = idx;
     _shakeWaste = waste;
@@ -966,11 +993,13 @@ class _SolitaireScreenState extends State<SolitaireScreen> with TickerProviderSt
                 _buildTopRow(),
                 const SizedBox(height: 6),
                 Expanded(child: _buildTableau()),
-                if (!_hintUsed && AdsService().isRewardedReady)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: _HintAdButton(onTap: _onHint),
+                Opacity(
+                  opacity: AdsService().isRewardedReady ? 1.0 : 0.0,
+                  child: IgnorePointer(
+                    ignoring: !AdsService().isRewardedReady,
+                    child: _SolitaireHintNudge(onTap: _onHint, isStuck: _isStuck),
                   ),
+                ),
               ],
             ),
           ),
@@ -1406,74 +1435,198 @@ class _SolitaireScreenState extends State<SolitaireScreen> with TickerProviderSt
   }
 }
 
-class _HintAdButton extends StatelessWidget {
+class _SolitaireHintNudge extends StatefulWidget {
   final VoidCallback onTap;
-  const _HintAdButton({required this.onTap});
+  final bool isStuck;
+  const _SolitaireHintNudge({required this.onTap, required this.isStuck});
+  @override
+  State<_SolitaireHintNudge> createState() => _SolitaireHintNudgeState();
+}
 
+class _SolitaireHintNudgeState extends State<_SolitaireHintNudge> with TickerProviderStateMixin {
   static const _kBg = Color(0xFFFFD43B);
   static const _kFg = Color(0xFF5C4600);
 
+  late final AnimationController _pulseCtrl;
+  late final AnimationController _slideCtrl;
+  late final Animation<double> _slideAnim;
+  late final Animation<double> _fadeAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1000));
+    _slideCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 400));
+    _slideAnim = CurvedAnimation(parent: _slideCtrl, curve: Curves.easeOutBack);
+    _fadeAnim = CurvedAnimation(parent: _slideCtrl, curve: Curves.easeOut);
+    if (widget.isStuck) {
+      _pulseCtrl.repeat(reverse: true);
+      _slideCtrl.forward();
+    }
+  }
+
+  @override
+  void didUpdateWidget(_SolitaireHintNudge old) {
+    super.didUpdateWidget(old);
+    if (widget.isStuck && !old.isStuck) {
+      _pulseCtrl.repeat(reverse: true);
+      _slideCtrl.forward();
+    } else if (!widget.isStuck && old.isStuck) {
+      _pulseCtrl.stop();
+      _pulseCtrl.value = 0;
+      _slideCtrl.reverse();
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulseCtrl.dispose();
+    _slideCtrl.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: _kBg,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFFE6BE00), width: 1.5),
-          boxShadow: [
-            BoxShadow(
-              color: _kBg.withValues(alpha: 0.35),
-              blurRadius: 14,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.lightbulb_rounded, size: 16, color: _kFg),
-            const SizedBox(width: 6),
-            const Text(
-              'HINT',
-              style: TextStyle(
-                color: _kFg,
-                fontSize: 12,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 1.0,
-                height: 1,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-              decoration: BoxDecoration(
-                color: _kFg.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.play_arrow_rounded, size: 12, color: _kFg),
-                  SizedBox(width: 2),
-                  Text(
-                    'AD',
-                    style: TextStyle(
-                      color: _kFg,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 0.8,
-                      height: 1,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Stack(
+        alignment: Alignment.bottomCenter,
+        clipBehavior: Clip.none,
+        children: [
+          AnimatedBuilder(
+            animation: _pulseCtrl,
+            builder: (context, child) {
+              final glow = widget.isStuck ? _pulseCtrl.value : 0.0;
+              final scale = 1.0 + glow * 0.05;
+              return Transform.scale(
+                scale: scale,
+                child: GestureDetector(
+                  onTap: widget.onTap,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: _kBg,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: const Color(0xFFE6BE00), width: 1.5),
+                      boxShadow: [
+                        BoxShadow(
+                          color: _kBg.withValues(alpha: 0.30 + glow * 0.40),
+                          blurRadius: 12 + glow * 12,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.lightbulb_rounded, size: 16, color: _kFg),
+                        const SizedBox(width: 6),
+                        const Text(
+                          'HINT',
+                          style: TextStyle(
+                            color: _kFg,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1.0,
+                            height: 1,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: _kFg.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.play_arrow_rounded, size: 12, color: _kFg),
+                              SizedBox(width: 2),
+                              Text(
+                                'AD',
+                                style: TextStyle(
+                                  color: _kFg,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.8,
+                                  height: 1,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
+                ),
+              );
+            },
+          ),
+          Positioned(
+            bottom: 38,
+            child: AnimatedBuilder(
+              animation: _slideCtrl,
+              builder: (context, child) {
+                return FadeTransition(
+                  opacity: _fadeAnim,
+                  child: Transform.translate(
+                    offset: Offset(0, (1 - _slideAnim.value.clamp(0.0, 1.0)) * 8),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: _kAccent,
+                            borderRadius: BorderRadius.circular(10),
+                            boxShadow: [
+                              BoxShadow(
+                                color: _kAccent.withValues(alpha: 0.25),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: const Text(
+                            'Stuck? Try a hint!',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ),
+                        CustomPaint(
+                          size: const Size(14, 7),
+                          painter: _SolitaireBubbleTailPainter(),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
+}
+
+class _SolitaireBubbleTailPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = _kAccent;
+    final path = Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width / 2, size.height)
+      ..lineTo(size.width, 0)
+      ..close();
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

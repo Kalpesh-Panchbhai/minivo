@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math';
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -109,8 +110,12 @@ class _SudokuScreenState extends State<SudokuScreen> {
   Timer? _ticker;
   int _elapsedSeconds = 0;
 
-  // Hint support (1 per game)
-  bool _hintUsed = false;
+  // Hint / stuck detection
+  int _consecutiveWrongs = 0;
+  Timer? _idleTimer;
+  bool _idleStuck = false;
+  static const _kStuckWrongs = 3;
+  static const _kIdleTimeout = Duration(seconds: 45);
 
   // Result
   bool _isNewBestScore = false;
@@ -124,6 +129,7 @@ class _SudokuScreenState extends State<SudokuScreen> {
   @override
   void dispose() {
     _ticker?.cancel();
+    _idleTimer?.cancel();
     _stopwatch.stop();
     super.dispose();
   }
@@ -177,10 +183,11 @@ class _SudokuScreenState extends State<SudokuScreen> {
         _selCol         = null;
         _errorCount     = 0;
         _elapsedSeconds = 0;
-        _isNewBestScore = false;
-        _isGenerating   = false;
-        _hintUsed       = false;
-        _mode           = _Mode.playing;
+        _isNewBestScore     = false;
+        _isGenerating       = false;
+        _consecutiveWrongs  = 0;
+        _idleStuck          = false;
+        _mode               = _Mode.playing;
         _animRow        = -1;
         _animCol        = -1;
         _animCorrect    = false;
@@ -191,6 +198,7 @@ class _SudokuScreenState extends State<SudokuScreen> {
         _flashingCols    = {};
         _flashingBoxes   = {};
       });
+      _resetIdleTimer();
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
@@ -203,11 +211,22 @@ class _SudokuScreenState extends State<SudokuScreen> {
   }
 
   void _onCellTap(int row, int col) {
+    _resetIdleTimer();
     setState(() {
       _selRow = row;
       _selCol = col;
     });
   }
+
+  void _resetIdleTimer() {
+    _idleTimer?.cancel();
+    if (_idleStuck) setState(() => _idleStuck = false);
+    _idleTimer = Timer(_kIdleTimeout, () {
+      if (mounted && _mode == _Mode.playing) setState(() => _idleStuck = true);
+    });
+  }
+
+  bool get _isStuck => _consecutiveWrongs >= _kStuckWrongs || _idleStuck;
 
 
   void _recomputeCompletion(int r, int c) {
@@ -260,8 +279,13 @@ class _SudokuScreenState extends State<SudokuScreen> {
     });
 
     if (isCorrect) {
+      _consecutiveWrongs = 0;
+      _idleStuck = false;
+      _resetIdleTimer();
       _recomputeCompletion(r, c);
     } else {
+      _consecutiveWrongs++;
+      _resetIdleTimer();
       HapticFeedback.mediumImpact();
     }
 
@@ -293,7 +317,6 @@ class _SudokuScreenState extends State<SudokuScreen> {
   }
 
   void _onHint() {
-    if (_hintUsed) return;
     if (!AdsService().isRewardedReady) return;
 
     AudioService().playTap();
@@ -325,7 +348,8 @@ class _SudokuScreenState extends State<SudokuScreen> {
         setState(() {
           _puzzle[r][c] = _solution[r][c];
           _given[r][c] = true;
-          _hintUsed = true;
+          _consecutiveWrongs = 0;
+          _idleStuck = false;
           _selRow = r;
           _selCol = c;
           _animRow = r;
@@ -506,11 +530,16 @@ class _SudokuScreenState extends State<SudokuScreen> {
                   _NumberKeypad(
                     onNumber: _onNumberInput,
                     onErase: _onErase,
-                    onHint: _onHint,
-                    hintUsed: _hintUsed,
                     accentColor: diff.color,
                   ),
-                  const SizedBox(height: 12),
+                  Opacity(
+                    opacity: AdsService().isRewardedReady ? 1.0 : 0.0,
+                    child: IgnorePointer(
+                      ignoring: !AdsService().isRewardedReady,
+                      child: _SudokuHintNudge(onTap: _onHint, isStuck: _isStuck),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                 ],
               ),
       ),
@@ -1050,28 +1079,23 @@ class _SudokuGridState extends State<_SudokuGrid> with TickerProviderStateMixin 
 class _NumberKeypad extends StatelessWidget {
   final void Function(int) onNumber;
   final VoidCallback onErase;
-  final VoidCallback onHint;
-  final bool hintUsed;
   final Color accentColor;
   const _NumberKeypad({
     required this.onNumber,
     required this.onErase,
-    required this.onHint,
-    required this.hintUsed,
     required this.accentColor,
   });
 
   @override
   Widget build(BuildContext context) {
-    final hintAvailable = !hintUsed && AdsService().isRewardedReady;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 32),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
-              ...List.generate(9, (i) {
+              ...List.generate(5, (i) {
                 final digit = i + 1;
                 return Expanded(
                   child: _KeypadButton(
@@ -1085,23 +1109,24 @@ class _NumberKeypad extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Row(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _KeypadButton(
-                label: '⌫',
-                accentColor: accentColor,
-                isErase: true,
-                fixedWidth: 52,
-                onTap: onErase,
-              ),
-              const SizedBox(width: 10),
-              _KeypadButton(
-                label: '💡',
-                accentColor: const Color(0xFFFFD43B),
-                isHint: true,
-                fixedWidth: 52,
-                onTap: hintAvailable ? onHint : null,
-                disabled: !hintAvailable,
+              ...List.generate(4, (i) {
+                final digit = i + 6;
+                return Expanded(
+                  child: _KeypadButton(
+                    label: '$digit',
+                    accentColor: accentColor,
+                    onTap: () => onNumber(digit),
+                  ),
+                );
+              }),
+              Expanded(
+                child: _KeypadButton(
+                  label: '⌫',
+                  accentColor: accentColor,
+                  isErase: true,
+                  onTap: onErase,
+                ),
               ),
             ],
           ),
@@ -1115,18 +1140,12 @@ class _KeypadButton extends StatefulWidget {
   final String label;
   final Color accentColor;
   final bool isErase;
-  final bool isHint;
-  final bool disabled;
-  final double? fixedWidth;
   final VoidCallback? onTap;
 
   const _KeypadButton({
     required this.label,
     required this.accentColor,
     this.isErase = false,
-    this.isHint = false,
-    this.disabled = false,
-    this.fixedWidth,
     required this.onTap,
   });
 
@@ -1139,18 +1158,14 @@ class _KeypadButtonState extends State<_KeypadButton> {
 
   @override
   Widget build(BuildContext context) {
-    final isDisabled = widget.disabled || widget.onTap == null;
+    final isDisabled = widget.onTap == null;
     final double opacity = isDisabled ? 0.35 : 1.0;
 
     Color bg;
     Color border;
     Color textColor;
 
-    if (widget.isHint) {
-      bg = const Color(0xFFFFF9DB);
-      border = const Color(0xFFFFD43B).withValues(alpha: 0.50);
-      textColor = const Color(0xFFF59F00);
-    } else if (widget.isErase) {
+    if (widget.isErase) {
       bg = Colors.white;
       border = const Color(0xFFEF4444).withValues(alpha: 0.30);
       textColor = const Color(0xFFEF4444);
@@ -1163,15 +1178,6 @@ class _KeypadButtonState extends State<_KeypadButton> {
     Widget child;
     if (widget.isErase) {
       child = Icon(Icons.backspace_rounded, size: 18, color: textColor);
-    } else if (widget.isHint) {
-      child = Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.lightbulb_rounded, size: 16, color: textColor),
-          const SizedBox(width: 3),
-          Icon(Icons.play_circle_filled_rounded, size: 12, color: textColor.withValues(alpha: 0.7)),
-        ],
-      );
     } else {
       child = Text(
         widget.label,
@@ -1185,8 +1191,7 @@ class _KeypadButtonState extends State<_KeypadButton> {
       child: Opacity(
         opacity: opacity,
         child: Container(
-          width: widget.fixedWidth,
-          height: 52,
+          height: 48,
           decoration: BoxDecoration(
             color: bg,
             borderRadius: BorderRadius.circular(12),
@@ -1208,7 +1213,7 @@ class _KeypadButtonState extends State<_KeypadButton> {
       onTapDown: !isDisabled ? (_) => setState(() => _pressed = true) : null,
       onTapUp: !isDisabled ? (_) { setState(() => _pressed = false); widget.onTap!(); } : null,
       onTapCancel: !isDisabled ? () => setState(() => _pressed = false) : null,
-      child: widget.fixedWidth != null ? inner : Padding(
+      child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 2),
         child: inner,
       ),
@@ -1377,4 +1382,200 @@ class _SudokuBgPainter extends AnimatedBgPainter {
       canvas.restore();
     }
   }
+}
+
+class _SudokuHintNudge extends StatefulWidget {
+  final VoidCallback onTap;
+  final bool isStuck;
+  const _SudokuHintNudge({required this.onTap, required this.isStuck});
+  @override
+  State<_SudokuHintNudge> createState() => _SudokuHintNudgeState();
+}
+
+class _SudokuHintNudgeState extends State<_SudokuHintNudge> with TickerProviderStateMixin {
+  static const _kBg = Color(0xFFFFD43B);
+  static const _kFg = Color(0xFF5C4600);
+
+  late final AnimationController _pulseCtrl;
+  late final AnimationController _slideCtrl;
+  late final Animation<double> _slideAnim;
+  late final Animation<double> _fadeAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1000));
+    _slideCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 400));
+    _slideAnim = CurvedAnimation(parent: _slideCtrl, curve: Curves.easeOutBack);
+    _fadeAnim = CurvedAnimation(parent: _slideCtrl, curve: Curves.easeOut);
+    if (widget.isStuck) {
+      _pulseCtrl.repeat(reverse: true);
+      _slideCtrl.forward();
+    }
+  }
+
+  @override
+  void didUpdateWidget(_SudokuHintNudge old) {
+    super.didUpdateWidget(old);
+    if (widget.isStuck && !old.isStuck) {
+      _pulseCtrl.repeat(reverse: true);
+      _slideCtrl.forward();
+    } else if (!widget.isStuck && old.isStuck) {
+      _pulseCtrl.stop();
+      _pulseCtrl.value = 0;
+      _slideCtrl.reverse();
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulseCtrl.dispose();
+    _slideCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Stack(
+        alignment: Alignment.bottomCenter,
+        clipBehavior: Clip.none,
+        children: [
+          AnimatedBuilder(
+            animation: _pulseCtrl,
+            builder: (context, child) {
+              final glow = widget.isStuck ? _pulseCtrl.value : 0.0;
+              final scale = 1.0 + glow * 0.05;
+              return Transform.scale(
+                scale: scale,
+                child: GestureDetector(
+                  onTap: widget.onTap,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: _kBg,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: const Color(0xFFE6BE00), width: 1.5),
+                      boxShadow: [
+                        BoxShadow(
+                          color: _kBg.withValues(alpha: 0.30 + glow * 0.40),
+                          blurRadius: 12 + glow * 12,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.lightbulb_rounded, size: 16, color: _kFg),
+                        const SizedBox(width: 6),
+                        const Text(
+                          'HINT',
+                          style: TextStyle(
+                            color: _kFg,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1.0,
+                            height: 1,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: _kFg.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.play_arrow_rounded, size: 12, color: _kFg),
+                              SizedBox(width: 2),
+                              Text(
+                                'AD',
+                                style: TextStyle(
+                                  color: _kFg,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.8,
+                                  height: 1,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+          Positioned(
+            bottom: 38,
+            child: AnimatedBuilder(
+              animation: _slideCtrl,
+              builder: (context, child) {
+                return FadeTransition(
+                  opacity: _fadeAnim,
+                  child: Transform.translate(
+                    offset: Offset(0, (1 - _slideAnim.value.clamp(0.0, 1.0)) * 8),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: _kAccent,
+                            borderRadius: BorderRadius.circular(10),
+                            boxShadow: [
+                              BoxShadow(
+                                color: _kAccent.withValues(alpha: 0.25),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: const Text(
+                            'Stuck? Try a hint!',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ),
+                        CustomPaint(
+                          size: const Size(14, 7),
+                          painter: _SudokuBubbleTailPainter(),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SudokuBubbleTailPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = _kAccent;
+    final path = ui.Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width / 2, size.height)
+      ..lineTo(size.width, 0)
+      ..close();
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

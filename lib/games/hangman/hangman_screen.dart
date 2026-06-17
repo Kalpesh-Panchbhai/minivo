@@ -80,7 +80,11 @@ class _HangmanScreenState extends State<HangmanScreen> {
   int _gamesLost = 0;
   bool _wasNewBest = false;
   bool _isFavorite = false;
-  bool _hintUsed = false;
+  int _consecutiveWrongs = 0;
+  Timer? _idleTimer;
+  bool _idleStuck = false;
+  static const _kStuckWrongs = 2;
+  static const _kIdleTimeout = Duration(seconds: 30);
 
   final _rng = math.Random();
   final _audio = AudioService();
@@ -95,6 +99,7 @@ class _HangmanScreenState extends State<HangmanScreen> {
   @override
   void dispose() {
     _endGameTimer?.cancel();
+    _idleTimer?.cancel();
     super.dispose();
   }
 
@@ -114,8 +119,10 @@ class _HangmanScreenState extends State<HangmanScreen> {
       _gameOver = false;
       _won = false;
       _wasNewBest = false;
-      _hintUsed = false;
+      _consecutiveWrongs = 0;
+      _idleStuck = false;
     });
+    _resetIdleTimer();
     _wrapper.setDifficultyAndMode(
       difficulty: _diffLabel(_difficulty),
       mode: 'single',
@@ -138,8 +145,10 @@ class _HangmanScreenState extends State<HangmanScreen> {
       _gameOver = false;
       _won = false;
       _wasNewBest = false;
-      _hintUsed = false;
+      _consecutiveWrongs = 0;
+      _idleStuck = false;
     });
+    _resetIdleTimer();
     _wrapper.setDifficultyAndMode(
       difficulty: _diffLabel(_difficulty),
       mode: 'single',
@@ -190,11 +199,16 @@ class _HangmanScreenState extends State<HangmanScreen> {
 
     if (_word.contains(letter)) {
       _audio.playScore();
+      _consecutiveWrongs = 0;
+      _idleStuck = false;
+      _resetIdleTimer();
       final allRevealed = _word.split('').every((l) => _guessedLetters.contains(l));
       if (allRevealed) {
         _onWin();
       }
     } else {
+      _consecutiveWrongs++;
+      _resetIdleTimer();
       setState(() => _errors++);
       if (_errors >= _kMaxErrors) {
         _onLose();
@@ -202,19 +216,31 @@ class _HangmanScreenState extends State<HangmanScreen> {
     }
   }
 
-  bool get _canHint =>
-      !_hintUsed && !_gameOver && AdsService().isRewardedReady;
+  bool get _isStuck => _consecutiveWrongs >= _kStuckWrongs || _idleStuck;
+
+  void _resetIdleTimer() {
+    _idleTimer?.cancel();
+    if (_idleStuck) setState(() => _idleStuck = false);
+    _idleTimer = Timer(_kIdleTimeout, () {
+      if (mounted && _started && !_gameOver) {
+        setState(() => _idleStuck = true);
+      }
+    });
+  }
 
   void _useHint() {
-    if (!_canHint) return;
+    if (_gameOver) return;
+    if (!AdsService().isRewardedReady) return;
     _audio.playTap();
     const vowels = {'A', 'E', 'I', 'O', 'U'};
-    final unrevealed = _word
+    final allUnrevealed = _word
         .split('')
         .toSet()
-        .where((l) => vowels.contains(l) && !_guessedLetters.contains(l))
+        .where((l) => !_guessedLetters.contains(l))
         .toList();
-    if (unrevealed.isEmpty) return;
+    if (allUnrevealed.isEmpty) return;
+    final vowelUnrevealed = allUnrevealed.where((l) => vowels.contains(l)).toList();
+    final candidates = vowelUnrevealed.isNotEmpty ? vowelUnrevealed : allUnrevealed;
     bool earned = false;
     AdsService().showRewarded(
       rewardType: RewardType.hint,
@@ -222,9 +248,11 @@ class _HangmanScreenState extends State<HangmanScreen> {
       onRewarded: (_) => earned = true,
       onComplete: () {
         if (!earned || !mounted) return;
-        final pick = unrevealed[_rng.nextInt(unrevealed.length)];
+        _consecutiveWrongs = 0;
+        _idleStuck = false;
+        _resetIdleTimer();
+        final pick = candidates[_rng.nextInt(candidates.length)];
         setState(() {
-          _hintUsed = true;
           _guessedLetters.add(pick);
         });
         _audio.playScore();
@@ -404,10 +432,13 @@ class _HangmanScreenState extends State<HangmanScreen> {
             const SizedBox(height: 8),
             _ErrorIndicator(errors: _errors, maxErrors: _kMaxErrors),
             const SizedBox(height: 8),
-            if (_canHint)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: _HintButton(onTap: _useHint),
+            if (!_gameOver)
+              Opacity(
+                opacity: AdsService().isRewardedReady ? 1.0 : 0.0,
+                child: IgnorePointer(
+                  ignoring: !AdsService().isRewardedReady,
+                  child: _HangmanHintNudge(onTap: _useHint, isStuck: _isStuck),
+                ),
               ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -925,71 +956,198 @@ class _HangmanFigurePainter extends CustomPainter {
   bool shouldRepaint(_HangmanFigurePainter old) => old.errors != errors;
 }
 
-class _HintButton extends StatelessWidget {
+class _HangmanHintNudge extends StatefulWidget {
   final VoidCallback onTap;
-  const _HintButton({required this.onTap});
+  final bool isStuck;
+  const _HangmanHintNudge({required this.onTap, required this.isStuck});
+  @override
+  State<_HangmanHintNudge> createState() => _HangmanHintNudgeState();
+}
+
+class _HangmanHintNudgeState extends State<_HangmanHintNudge> with TickerProviderStateMixin {
+  static const _kBg = Color(0xFFFFD43B);
+  static const _kFg = Color(0xFF5C4600);
+
+  late final AnimationController _pulseCtrl;
+  late final AnimationController _slideCtrl;
+  late final Animation<double> _slideAnim;
+  late final Animation<double> _fadeAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1000));
+    _slideCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 400));
+    _slideAnim = CurvedAnimation(parent: _slideCtrl, curve: Curves.easeOutBack);
+    _fadeAnim = CurvedAnimation(parent: _slideCtrl, curve: Curves.easeOut);
+    if (widget.isStuck) {
+      _pulseCtrl.repeat(reverse: true);
+      _slideCtrl.forward();
+    }
+  }
+
+  @override
+  void didUpdateWidget(_HangmanHintNudge old) {
+    super.didUpdateWidget(old);
+    if (widget.isStuck && !old.isStuck) {
+      _pulseCtrl.repeat(reverse: true);
+      _slideCtrl.forward();
+    } else if (!widget.isStuck && old.isStuck) {
+      _pulseCtrl.stop();
+      _pulseCtrl.value = 0;
+      _slideCtrl.reverse();
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulseCtrl.dispose();
+    _slideCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFFD43B),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFFE6BE00), width: 1.5),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFFFFD43B).withValues(alpha: 0.35),
-              blurRadius: 14,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.lightbulb_rounded, size: 16, color: Color(0xFF5C4600)),
-            const SizedBox(width: 6),
-            const Text(
-              'HINT',
-              style: TextStyle(
-                color: Color(0xFF5C4600),
-                fontSize: 12,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 1.0,
-                height: 1,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-              decoration: BoxDecoration(
-                color: const Color(0xFF5C4600).withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.play_arrow_rounded, size: 12, color: Color(0xFF5C4600)),
-                  SizedBox(width: 2),
-                  Text(
-                    'AD',
-                    style: TextStyle(
-                      color: Color(0xFF5C4600),
-                      fontSize: 9,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 0.8,
-                      height: 1,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Stack(
+        alignment: Alignment.bottomCenter,
+        clipBehavior: Clip.none,
+        children: [
+          AnimatedBuilder(
+            animation: _pulseCtrl,
+            builder: (context, child) {
+              final glow = widget.isStuck ? _pulseCtrl.value : 0.0;
+              final scale = 1.0 + glow * 0.05;
+              return Transform.scale(
+                scale: scale,
+                child: GestureDetector(
+                  onTap: widget.onTap,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: _kBg,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: const Color(0xFFE6BE00), width: 1.5),
+                      boxShadow: [
+                        BoxShadow(
+                          color: _kBg.withValues(alpha: 0.30 + glow * 0.40),
+                          blurRadius: 12 + glow * 12,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.lightbulb_rounded, size: 16, color: _kFg),
+                        const SizedBox(width: 6),
+                        const Text(
+                          'HINT',
+                          style: TextStyle(
+                            color: _kFg,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1.0,
+                            height: 1,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: _kFg.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.play_arrow_rounded, size: 12, color: _kFg),
+                              SizedBox(width: 2),
+                              Text(
+                                'AD',
+                                style: TextStyle(
+                                  color: _kFg,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.8,
+                                  height: 1,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
+                ),
+              );
+            },
+          ),
+          Positioned(
+            bottom: 38,
+            child: AnimatedBuilder(
+              animation: _slideCtrl,
+              builder: (context, child) {
+                return FadeTransition(
+                  opacity: _fadeAnim,
+                  child: Transform.translate(
+                    offset: Offset(0, (1 - _slideAnim.value.clamp(0.0, 1.0)) * 8),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: _kAccent,
+                            borderRadius: BorderRadius.circular(10),
+                            boxShadow: [
+                              BoxShadow(
+                                color: _kAccent.withValues(alpha: 0.25),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: const Text(
+                            'Stuck? Try a hint!',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ),
+                        CustomPaint(
+                          size: const Size(14, 7),
+                          painter: _HangmanBubbleTailPainter(),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
+}
+
+class _HangmanBubbleTailPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = _kAccent;
+    final path = Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width / 2, size.height)
+      ..lineTo(size.width, 0)
+      ..close();
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

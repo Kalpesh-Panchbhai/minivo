@@ -52,6 +52,8 @@ import 'water_sort/water_sort_logo.dart';
 import 'water_sort/water_sort_screen.dart';
 import 'nuts_and_bolts/nuts_and_bolts_logo.dart';
 import 'nuts_and_bolts/nuts_and_bolts_screen.dart';
+import 'arrow_puzzle/arrow_puzzle_logo.dart';
+import 'arrow_puzzle/arrow_puzzle_screen.dart';
 
 typedef GameWidgetBuilder = Widget Function();
 
@@ -85,6 +87,7 @@ class GameRegistry {
     'number_sequence': () => const NumberSequenceScreen(),
     'water_sort': () => const WaterSortScreen(),
     'nuts_and_bolts': () => const NutsAndBoltsScreen(),
+    'arrow_puzzle': () => const ArrowPuzzleScreen(),
   };
 
   static Widget buildGame(String gameId) {
@@ -99,41 +102,23 @@ class GameRegistry {
 
   static final List<GameInfo> allGames = [
     const GameInfo(
-      id: 'dots_and_boxes',
-      name: 'Dots & Boxes',
-      description: 'Draw lines, complete boxes, outsmart your opponent!',
+      id: 'solitaire',
+      name: 'Solitaire',
+      description: 'Classic Klondike solitaire — stack cards from Ace to King!',
       howToPlay:
-          'Choose your difficulty (Easy = 4×4, Medium = 5×5, Hard = 6×6 boxes).\n'
-          'Players take turns drawing a single line between two adjacent dots.\n'
-          'Complete the 4th side of a box to claim it — it fills with your color.\n'
-          'Claiming a box earns you another turn — chain multiple boxes for big scores!\n'
-          'When all boxes are filled, the player with the most boxes wins.\n'
-          'Plan ahead — avoid setting up chains your opponent can exploit!',
-      category: GameCategory.board,
-      icon: Icons.grid_4x4_rounded,
-      color: Color(0xFF339AF0),
-      bgColor: Color(0xFFD0EBFF),
-      playCount: 3200,
-      customLogo: buildDotsAndBoxesLogo,
-    ),
-    const GameInfo(
-      id: 'flappy_tap',
-      name: 'Flappy Tap',
-      description: 'Tap to fly through the gaps. How far can you go? Simple yet addictive!',
-      howToPlay:
-          'Choose your difficulty (Easy, Medium, Hard) — pipe speed and gap size scale with the level.\n'
-          'Tap anywhere on the screen to make the bird flap upward.\n'
-          'Gravity pulls the bird down continuously — tap rhythmically to stay in the air.\n'
-          'Fly through the gaps between the green pipes to score points (5/10/20 pts per pipe on Easy/Medium/Hard).\n'
-          'The game ends if the bird hits a pipe or the ground.\n'
-          'Stay calm and find your rhythm — panic-tapping makes you overshoot!',
-      category: GameCategory.action,
-      icon: Icons.air_rounded,
-      color: Color(0xFF4ECDC4),
-      bgColor: Color(0xFFE8FAF8),
-      playCount: 12500,
+          'Choose your difficulty (Easy = Draw 1, Medium = Draw 3, Hard = Draw 3 + Timer).\n'
+          'Build tableau columns in descending order, alternating red and black.\n'
+          'Move Aces to foundation piles and build up by suit to King.\n'
+          'Tap the stock pile to draw new cards to the waste pile.\n'
+          'Complete all four foundation piles (Ace to King) to win!\n'
+          'Score is based on moves, time, and cards placed on foundations.',
+      category: GameCategory.card,
+      icon: Icons.style_rounded,
+      color: Color(0xFF22C55E),
+      bgColor: Color(0xFFE8F5E9),
+      playCount: 52000,
       isFeatured: true,
-      customLogo: buildFlappyTapLogo,
+      customLogo: buildSolitaireLogo,
     ),
     const GameInfo(
       id: 'number_merge',
@@ -150,28 +135,156 @@ class GameRegistry {
       icon: Icons.calculate_rounded,
       color: Color(0xFFFF6B6B),
       bgColor: Color(0xFFFFF0F0),
-
-      playCount: 18200,
+      playCount: 48000,
       isFeatured: true,
       customLogo: build2048Logo,
     ),
     const GameInfo(
-      id: 'color_tap',
-      name: 'Color Tap',
-      description: 'Match the color circle to the target. Tap fast, skip smart — 3 lives!',
+      id: 'water_sort',
+      name: 'Water Sort',
+      description: 'Pour and sort colored water into matching tubes!',
       howToPlay:
-          'Choose your difficulty (Easy, Medium, Hard) — more colors and faster rounds at higher levels.\n'
-          'A large colored circle appears in the center. The "TARGET" color is shown at the top.\n'
-          'TAP the circle if its color matches the target to score points.\n'
-          'Tap the SKIP button if the colors do NOT match to safely advance.\n'
-          'Wrong action (tap a non-match, or skip a match, or let the timer run out) costs one life.\n'
-          'You have 3 lives — game ends when all lives are lost.',
-      category: GameCategory.arcade,
-      icon: Icons.circle_rounded,
-      color: Color(0xFFFF6B35),
-      bgColor: Color(0xFFFFDEC0),
-      playCount: 7600,
-      customLogo: buildColorTapLogo,
+          'Choose your difficulty (Easy = 4 colors, Medium = 6, Hard = 9).\n'
+          'Tap a tube to select it, then tap another to pour the top color.\n'
+          'You can only pour into a tube with the same top color or an empty tube.\n'
+          'Sort all colors so each tube holds only one color to complete the level.\n'
+          'Levels get progressively harder — complete 1000+ levels per difficulty!\n'
+          'Watch an ad to unlock extra tube space when you\'re stuck!',
+      category: GameCategory.puzzle,
+      icon: Icons.science_rounded,
+      color: Color(0xFF0EA5E9),
+      bgColor: Color(0xFFE0F2FE),
+      playCount: 45000,
+      isFeatured: true,
+      customLogo: buildWaterSortLogo,
+    ),
+    const GameInfo(
+      id: 'sudoku',
+      name: 'Sudoku',
+      description: 'Fill the 9×9 grid — every row, column and box must contain 1–9.',
+      howToPlay:
+        'Choose Easy (46 givens), Medium (36 givens), or Hard (28 givens).\n'
+        'Tap a cell to select it, then tap a number on the keypad to fill it in.\n'
+        'Every row, column, and 3×3 box must contain each digit from 1 to 9 exactly once.\n'
+        'Tapping a number that conflicts with the rules counts as an error.\n'
+        'Your score is based on completion time — faster is better!\n'
+        'Tap the eraser to clear a cell.',
+      category: GameCategory.puzzle,
+      icon: Icons.grid_on_rounded,
+      color: Color(0xFF6366F1),
+      bgColor: Color(0xFFEEF2FF),
+      playCount: 42000,
+      isFeatured: true,
+      customLogo: buildSudokuLogo,
+    ),
+    const GameInfo(
+      id: 'snake_classic',
+      name: 'Snake Classic',
+      description: 'Guide the snake to eat apples and grow longer. How long can you survive?',
+      howToPlay:
+          'Choose your difficulty (Easy, Medium, Hard) — speed and points scale with the level.\n'
+          'Swipe up, down, left, or right to steer the snake. The snake moves on its own; you only choose direction.\n'
+          'You can\'t reverse 180° — pivot through a perpendicular turn first.\n'
+          'Eat the red apple to grow longer and score 5/10/20 points (Easy/Medium/Hard).\n'
+          'The game ends if the snake hits a wall or runs into its own body.\n'
+          'Plan your turns — fast modes punish hesitation!',
+      category: GameCategory.action,
+      icon: Icons.pest_control_rounded,
+      color: Color(0xFF20C997),
+      bgColor: Color(0xFFE6FCF5),
+      playCount: 38000,
+      isFeatured: true,
+      customLogo: buildSnakeLogo,
+    ),
+    const GameInfo(
+      id: 'minesweeper',
+      name: 'Minesweeper',
+      description: 'Clear the minefield without detonating any mines!',
+      howToPlay:
+          'Choose your difficulty (Easy = 9×9, Medium = 16×16, Hard = 16×30).\n'
+          'Tap a cell to reveal it. Numbers show how many adjacent mines there are.\n'
+          'Use Flag Mode or long-press to mark suspected mines with flags.\n'
+          'Reveal all safe cells to win — but hit a mine and it is game over!\n'
+          'Score is based on mines found and time taken.\n'
+          'Start with corners and edges for the safest first moves.',
+      category: GameCategory.puzzle,
+      icon: Icons.grid_view_rounded,
+      color: Color(0xFF4A7CFF),
+      bgColor: Color(0xFFF0F4FF),
+      playCount: 35000,
+      customLogo: buildMinesweeperLogo,
+    ),
+    const GameInfo(
+      id: 'flappy_tap',
+      name: 'Flappy Tap',
+      description: 'Tap to fly through the gaps. How far can you go? Simple yet addictive!',
+      howToPlay:
+          'Choose your difficulty (Easy, Medium, Hard) — pipe speed and gap size scale with the level.\n'
+          'Tap anywhere on the screen to make the bird flap upward.\n'
+          'Gravity pulls the bird down continuously — tap rhythmically to stay in the air.\n'
+          'Fly through the gaps between the green pipes to score points (5/10/20 pts per pipe on Easy/Medium/Hard).\n'
+          'The game ends if the bird hits a pipe or the ground.\n'
+          'Stay calm and find your rhythm — panic-tapping makes you overshoot!',
+      category: GameCategory.action,
+      icon: Icons.air_rounded,
+      color: Color(0xFF4ECDC4),
+      bgColor: Color(0xFFE8FAF8),
+      playCount: 32000,
+      isFeatured: true,
+      customLogo: buildFlappyTapLogo,
+    ),
+    const GameInfo(
+      id: 'dino_run',
+      name: 'Dino Run',
+      description: 'Run through the desert — jump over cacti and survive!',
+      howToPlay:
+          'Choose your difficulty (Easy, Medium, Hard) — speed ramp and gap timing differ by level.\n'
+          'The dino runs automatically. Tap the screen to jump over cacti.\n'
+          'Speed increases the longer you survive — stay alert!\n'
+          'Every 100 points the landscape switches between day and night.\n'
+          'The game ends if you hit any obstacle. How far can you go?',
+      category: GameCategory.action,
+      icon: Icons.directions_run_rounded,
+      color: Color(0xFF535353),
+      bgColor: Color(0xFFF7F7F7),
+      playCount: 28000,
+      customLogo: buildDinoRunLogo,
+    ),
+    const GameInfo(
+      id: 'checkers',
+      name: 'Checkers',
+      description: 'Jump, capture, and crown your kings on the classic board!',
+      howToPlay:
+          'Choose your difficulty (Easy, Medium, Hard) or play with a friend on the same device.\n'
+          'Players take turns moving pieces diagonally forward on dark squares.\n'
+          'Jump over an opponent\'s piece to capture it — mandatory jumps must be taken!\n'
+          'Chain multiple jumps in a single turn for big captures.\n'
+          'Reach the far side to promote your piece to a King — Kings move diagonally in any direction!\n'
+          'Capture all opponent pieces or block them completely to win.',
+      category: GameCategory.board,
+      icon: Icons.grid_on_rounded,
+      color: Color(0xFF8B5E3C),
+      bgColor: Color(0xFFFFF8F0),
+      playCount: 25000,
+      customLogo: buildCheckersLogo,
+    ),
+    const GameInfo(
+      id: 'tic_tac_toe',
+      name: 'Tic Tac Toe',
+      description: 'Classic X and O. Play against the computer!',
+      howToPlay:
+          'Choose your difficulty (Easy, Medium, Hard) or play with a friend on the same device.\n'
+          'Players take turns — X always goes first in any given round.\n'
+          'Tap an empty cell on the 3x3 grid to place your mark there.\n'
+          'Get three of your marks in a row, column, or diagonal to win the round.\n'
+          'Win two rounds in a row to start a Streak — keep it going for bragging rights!\n'
+          'After each round the starter alternates, so you both get a fair go.',
+      category: GameCategory.board,
+      icon: Icons.close_rounded,
+      color: Color(0xFFBE4BDB),
+      bgColor: Color(0xFFF8F0FC),
+      playCount: 22000,
+      customLogo: buildTicTacToeLogo,
     ),
     const GameInfo(
       id: 'memory_match',
@@ -189,100 +302,62 @@ class GameRegistry {
       icon: Icons.flip_rounded,
       color: Color(0xFF339AF0),
       bgColor: Color(0xFFD0E8FF),
-      playCount: 5400,
+      playCount: 19000,
       customLogo: buildMemoryMatchLogo,
     ),
     const GameInfo(
-      id: 'snake_classic',
-      name: 'Snake Classic',
-      description: 'Guide the snake to eat apples and grow longer. How long can you survive?',
-      howToPlay:
-          'Choose your difficulty (Easy, Medium, Hard) — speed and points scale with the level.\n'
-          'Swipe up, down, left, or right to steer the snake. The snake moves on its own; you only choose direction.\n'
-          'You can\'t reverse 180° — pivot through a perpendicular turn first.\n'
-          'Eat the red apple to grow longer and score 5/10/20 points (Easy/Medium/Hard).\n'
-          'The game ends if the snake hits a wall or runs into its own body.\n'
-          'Plan your turns — fast modes punish hesitation!',
-      category: GameCategory.action,
-      icon: Icons.pest_control_rounded,
-      color: Color(0xFF20C997),
-      bgColor: Color(0xFFE6FCF5),
-      playCount: 11000,
-      isFeatured: true,
-      customLogo: buildSnakeLogo,
-    ),
-    const GameInfo(
-      id: 'sudoku',
-      name: 'Sudoku',
-      description: 'Fill the 9×9 grid — every row, column and box must contain 1–9.',
-      howToPlay:
-        'Choose Easy (46 givens), Medium (36 givens), or Hard (28 givens).\n'
-        'Tap a cell to select it, then tap a number on the keypad to fill it in.\n'
-        'Every row, column, and 3×3 box must contain each digit from 1 to 9 exactly once.\n'
-        'Tapping a number that conflicts with the rules counts as an error.\n'
-        'Your score is based on completion time — faster is better!\n'
-        'Tap the eraser to clear a cell.',
-      category: GameCategory.puzzle,
-      icon: Icons.grid_on_rounded,
-      color: Color(0xFF6366F1),
-      bgColor: Color(0xFFEEF2FF),
-      playCount: 0,
-      isFeatured: false,
-      customLogo: buildSudokuLogo,
-    ),
-    const GameInfo(
-      id: 'tic_tac_toe',
-      name: 'Tic Tac Toe',
-      description: 'Classic X and O. Play against the computer!',
+      id: 'connect_four',
+      name: 'Connect Four',
+      description: 'Drop discs, connect 4 in a row — play vs AI or a friend!',
       howToPlay:
           'Choose your difficulty (Easy, Medium, Hard) or play with a friend on the same device.\n'
-          'Players take turns — X always goes first in any given round.\n'
-          'Tap an empty cell on the 3x3 grid to place your mark there.\n'
-          'Get three of your marks in a row, column, or diagonal to win the round.\n'
-          'Win two rounds in a row to start a Streak — keep it going for bragging rights!\n'
-          'After each round the starter alternates, so you both get a fair go.',
+          'Players take turns dropping a colored disc into one of the 7 columns.\n'
+          'Discs fall to the lowest available row in that column.\n'
+          'Connect 4 of your discs in a row — horizontally, vertically, or diagonally — to win!\n'
+          'Win consecutive rounds to build a Streak.\n'
+          'Plan ahead — block your opponent while setting up your own lines!',
       category: GameCategory.board,
-      icon: Icons.close_rounded,
-      color: Color(0xFFBE4BDB),
-      bgColor: Color(0xFFF8F0FC),
-      playCount: 8900,
-      customLogo: buildTicTacToeLogo,
+      icon: Icons.grid_4x4_rounded,
+      color: Color(0xFF3366CC),
+      bgColor: Color(0xFFE8EEFF),
+      playCount: 17000,
+      customLogo: buildConnectFourLogo,
     ),
     const GameInfo(
-      id: 'drop_merge',
-      name: 'Drop Merge',
-      description: 'Drop tiles, merge numbers, chain reactions — how high can you score?',
+      id: 'hangman',
+      name: 'Hangman',
+      description: 'Guess the hidden word letter by letter before the hangman is complete!',
       howToPlay:
-          'Choose your difficulty (Easy, Medium, Hard) — harder levels introduce bigger tiles sooner.\n'
-          'A tile is shown at the top — tap any column on the board to drop it there.\n'
-          'Tiles stack from the bottom. When two identical tiles touch (vertically or horizontally), they merge into double the value!\n'
-          'Merges trigger gravity, which can cause chain reactions — each extra chain adds a ×0.5 score bonus.\n'
-          'The game ends when every column is full and the next tile cannot merge with any top cell.\n'
-          'Think ahead — dropping into a column that sets off a chain is the key to big scores!',
+          'Choose your difficulty (Easy = short words, Medium = longer words, Hard = complex words).\n'
+          'A hidden word is shown as blanks. Tap letters on the keyboard to guess.\n'
+          'Correct letters fill in the blanks. Wrong guesses draw parts of the hangman.\n'
+          'You have 6 wrong guesses before the hangman is complete and the game is over.\n'
+          'Solve the word to win and build your streak!\n'
+          'Common letters (E, A, R, S, T) are good starting guesses.',
       category: GameCategory.puzzle,
-      icon: Icons.view_column_rounded,
-      color: Color(0xFFFF922B),
-      bgColor: Color(0xFFFFF3D9),
-      playCount: 0,
-      customLogo: buildDropMergeLogo,
+      icon: Icons.text_fields_rounded,
+      color: Color(0xFF6C63FF),
+      bgColor: Color(0xFFF5F3FF),
+      playCount: 15000,
+      customLogo: buildHangmanLogo,
     ),
     const GameInfo(
-      id: 'dino_run',
-      name: 'Dino Run',
-      description: 'Run through the desert — jump over cacti and survive!',
+      id: 'sliding_puzzle',
+      name: 'Sliding Puzzle',
+      description: 'Slide tiles into order — numbers, animals, flags & more!',
       howToPlay:
-          'Choose your difficulty (Easy, Medium, Hard) — speed ramp and gap timing differ by level.\n'
-          'The dino runs automatically. Tap the screen to jump over cacti.\n'
-          'Speed increases the longer you survive — stay alert!\n'
-          'Every 100 points the landscape switches between day and night.\n'
-          'The game ends if you hit any obstacle. How far can you go?',
-      category: GameCategory.action,
-      icon: Icons.directions_run_rounded,
-      color: Color(0xFF535353),
-      bgColor: Color(0xFFF7F7F7),
-      playCount: 0,
-      isFeatured: false,
-      customLogo: buildDinoRunLogo,
+          'Choose a grid size (3×3, 4×4, or 5×5) and a theme.\n'
+          'Tap a tile next to the empty space to slide it.\n'
+          'Arrange all tiles in numerical order (or match the pattern).\n'
+          'Fewer moves and faster time = higher score!\n'
+          'Choose from 6 themes: Numbers, Animals, Nature, Space, Food, and Flags.\n'
+          'Start by solving the top row first, then work downward.',
+      category: GameCategory.puzzle,
+      icon: Icons.grid_view_rounded,
+      color: Color(0xFF8B5CF6),
+      bgColor: Color(0xFFF3EEFF),
+      playCount: 13000,
+      customLogo: buildSlidingPuzzleLogo,
     ),
     const GameInfo(
       id: 'whack_a_mole',
@@ -300,8 +375,98 @@ class GameRegistry {
       icon: Icons.pest_control_rounded,
       color: Color(0xFF66BB6A),
       bgColor: Color(0xFFE8F5E9),
-      playCount: 0,
+      playCount: 11000,
       customLogo: buildWhackAMoleLogo,
+    ),
+    const GameInfo(
+      id: 'color_tap',
+      name: 'Color Tap',
+      description: 'Match the color circle to the target. Tap fast, skip smart — 3 lives!',
+      howToPlay:
+          'Choose your difficulty (Easy, Medium, Hard) — more colors and faster rounds at higher levels.\n'
+          'A large colored circle appears in the center. The "TARGET" color is shown at the top.\n'
+          'TAP the circle if its color matches the target to score points.\n'
+          'Tap the SKIP button if the colors do NOT match to safely advance.\n'
+          'Wrong action (tap a non-match, or skip a match, or let the timer run out) costs one life.\n'
+          'You have 3 lives — game ends when all lives are lost.',
+      category: GameCategory.arcade,
+      icon: Icons.circle_rounded,
+      color: Color(0xFFFF6B35),
+      bgColor: Color(0xFFFFDEC0),
+      playCount: 9500,
+      customLogo: buildColorTapLogo,
+    ),
+    const GameInfo(
+      id: 'reversi',
+      name: 'Reversi',
+      description: 'Flip discs, dominate the board — classic Othello strategy!',
+      howToPlay:
+          'Choose your difficulty (Easy, Medium, Hard) or play with a friend on the same device.\n'
+          'Players take turns placing a disc on the 8×8 board.\n'
+          'Place your disc so it sandwiches one or more opponent discs between your pieces — sandwiched discs flip to your color.\n'
+          'You MUST flip at least one disc to make a valid move. If you can\'t, your turn is skipped.\n'
+          'The game ends when neither player can move (usually when the board is full).\n'
+          'The player with the most discs wins! Control the corners for maximum advantage.',
+      category: GameCategory.board,
+      icon: Icons.circle_rounded,
+      color: Color(0xFF2E7D32),
+      bgColor: Color(0xFFE8F5E9),
+      playCount: 8000,
+      customLogo: buildReversiLogo,
+    ),
+    const GameInfo(
+      id: 'drop_merge',
+      name: 'Drop Merge',
+      description: 'Drop tiles, merge numbers, chain reactions — how high can you score?',
+      howToPlay:
+          'Choose your difficulty (Easy, Medium, Hard) — harder levels introduce bigger tiles sooner.\n'
+          'A tile is shown at the top — tap any column on the board to drop it there.\n'
+          'Tiles stack from the bottom. When two identical tiles touch (vertically or horizontally), they merge into double the value!\n'
+          'Merges trigger gravity, which can cause chain reactions — each extra chain adds a ×0.5 score bonus.\n'
+          'The game ends when every column is full and the next tile cannot merge with any top cell.\n'
+          'Think ahead — dropping into a column that sets off a chain is the key to big scores!',
+      category: GameCategory.puzzle,
+      icon: Icons.view_column_rounded,
+      color: Color(0xFFFF922B),
+      bgColor: Color(0xFFFFF3D9),
+      playCount: 7000,
+      customLogo: buildDropMergeLogo,
+    ),
+    const GameInfo(
+      id: 'arrow_puzzle',
+      name: 'Arrow Puzzle',
+      description: 'Untangle overlapping arrows and free them one by one!',
+      howToPlay:
+          'Choose your difficulty — arrows increase with each level.\n'
+          'Arrows are tangled on a board — each points in a direction.\n'
+          'Tap an arrow to free it. It flies away if its exit path is clear.\n'
+          'If another arrow blocks the way, you can\'t free it yet!\n'
+          'Figure out the right order to untangle and free all arrows.\n'
+          'Complete levels with fewer taps for a better score!',
+      category: GameCategory.puzzle,
+      icon: Icons.arrow_forward_rounded,
+      color: Color(0xFF7C3AED),
+      bgColor: Color(0xFFEDE9FE),
+      playCount: 6000,
+      customLogo: buildArrowPuzzleLogo,
+    ),
+    const GameInfo(
+      id: 'dots_and_boxes',
+      name: 'Dots & Boxes',
+      description: 'Draw lines, complete boxes, outsmart your opponent!',
+      howToPlay:
+          'Choose your difficulty (Easy = 4×4, Medium = 5×5, Hard = 6×6 boxes).\n'
+          'Players take turns drawing a single line between two adjacent dots.\n'
+          'Complete the 4th side of a box to claim it — it fills with your color.\n'
+          'Claiming a box earns you another turn — chain multiple boxes for big scores!\n'
+          'When all boxes are filled, the player with the most boxes wins.\n'
+          'Plan ahead — avoid setting up chains your opponent can exploit!',
+      category: GameCategory.board,
+      icon: Icons.grid_4x4_rounded,
+      color: Color(0xFF339AF0),
+      bgColor: Color(0xFFD0EBFF),
+      playCount: 5500,
+      customLogo: buildDotsAndBoxesLogo,
     ),
     const GameInfo(
       id: 'dodge_ball',
@@ -318,7 +483,7 @@ class GameRegistry {
       icon: Icons.sports_baseball_rounded,
       color: Color(0xFF00D4FF),
       bgColor: Color(0xFF0F0F23),
-      playCount: 0,
+      playCount: 4000,
       customLogo: buildDodgeBallLogo,
     ),
     const GameInfo(
@@ -336,63 +501,26 @@ class GameRegistry {
       icon: Icons.directions_run_rounded,
       color: Color(0xFF00D4FF),
       bgColor: Color(0xFF1A1A2E),
-      playCount: 0,
-      isFeatured: false,
+      playCount: 3200,
       customLogo: buildTapTapDashLogo,
     ),
     const GameInfo(
-      id: 'connect_four',
-      name: 'Connect Four',
-      description: 'Drop discs, connect 4 in a row — play vs AI or a friend!',
+      id: 'number_sequence',
+      name: 'Number Sequence',
+      description: 'Find scattered numbers in order — race the clock!',
       howToPlay:
-          'Choose your difficulty (Easy, Medium, Hard) or play with a friend on the same device.\n'
-          'Players take turns dropping a colored disc into one of the 7 columns.\n'
-          'Discs fall to the lowest available row in that column.\n'
-          'Connect 4 of your discs in a row — horizontally, vertically, or diagonally — to win!\n'
-          'Win consecutive rounds to build a Streak.\n'
-          'Plan ahead — block your opponent while setting up your own lines!',
-      category: GameCategory.board,
-      icon: Icons.grid_4x4_rounded,
-      color: Color(0xFF3366CC),
-      bgColor: Color(0xFFE8EEFF),
-      playCount: 0,
-      customLogo: buildConnectFourLogo,
-    ),
-    const GameInfo(
-      id: 'reversi',
-      name: 'Reversi',
-      description: 'Flip discs, dominate the board — classic Othello strategy!',
-      howToPlay:
-          'Choose your difficulty (Easy, Medium, Hard) or play with a friend on the same device.\n'
-          'Players take turns placing a disc on the 8×8 board.\n'
-          'Place your disc so it sandwiches one or more opponent discs between your pieces — sandwiched discs flip to your color.\n'
-          'You MUST flip at least one disc to make a valid move. If you can\'t, your turn is skipped.\n'
-          'The game ends when neither player can move (usually when the board is full).\n'
-          'The player with the most discs wins! Control the corners for maximum advantage.',
-      category: GameCategory.board,
-      icon: Icons.circle_rounded,
-      color: Color(0xFF2E7D32),
-      bgColor: Color(0xFFE8F5E9),
-      playCount: 0,
-      customLogo: buildReversiLogo,
-    ),
-    const GameInfo(
-      id: 'checkers',
-      name: 'Checkers',
-      description: 'Jump, capture, and crown your kings on the classic board!',
-      howToPlay:
-          'Choose your difficulty (Easy, Medium, Hard) or play with a friend on the same device.\n'
-          'Players take turns moving pieces diagonally forward on dark squares.\n'
-          'Jump over an opponent\'s piece to capture it — mandatory jumps must be taken!\n'
-          'Chain multiple jumps in a single turn for big captures.\n'
-          'Reach the far side to promote your piece to a King — Kings move diagonally in any direction!\n'
-          'Capture all opponent pieces or block them completely to win.',
-      category: GameCategory.board,
-      icon: Icons.grid_on_rounded,
-      color: Color(0xFF8B5E3C),
-      bgColor: Color(0xFFFFF8F0),
-      playCount: 0,
-      customLogo: buildCheckersLogo,
+          'Choose your difficulty (Easy = 25 numbers, Medium = 50, Hard = 100).\n'
+          'Numbers are scattered randomly across the screen.\n'
+          'Tap them in ascending order: 1, 2, 3… as fast as you can!\n'
+          'Each correct tap makes the number disappear.\n'
+          'Wrong taps do nothing — no penalty, just keep searching.\n'
+          'Watch an ad for a hint that highlights the next number!',
+      category: GameCategory.puzzle,
+      icon: Icons.tag_rounded,
+      color: Color(0xFF6366F1),
+      bgColor: Color(0xFFEEF2FF),
+      playCount: 2500,
+      customLogo: buildNumberSequenceLogo,
     ),
     const GameInfo(
       id: 'go',
@@ -409,7 +537,7 @@ class GameRegistry {
       icon: Icons.circle_outlined,
       color: Color(0xFFC4944E),
       bgColor: Color(0xFFFFF8E7),
-      playCount: 0,
+      playCount: 2000,
       customLogo: buildGoLogo,
     ),
     const GameInfo(
@@ -427,7 +555,7 @@ class GameRegistry {
       icon: Icons.circle_rounded,
       color: Color(0xFF7B5B3A),
       bgColor: Color(0xFFFFF5E6),
-      playCount: 0,
+      playCount: 1500,
       customLogo: buildMancalaLogo,
     ),
     const GameInfo(
@@ -445,116 +573,8 @@ class GameRegistry {
       icon: Icons.blur_on_rounded,
       color: Color(0xFF4A90D9),
       bgColor: Color(0xFFF0F5FF),
-      playCount: 0,
+      playCount: 1000,
       customLogo: buildGomokuLogo,
-    ),
-    const GameInfo(
-      id: 'hangman',
-      name: 'Hangman',
-      description: 'Guess the hidden word letter by letter before the hangman is complete!',
-      howToPlay:
-          'Choose your difficulty (Easy = short words, Medium = longer words, Hard = complex words).\n'
-          'A hidden word is shown as blanks. Tap letters on the keyboard to guess.\n'
-          'Correct letters fill in the blanks. Wrong guesses draw parts of the hangman.\n'
-          'You have 6 wrong guesses before the hangman is complete and the game is over.\n'
-          'Solve the word to win and build your streak!\n'
-          'Common letters (E, A, R, S, T) are good starting guesses.',
-      category: GameCategory.puzzle,
-      icon: Icons.text_fields_rounded,
-      color: Color(0xFF6C63FF),
-      bgColor: Color(0xFFF5F3FF),
-      playCount: 0,
-      customLogo: buildHangmanLogo,
-    ),
-    const GameInfo(
-      id: 'minesweeper',
-      name: 'Minesweeper',
-      description: 'Clear the minefield without detonating any mines!',
-      howToPlay:
-          'Choose your difficulty (Easy = 9×9, Medium = 16×16, Hard = 16×30).\n'
-          'Tap a cell to reveal it. Numbers show how many adjacent mines there are.\n'
-          'Use Flag Mode or long-press to mark suspected mines with flags.\n'
-          'Reveal all safe cells to win — but hit a mine and it is game over!\n'
-          'Score is based on mines found and time taken.\n'
-          'Start with corners and edges for the safest first moves.',
-      category: GameCategory.puzzle,
-      icon: Icons.grid_view_rounded,
-      color: Color(0xFF4A7CFF),
-      bgColor: Color(0xFFF0F4FF),
-      playCount: 0,
-      customLogo: buildMinesweeperLogo,
-    ),
-    const GameInfo(
-      id: 'solitaire',
-      name: 'Solitaire',
-      description: 'Classic Klondike solitaire — stack cards from Ace to King!',
-      howToPlay:
-          'Choose your difficulty (Easy = Draw 1, Medium = Draw 3, Hard = Draw 3 + Timer).\n'
-          'Build tableau columns in descending order, alternating red and black.\n'
-          'Move Aces to foundation piles and build up by suit to King.\n'
-          'Tap the stock pile to draw new cards to the waste pile.\n'
-          'Complete all four foundation piles (Ace to King) to win!\n'
-          'Score is based on moves, time, and cards placed on foundations.',
-      category: GameCategory.card,
-      icon: Icons.style_rounded,
-      color: Color(0xFF22C55E),
-      bgColor: Color(0xFFE8F5E9),
-      playCount: 0,
-      customLogo: buildSolitaireLogo,
-    ),
-    const GameInfo(
-      id: 'sliding_puzzle',
-      name: 'Sliding Puzzle',
-      description: 'Slide tiles into order — numbers, animals, flags & more!',
-      howToPlay:
-          'Choose a grid size (3×3, 4×4, or 5×5) and a theme.\n'
-          'Tap a tile next to the empty space to slide it.\n'
-          'Arrange all tiles in numerical order (or match the pattern).\n'
-          'Fewer moves and faster time = higher score!\n'
-          'Choose from 6 themes: Numbers, Animals, Nature, Space, Food, and Flags.\n'
-          'Start by solving the top row first, then work downward.',
-      category: GameCategory.puzzle,
-      icon: Icons.grid_view_rounded,
-      color: Color(0xFF8B5CF6),
-      bgColor: Color(0xFFF3EEFF),
-      playCount: 0,
-      customLogo: buildSlidingPuzzleLogo,
-    ),
-    const GameInfo(
-      id: 'number_sequence',
-      name: 'Number Sequence',
-      description: 'Find scattered numbers in order — race the clock!',
-      howToPlay:
-          'Choose your difficulty (Easy = 25 numbers, Medium = 50, Hard = 100).\n'
-          'Numbers are scattered randomly across the screen.\n'
-          'Tap them in ascending order: 1, 2, 3… as fast as you can!\n'
-          'Each correct tap makes the number disappear.\n'
-          'Wrong taps do nothing — no penalty, just keep searching.\n'
-          'Watch an ad for a hint that highlights the next number!',
-      category: GameCategory.puzzle,
-      icon: Icons.tag_rounded,
-      color: Color(0xFF6366F1),
-      bgColor: Color(0xFFEEF2FF),
-      playCount: 0,
-      customLogo: buildNumberSequenceLogo,
-    ),
-    const GameInfo(
-      id: 'water_sort',
-      name: 'Water Sort',
-      description: 'Pour and sort colored water into matching tubes!',
-      howToPlay:
-          'Choose your difficulty (Easy = 4 colors, Medium = 6, Hard = 9).\n'
-          'Tap a tube to select it, then tap another to pour the top color.\n'
-          'You can only pour into a tube with the same top color or an empty tube.\n'
-          'Sort all colors so each tube holds only one color to complete the level.\n'
-          'Levels get progressively harder — complete 1000+ levels per difficulty!\n'
-          'Watch an ad to unlock extra tube space when you\'re stuck!',
-      category: GameCategory.puzzle,
-      icon: Icons.science_rounded,
-      color: Color(0xFF0EA5E9),
-      bgColor: Color(0xFFE0F2FE),
-      playCount: 0,
-      customLogo: buildWaterSortLogo,
     ),
     const GameInfo(
       id: 'nuts_and_bolts',
