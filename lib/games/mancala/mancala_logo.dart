@@ -1,88 +1,110 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
-Widget buildMancalaLogo(double size) {
-  return Container(
-    width: size,
-    height: size,
-    decoration: const BoxDecoration(
-      gradient: LinearGradient(
-        colors: [Color(0xFF7B5B3A), Color(0xFF5C3D24), Color(0xFF3E2713)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      ),
-    ),
-    child: CustomPaint(
-      size: Size(size, size),
-      painter: _MancalaLogoPainter(),
-    ),
+import '../shared/game_logo_scaffold.dart';
+
+Widget buildMancalaLogo(double size) => buildGlassSpotlightLogo(
+      size: size,
+      title: 'Mancala',
+      bg: const [Color(0xFF5C3A21), Color(0xFF2A1A0F)],
+      accent: const Color(0xFFD2A679),
+      art: _MancalaArt,
+    );
+
+// ignore: non_constant_identifier_names
+void _MancalaArt(Canvas canvas, Rect zone) {
+  // Wooden board: a horizontal tray with a row of pits and a big store at the end.
+  final boardRect = Rect.fromCenter(
+    center: zone.center,
+    width: zone.width,
+    height: zone.height * 0.62,
   );
-}
+  final board = RRect.fromRectAndRadius(boardRect, Radius.circular(zone.height * 0.16));
+  canvas.drawRRect(
+    board,
+    Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0xFFB87D45), Color(0xFF8A5523)],
+      ).createShader(boardRect),
+  );
+  canvas.drawRRect(
+    board,
+    Paint()
+      ..color = const Color(0xFF6E441C)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = zone.width * 0.02,
+  );
 
-class _MancalaLogoPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
+  // Seed palette.
+  const seedColors = [
+    Color(0xFF60A5FA),
+    Color(0xFFFBBF24),
+    Color(0xFF34D399),
+    Color(0xFFF87171),
+    Color(0xFFC084FC),
+  ];
 
-    final boardW = w * 0.88;
-    final boardH = h * 0.42;
-    final boardLeft = (w - boardW) / 2;
-    final boardTop = h * 0.14;
+  final pitPaint = Paint()..color = const Color(0xFF5A3413);
+  final pitRimPaint = Paint()
+    ..color = const Color(0xFF49290E)
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = zone.width * 0.012;
 
-    final boardPaint = Paint()..color = const Color(0xFF8B6914).withValues(alpha: 0.4);
-    final boardRect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(boardLeft, boardTop, boardW, boardH),
-      const Radius.circular(20),
-    );
-    canvas.drawRRect(boardRect, boardPaint);
-
-    final storeW = boardW * 0.12;
-    final storeH = boardH * 0.8;
-    final storeTop = boardTop + (boardH - storeH) / 2;
-    final storePaint = Paint()..color = const Color(0xFF5C3D24).withValues(alpha: 0.5);
-
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(Rect.fromLTWH(boardLeft + boardW * 0.03, storeTop, storeW, storeH), const Radius.circular(10)),
-      storePaint,
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(Rect.fromLTWH(boardLeft + boardW - boardW * 0.03 - storeW, storeTop, storeW, storeH), const Radius.circular(10)),
-      storePaint,
-    );
-
-    final pitRadius = boardH * 0.14;
-    final pitY1 = boardTop + boardH * 0.3;
-    final pitY2 = boardTop + boardH * 0.7;
-    final pitPaint = Paint()..color = const Color(0xFF5C3D24).withValues(alpha: 0.4);
-    final seedPaint = Paint()..color = const Color(0xFFD4A76A);
-
-    for (int i = 0; i < 6; i++) {
-      final x = boardLeft + boardW * 0.22 + i * (boardW * 0.56 / 5);
-      canvas.drawCircle(Offset(x, pitY1), pitRadius, pitPaint);
-      canvas.drawCircle(Offset(x, pitY2), pitRadius, pitPaint);
-      if (i < 4) {
-        canvas.drawCircle(Offset(x, pitY1), pitRadius * 0.35, seedPaint);
-        canvas.drawCircle(Offset(x, pitY2), pitRadius * 0.35, seedPaint);
-      }
+  void seeds(Offset center, double pitR, int count, int colorSeed) {
+    final sr = pitR * 0.30;
+    for (int i = 0; i < count; i++) {
+      final ang = (i / count) * 2 * math.pi + colorSeed;
+      final dist = count == 1 ? 0.0 : pitR * 0.42;
+      final p = Offset(center.dx + dist * math.cos(ang), center.dy + dist * math.sin(ang));
+      canvas.drawCircle(p, sr, Paint()..color = seedColors[(i + colorSeed) % seedColors.length]);
+      canvas.drawCircle(
+        p.translate(-sr * 0.3, -sr * 0.3),
+        sr * 0.35,
+        Paint()..color = Colors.white.withValues(alpha: 0.45),
+      );
     }
-
-    final fontSize = w * 0.10;
-    final tp = TextPainter(
-      text: TextSpan(
-        text: 'MANCALA',
-        style: TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w900,
-          fontSize: fontSize,
-          letterSpacing: 1,
-          shadows: const [Shadow(color: Colors.black26, blurRadius: 4)],
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    tp.paint(canvas, Offset((w - tp.width) / 2, h - tp.height - h * 0.03));
   }
 
-  @override
-  bool shouldRepaint(_MancalaLogoPainter old) => false;
+  // Four small round pits.
+  const pitCount = 4;
+  final pitR = boardRect.height * 0.26;
+  final rowLeft = boardRect.left + boardRect.width * 0.10;
+  final rowRight = boardRect.left + boardRect.width * 0.70;
+  final cy = boardRect.center.dy;
+  for (int i = 0; i < pitCount; i++) {
+    final t = i / (pitCount - 1);
+    final cx = rowLeft + (rowRight - rowLeft) * t;
+    final c = Offset(cx, cy);
+    canvas.drawCircle(c, pitR, pitPaint);
+    canvas.drawCircle(c, pitR, pitRimPaint);
+    seeds(c, pitR, 3 + (i % 2), i);
+  }
+
+  // Larger store pit at the end (oval).
+  final storeRect = Rect.fromCenter(
+    center: Offset(boardRect.right - boardRect.width * 0.14, cy),
+    width: boardRect.width * 0.18,
+    height: boardRect.height * 0.78,
+  );
+  canvas.drawOval(storeRect, pitPaint);
+  canvas.drawOval(storeRect, pitRimPaint);
+  // A handful of seeds collected in the store.
+  final ssr = storeRect.width * 0.18;
+  final storeSeeds = [
+    storeRect.center.translate(0, -storeRect.height * 0.22),
+    storeRect.center.translate(-storeRect.width * 0.18, 0),
+    storeRect.center.translate(storeRect.width * 0.18, storeRect.height * 0.05),
+    storeRect.center.translate(0, storeRect.height * 0.24),
+  ];
+  for (int i = 0; i < storeSeeds.length; i++) {
+    canvas.drawCircle(storeSeeds[i], ssr, Paint()..color = seedColors[i % seedColors.length]);
+    canvas.drawCircle(
+      storeSeeds[i].translate(-ssr * 0.3, -ssr * 0.3),
+      ssr * 0.35,
+      Paint()..color = Colors.white.withValues(alpha: 0.45),
+    );
+  }
 }

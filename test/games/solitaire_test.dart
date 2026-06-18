@@ -45,12 +45,13 @@ void main() {
       cleanUp(tester);
     });
 
-    testWidgets('tapping Play starts game and shows felt', (tester) async {
+    testWidgets('tapping Play starts game', (tester) async {
       await pumpScreen(tester, _device, _build(), settle: false);
       await tester.tap(find.text('Play Solitaire'));
+      await tester.runAsync(() => Future.delayed(const Duration(seconds: 3)));
       await tester.pump(const Duration(milliseconds: 500));
       expect(find.text('Play Solitaire'), findsNothing);
-      expect(find.textContaining('Score:'), findsOneWidget);
+      expect(find.text('MOVES'), findsOneWidget);
       expectNoOverflow(_device, 'Solitaire playing');
       cleanUp(tester);
     });
@@ -58,6 +59,7 @@ void main() {
     testWidgets('pause and resume works', (tester) async {
       await pumpScreen(tester, _device, _build(), settle: false);
       await tester.tap(find.text('Play Solitaire'));
+      await tester.runAsync(() => Future.delayed(const Duration(seconds: 3)));
       await tester.pump(const Duration(milliseconds: 500));
       final state = tester.state<GameWrapperState>(find.byType(GameWrapper));
       state.pauseGame();
@@ -74,6 +76,7 @@ void main() {
     testWidgets('pause overlay shows correct icons', (tester) async {
       await pumpScreen(tester, _device, _build(), settle: false);
       await tester.tap(find.text('Play Solitaire'));
+      await tester.runAsync(() => Future.delayed(const Duration(seconds: 3)));
       await tester.pump(const Duration(milliseconds: 500));
       final state = tester.state<GameWrapperState>(find.byType(GameWrapper));
       state.pauseGame();

@@ -428,11 +428,9 @@ class _ColorTapScreenState extends State<ColorTapScreen>
         period: const Duration(seconds: 12),
       ),
       iconRingColors: const [_kAccent, _kAccentLt, _kAccent],
-      iconChild: ClipOval(
-        child: GameRegistry.getById(kColorTapGameId)
+      iconChild: GameRegistry.getById(kColorTapGameId)
                 ?.buildBrandedLogo(size: 84) ??
             const SizedBox.shrink(),
-      ),
       title: 'Color Tap',
       subtitle: 'Match • Reflex • Speed',
       onBack: () => context.pop(),
@@ -760,20 +758,25 @@ class _ScorePill extends StatelessWidget {
               ),
             ],
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              _scoreCol('SCORE', score, color),
-              const SizedBox(width: 12),
-              Container(width: 1, height: 28, color: const Color(0xFFFFD5B8)),
-              const SizedBox(width: 12),
-              _scoreCol('BEST', best, const Color(0xFF8B7BA7)),
-              const SizedBox(width: 12),
-              Container(width: 1, height: 28, color: const Color(0xFFFFD5B8)),
-              const SizedBox(width: 12),
-              _livesCol(lives),
-            ],
+          // Scale the stat row down on narrow widths / large text scale so it
+          // never overflows the HUD's center slot.
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _scoreCol('SCORE', score, color),
+                const SizedBox(width: 12),
+                Container(width: 1, height: 28, color: const Color(0xFFFFD5B8)),
+                const SizedBox(width: 12),
+                _scoreCol('BEST', best, const Color(0xFF8B7BA7)),
+                const SizedBox(width: 12),
+                Container(width: 1, height: 28, color: const Color(0xFFFFD5B8)),
+                const SizedBox(width: 12),
+                _livesCol(lives),
+              ],
+            ),
           ),
         ),
       ],

@@ -505,9 +505,7 @@ class _DodgeBallScreenState extends State<DodgeBallScreen>
       iconChild: Builder(builder: (ctx) {
         final info = GameRegistry.getById(kDodgeBallGameId);
         final logo = info?.buildBrandedLogo(size: 84);
-        if (logo != null) {
-          return ClipRRect(borderRadius: BorderRadius.circular(42), child: logo);
-        }
+        if (logo != null) return logo;
         return const Icon(Icons.sports_baseball_rounded, size: 40, color: _kAccent);
       }),
       title: 'Dodge Ball',

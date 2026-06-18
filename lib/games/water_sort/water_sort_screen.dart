@@ -19,6 +19,7 @@ import '../shared/game_hud_bar.dart';
 import '../shared/generic_game_result_screen.dart' as game_result;
 import '../shared/level_complete_overlay.dart';
 import 'water_sort_logo.dart';
+import 'water_sort_level_gen.dart' as gen;
 import 'water_sort_tutorial.dart';
 
 const kWaterSortGameId = 'water_sort';
@@ -34,7 +35,7 @@ extension _DifficultyX on _Difficulty {
   String get label => ['EASY', 'MEDIUM', 'HARD'][index];
   Color get color => [_kEasyColor, _kMediumColor, _kHardColor][index];
   DifficultyKind get kind => [DifficultyKind.easy, DifficultyKind.medium, DifficultyKind.hard][index];
-  String get hint => ['3–5 colors · varied tubes', '5–7 colors · varied tubes', '7–10 colors · varied tubes'][index];
+  String get hint => ['4–7 colors · 2 free tubes', '8–11 colors · 2 free tubes', '12–14 colors · 2 free tubes'][index];
   String get subKey => ['easy', 'medium', 'hard'][index];
 }
 
@@ -44,26 +45,6 @@ class _LevelParams {
   final int emptyTubes;
   int get numTubes => numColors + emptyTubes;
   const _LevelParams({required this.numColors, required this.tubeCapacity, required this.emptyTubes});
-}
-
-_LevelParams _rollParams(_Difficulty diff, math.Random rng) {
-  switch (diff) {
-    case _Difficulty.easy:
-      final colors = 3 + rng.nextInt(3);
-      final cap = 3 + rng.nextInt(2);
-      final empty = 2 + rng.nextInt(2);
-      return _LevelParams(numColors: colors, tubeCapacity: cap, emptyTubes: empty);
-    case _Difficulty.medium:
-      final colors = 5 + rng.nextInt(3);
-      final cap = 3 + rng.nextInt(3);
-      final empty = 2;
-      return _LevelParams(numColors: colors, tubeCapacity: cap, emptyTubes: empty);
-    case _Difficulty.hard:
-      final colors = 7 + rng.nextInt(4);
-      final cap = 4 + rng.nextInt(2);
-      final empty = 2;
-      return _LevelParams(numColors: colors, tubeCapacity: cap, emptyTubes: empty);
-  }
 }
 
 const _waterColors = [
@@ -77,6 +58,12 @@ const _waterColors = [
   Color(0xFFF97316),
   Color(0xFF14B8A6),
   Color(0xFFE11D48),
+  Color(0xFF84CC16), // lime
+  Color(0xFF6366F1), // indigo
+  Color(0xFFEAB308), // yellow
+  Color(0xFFD946EF), // fuchsia
+  Color(0xFF047857), // dark emerald
+  Color(0xFF92400E), // brown
 ];
 
 class WaterSortScreen extends StatefulWidget {
@@ -101,6 +88,11 @@ class _WaterSortScreenState extends State<WaterSortScreen> with TickerProviderSt
   _LevelParams _params = const _LevelParams(numColors: 4, tubeCapacity: 4, emptyTubes: 2);
 
   int _extraTubeSlots = 0;
+
+  // Responsive tube sizing — computed each layout to fit the board on any
+  // device (down to 320x568) regardless of tube count / capacity.
+  double _tubeW = 48.0;
+  double _segH = 26.0;
 
   final Set<int> _completedTubes = {};
   final Set<int> _celebratingTubes = {};
@@ -193,38 +185,13 @@ class _WaterSortScreenState extends State<WaterSortScreen> with TickerProviderSt
   }
 
   void _generateLevel(_Difficulty diff) {
-    final rng = math.Random(_level * 1000 + diff.index * 100);
-    _params = _rollParams(diff, rng);
-    final cap = _params.tubeCapacity;
-
-    final solved = <List<int>>[];
-    for (int c = 0; c < _params.numColors; c++) {
-      solved.add(List.filled(cap, c));
-    }
-    for (int e = 0; e < _params.emptyTubes; e++) {
-      solved.add(<int>[]);
-    }
-
-    _tubes = solved.map((t) => List<int>.from(t)).toList();
-
-    final shuffleMoves = 80 + _level * 2;
-    for (int i = 0; i < shuffleMoves; i++) {
-      final validPours = <List<int>>[];
-      for (int from = 0; from < _tubes.length; from++) {
-        if (_tubes[from].isEmpty) continue;
-        for (int to = 0; to < _tubes.length; to++) {
-          if (from == to) continue;
-          if (_tubes[to].length >= cap) continue;
-          validPours.add([from, to]);
-        }
-      }
-      if (validPours.isEmpty) break;
-      final pour = validPours[rng.nextInt(validPours.length)];
-      final color = _tubes[pour[0]].removeLast();
-      _tubes[pour[1]].add(color);
-    }
-
-    _tubes.add(<int>[]);
+    final result = gen.generateWaterSortLevel(_level, diff.index);
+    _params = _LevelParams(
+      numColors: result.params.numColors,
+      tubeCapacity: result.params.tubeCapacity,
+      emptyTubes: result.params.emptyTubes,
+    );
+    _tubes = result.tubes;
     _extraTubeSlots = 0;
   }
 
@@ -233,6 +200,7 @@ class _WaterSortScreenState extends State<WaterSortScreen> with TickerProviderSt
 
     if (_selectedTube == -1) {
       if (_tubes[idx].isEmpty) return;
+      AudioService().playTap();
       setState(() => _selectedTube = idx);
       return;
     }
@@ -553,7 +521,8 @@ class _WaterSortScreenState extends State<WaterSortScreen> with TickerProviderSt
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: LayoutBuilder(
-                    builder: (context, constraints) => _buildTubes(constraints.maxWidth),
+                    builder: (context, constraints) =>
+                        _buildTubes(constraints.maxWidth, constraints.maxHeight),
                   ),
                 ),
               ),
@@ -573,10 +542,33 @@ class _WaterSortScreenState extends State<WaterSortScreen> with TickerProviderSt
     return Rect.fromLTWH(pos.dx, pos.dy, box.size.width, box.size.height);
   }
 
-  Widget _buildTubes(double availW) {
+  Widget _buildTubes(double availW, double availH) {
     final tubeCount = _tubes.length;
-    const tubeSlotW = 56.0;
+    final cap = _params.tubeCapacity;
     const extraBtnW = 46.0;
+    const hGap = 6.0; // horizontal padding around each tube
+    const rowVPad = 12.0;
+    const labelExtra = 34.0;
+
+    // Shrink tubes until the whole board fits the available width AND height —
+    // so any tube count / capacity fits even the smallest device (320x568).
+    double tw = 18.0;
+    for (double w = 48; w >= 18; w -= 1) {
+      final seg = w * 0.54;
+      final slotW = w + 4 + hGap;
+      final usable = availW - (_extraTubeSlots < cap ? extraBtnW : 0);
+      final perRow = math.max(1, (usable / slotW).floor());
+      final rows = (tubeCount / perRow).ceil();
+      final tubeTotalH = cap * seg + 20 + labelExtra;
+      if (rows * (tubeTotalH + rowVPad) <= availH) {
+        tw = w;
+        break;
+      }
+    }
+    _tubeW = tw;
+    _segH = tw * 0.54;
+
+    final tubeSlotW = _tubeW + 4 + hGap;
     final hasExtraBtn = _extraTubeSlots < _params.tubeCapacity;
     final effectiveW = hasExtraBtn ? availW - extraBtnW : availW;
     final maxPerRow = (effectiveW / tubeSlotW).floor().clamp(1, tubeCount);
@@ -624,7 +616,7 @@ class _WaterSortScreenState extends State<WaterSortScreen> with TickerProviderSt
 
   Widget _buildExtraSpaceButton() {
     final cap = _params.tubeCapacity;
-    final segH = 26.0;
+    final segH = _segH;
     final tubeH = cap * segH + 10;
     final bottomOffset = _extraTubeSlots * segH;
     return GestureDetector(
@@ -772,8 +764,8 @@ class _WaterSortScreenState extends State<WaterSortScreen> with TickerProviderSt
 
     final t = _pourAnim.value;
     final cap = _params.tubeCapacity;
-    final tubeW = 48.0;
-    final segH = 26.0;
+    final tubeW = _tubeW;
+    final segH = _segH;
     final tubeBodyH = cap * segH + 10;
     final widgetW = tubeW + 4;
     final widgetH = tubeBodyH + 34;
@@ -862,8 +854,8 @@ class _WaterSortScreenState extends State<WaterSortScreen> with TickerProviderSt
     final tube = _tubes[idx];
     final isSelected = animated && _selectedTube == idx;
     final cap = _params.tubeCapacity;
-    final tubeW = 48.0;
-    final segH = 26.0;
+    final tubeW = _tubeW;
+    final segH = _segH;
     final tubeH = cap * segH + 10;
     final eCap = _effectiveCap(idx);
     final isLocked = isExtra && eCap <= 0;

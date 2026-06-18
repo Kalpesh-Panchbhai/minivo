@@ -412,7 +412,11 @@ class _SnakeClassicScreenState extends State<SnakeClassicScreen>
   void _handleSwipeDirection(_Dir d) {
     if (_activeDifficulty == null || _gameOver) return;
     if (d.isOpposite(_dir)) return;
+    // onPanUpdate fires continuously; only buzz on an actual turn, not on
+    // every same-direction drag update.
+    final turned = d != _pendingDir;
     _pendingDir = d;
+    if (turned) AudioService().playTap();
 
     // Snappy turn — without this, a swipe taken early in a tick has to
     // wait up to one full tick (260 ms on Easy!) before the new
@@ -454,11 +458,9 @@ class _SnakeClassicScreenState extends State<SnakeClassicScreen>
         period: const Duration(seconds: 10),
       ),
       iconRingColors: const [_kSnakeGreen, _kSnakeDark, _kSnakeGreen],
-      iconChild: ClipOval(
-        child: GameRegistry.getById(kSnakeClassicGameId)
+      iconChild: GameRegistry.getById(kSnakeClassicGameId)
                 ?.buildBrandedLogo(size: 84) ??
             const SizedBox.shrink(),
-      ),
       title: 'Snake Classic',
       subtitle: 'Slither • Eat • Survive',
       onBack: () => context.pop(),

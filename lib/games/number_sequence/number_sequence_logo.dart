@@ -1,143 +1,103 @@
 import 'package:flutter/material.dart';
 
-Widget buildNumberSequenceLogo(double size) {
-  return SizedBox(
-    width: size,
-    height: size,
-    child: CustomPaint(
-      size: Size(size, size),
-      painter: _NumberSequenceLogoPainter(),
-    ),
-  );
-}
+import '../shared/game_logo_scaffold.dart';
 
-class _NumberSequenceLogoPainter extends CustomPainter {
-  static const _kBg1 = Color(0xFF1E1B4B);
-  static const _kBg2 = Color(0xFF312E81);
-  static const _kAccent = Color(0xFF6366F1);
+Widget buildNumberSequenceLogo(double size) => buildGlassSpotlightLogo(
+      size: size,
+      title: 'Number Sequence',
+      bg: const [Color(0xFF312E81), Color(0xFF1E1B4B)],
+      accent: const Color(0xFF818CF8),
+      art: _NumberSequenceArt,
+    );
 
-  static const _bubbleColors = [
-    [Color(0xFF6366F1), Color(0xFF818CF8)],
-    [Color(0xFF8B5CF6), Color(0xFFA78BFA)],
-    [Color(0xFF06B6D4), Color(0xFF22D3EE)],
-    [Color(0xFF10B981), Color(0xFF34D399)],
-    [Color(0xFFF59E0B), Color(0xFFFBBF24)],
-    [Color(0xFFEF4444), Color(0xFFF87171)],
+// ignore: non_constant_identifier_names
+void _NumberSequenceArt(Canvas canvas, Rect zone) {
+  const accent = Color(0xFF818CF8);
+  const labels = ['1', '2', '3', '4'];
+
+  // Four circles laid out in a 2x2 grid, connected 1 -> 2 -> 3 -> 4.
+  final r = zone.width * 0.16;
+  final cxL = zone.left + zone.width * 0.30;
+  final cxR = zone.left + zone.width * 0.70;
+  final cyT = zone.top + zone.height * 0.30;
+  final cyB = zone.top + zone.height * 0.70;
+
+  final centers = <Offset>[
+    Offset(cxL, cyT), // 1
+    Offset(cxR, cyT), // 2
+    Offset(cxL, cyB), // 3
+    Offset(cxR, cyB), // 4
   ];
 
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
+  // Connecting arrows: 1->2 (right), 2->3 (diagonal down-left), 3->4 (right).
+  final arrowPaint = Paint()
+    ..color = Colors.white.withValues(alpha: 0.75)
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = zone.width * 0.022
+    ..strokeCap = StrokeCap.round
+    ..strokeJoin = StrokeJoin.round;
 
-    final bgRect = Rect.fromLTWH(0, 0, w, h);
-    canvas.drawRect(
-      bgRect,
-      Paint()
-        ..shader = const LinearGradient(
-          colors: [_kBg1, _kBg2],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ).createShader(bgRect),
-    );
+  void arrow(Offset from, Offset to) {
+    final dir = (to - from);
+    final len = dir.distance;
+    if (len == 0) return;
+    final unit = Offset(dir.dx / len, dir.dy / len);
+    // Trim the segment so it starts/ends at the circle edges, not centers.
+    final start = from + unit * (r + zone.width * 0.02);
+    final end = to - unit * (r + zone.width * 0.045);
+    canvas.drawLine(start, end, arrowPaint);
+    // Arrow head.
+    final ah = zone.width * 0.06;
+    final perp = Offset(-unit.dy, unit.dx);
+    final base = end - unit * ah;
+    final head = Path()
+      ..moveTo(end.dx, end.dy)
+      ..lineTo(base.dx + perp.dx * ah * 0.5, base.dy + perp.dy * ah * 0.5)
+      ..lineTo(base.dx - perp.dx * ah * 0.5, base.dy - perp.dy * ah * 0.5)
+      ..close();
+    canvas.drawPath(head, Paint()..color = Colors.white.withValues(alpha: 0.85));
+  }
 
+  arrow(centers[0], centers[1]);
+  arrow(centers[1], centers[2]);
+  arrow(centers[2], centers[3]);
+
+  for (int i = 0; i < centers.length; i++) {
+    final c = centers[i];
+    final highlighted = i == 0;
+    // Contact shadow.
     canvas.drawCircle(
-      Offset(w * 0.5, h * 0.42),
-      w * 0.45,
+        c.translate(0, 2), r, Paint()..color = Colors.black.withValues(alpha: 0.22));
+    // Fill.
+    canvas.drawCircle(
+      c,
+      r,
+      Paint()..color = highlighted ? accent : const Color(0xFF312E81),
+    );
+    // Ring.
+    canvas.drawCircle(
+      c,
+      r,
       Paint()
-        ..shader = RadialGradient(
-          colors: [_kAccent.withValues(alpha: 0.15), Colors.transparent],
-        ).createShader(Rect.fromCircle(center: Offset(w * 0.5, h * 0.42), radius: w * 0.45)),
+        ..color = highlighted
+            ? Colors.white.withValues(alpha: 0.9)
+            : accent.withValues(alpha: 0.85)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = zone.width * 0.018,
     );
-
-    final positions = [
-      [0.22, 0.20, 0, '1'],
-      [0.65, 0.15, 1, '2'],
-      [0.40, 0.38, 2, '3'],
-      [0.78, 0.42, 3, '4'],
-      [0.20, 0.55, 4, '5'],
-      [0.55, 0.58, 5, '6'],
-    ];
-
-    for (final p in positions) {
-      final cx = w * (p[0] as double);
-      final cy = h * (p[1] as double);
-      final colorIdx = p[2] as int;
-      final label = p[3] as String;
-      final r = w * 0.10;
-      final colors = _bubbleColors[colorIdx];
-
-      canvas.drawCircle(
-        Offset(cx, cy),
-        r,
-        Paint()
-          ..shader = LinearGradient(
-            colors: colors,
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ).createShader(Rect.fromCircle(center: Offset(cx, cy), radius: r)),
-      );
-
-      canvas.drawCircle(
-        Offset(cx, cy),
-        r,
-        Paint()
-          ..color = colors[0].withValues(alpha: 0.3)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
-      );
-
-      final tp = TextPainter(
-        text: TextSpan(
-          text: label,
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w900,
-            fontSize: r * 0.9,
-            height: 1,
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      tp.paint(canvas, Offset(cx - tp.width / 2, cy - tp.height / 2));
-    }
-
-    final textY = h - h * 0.15;
-    final pillH = h * 0.14;
-    final pillRect = RRect.fromRectAndRadius(
-      Rect.fromCenter(center: Offset(w / 2, textY), width: w * 0.92, height: pillH),
-      const Radius.circular(8),
-    );
-    canvas.drawRRect(
-      pillRect,
-      Paint()
-        ..shader = const LinearGradient(
-          colors: [_kAccent, Color(0xFF4F46E5)],
-        ).createShader(pillRect.outerRect),
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(pillRect.left, pillRect.top, pillRect.width, pillH * 0.45),
-        const Radius.circular(8),
-      ),
-      Paint()..color = Colors.white.withValues(alpha: 0.14),
-    );
-
+    // Digit.
     final tp = TextPainter(
       text: TextSpan(
-        text: 'NUM SEQUENCE',
+        text: labels[i],
         style: TextStyle(
           color: Colors.white,
           fontWeight: FontWeight.w900,
-          fontSize: w * 0.085,
-          letterSpacing: 0.4,
-          shadows: [Shadow(color: Colors.black.withValues(alpha: 0.30), offset: const Offset(0, 1), blurRadius: 2)],
+          fontSize: r * 1.05,
+          height: 1,
         ),
       ),
       textDirection: TextDirection.ltr,
     )..layout();
-    tp.paint(canvas, Offset((w - tp.width) / 2, textY - tp.height / 2));
+    tp.paint(canvas, Offset(c.dx - tp.width / 2, c.dy - tp.height / 2));
   }
-
-  @override
-  bool shouldRepaint(_NumberSequenceLogoPainter old) => false;
 }

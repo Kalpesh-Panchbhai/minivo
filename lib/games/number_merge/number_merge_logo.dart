@@ -1,152 +1,80 @@
 import 'package:flutter/material.dart';
 
-/// 2048 Merge brand logo. Renders as a [size]×[size] square that fills the
-/// host tile (used by mosaic_game_tile, game_card, home_screen, etc).
-///
-/// Design: a realistic 4×4 game board mid-play, showing tiles with the
-/// authentic 2048 colour palette (2 → 128) on a warm golden gradient. Game
-/// name "2048" sits at the bottom.
-///
-/// Referenced from `GameRegistry`'s `number_merge` entry as a const tear-off
-/// so it can sit inside `const GameInfo(...)`.
-Widget build2048Logo(double size) {
-  return Container(
-    width: size,
-    height: size,
-    decoration: const BoxDecoration(
-      gradient: LinearGradient(
-        colors: [Color(0xFFEDC22E), Color(0xFFF67C5F)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      ),
-    ),
-    child: ClipRect(
-      child: CustomPaint(
-        size: Size(size, size),
-        painter: _Tile2048LogoPainter(),
-      ),
-    ),
-  );
-}
+import '../shared/game_logo_scaffold.dart';
 
-class _FilledTile {
+Widget build2048Logo(double size) => buildGlassSpotlightLogo(
+      size: size,
+      title: '2048 Merge',
+      bg: const [Color(0xFF7F1D1D), Color(0xFF2D0A0A)],
+      accent: const Color(0xFFFB7185),
+      art: _mergeArt,
+    );
+
+class _Tile {
   final int row;
   final int col;
   final int value;
   final Color color;
-  final bool whiteText;
-  const _FilledTile(this.row, this.col, this.value, this.color, this.whiteText);
+  const _Tile(this.row, this.col, this.value, this.color);
 }
 
-class _Tile2048LogoPainter extends CustomPainter {
-  static const _filled = <_FilledTile>[
-    _FilledTile(0, 3, 2, Color(0xFFEEE4DA), false),
-    _FilledTile(1, 2, 4, Color(0xFFEDE0C8), false),
-    _FilledTile(2, 1, 8, Color(0xFFF2B179), false),
-    _FilledTile(3, 0, 16, Color(0xFFF59563), true),
-    _FilledTile(0, 1, 32, Color(0xFFF67C5F), true),
-    _FilledTile(1, 3, 64, Color(0xFFF65E3B), true),
-    _FilledTile(2, 2, 128, Color(0xFFEDCF72), true),
-  ];
+const _tiles = <_Tile>[
+  _Tile(0, 0, 2, Color(0xFFFBBF24)), // amber
+  _Tile(0, 1, 4, Color(0xFFF59E0B)), // orange-amber
+  _Tile(1, 0, 8, Color(0xFFF97316)), // orange
+  _Tile(1, 1, 16, Color(0xFFEF4444)), // red
+];
 
-  static const _darkText = Color(0xFF776E65);
+void _mergeArt(Canvas canvas, Rect zone) {
+  const n = 2;
+  final gap = zone.width * 0.07;
+  final cell = (zone.width - gap * (n + 1)) / n;
+  final cellRadius = Radius.circular(cell * 0.16);
 
-  @override
-  void paint(Canvas canvas, Size size) {
-    final boardSize = size.width * 0.75;
-    final boardLeft = (size.width - boardSize) / 2;
-    final boardTop = (size.height - boardSize) / 2 - size.height * 0.04;
-    final boardRect = Rect.fromLTWH(boardLeft, boardTop, boardSize, boardSize);
-    final boardRadius = Radius.circular(boardSize * 0.06);
-
-    // Board background
-    final boardPaint = Paint()
-      ..color = const Color(0xFFBBADA0).withValues(alpha: 0.6);
-    canvas.drawRRect(RRect.fromRectAndRadius(boardRect, boardRadius), boardPaint);
-
-    final gap = boardSize * 0.025;
-    final cell = (boardSize - gap * 5) / 4;
-    final cellRadius = Radius.circular(cell * 0.12);
-
-    // Empty cells
-    final emptyPaint = Paint()
-      ..color = const Color(0xFFCDC1B4).withValues(alpha: 0.5);
-    for (int r = 0; r < 4; r++) {
-      for (int c = 0; c < 4; c++) {
-        final left = boardLeft + gap + c * (cell + gap);
-        final top = boardTop + gap + r * (cell + gap);
-        canvas.drawRRect(
-          RRect.fromRectAndRadius(
-            Rect.fromLTWH(left, top, cell, cell),
-            cellRadius,
-          ),
-          emptyPaint,
-        );
-      }
-    }
-
-    // Filled tiles
-    for (final tile in _filled) {
-      final left = boardLeft + gap + tile.col * (cell + gap);
-      final top = boardTop + gap + tile.row * (cell + gap);
-      final tilePaint = Paint()..color = tile.color;
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(left, top, cell, cell),
-          cellRadius,
-        ),
-        tilePaint,
+  Rect cellRect(int r, int c) => Rect.fromLTWH(
+        zone.left + gap + c * (cell + gap),
+        zone.top + gap + r * (cell + gap),
+        cell,
+        cell,
       );
 
-      // Number text
-      final isSmall = tile.value <= 8;
-      final fontSize = cell * (isSmall ? 0.50 : 0.36);
-      final tp = TextPainter(
-        text: TextSpan(
-          text: tile.value.toString(),
-          style: TextStyle(
-            color: tile.whiteText ? Colors.white : _darkText,
-            fontWeight: FontWeight.w900,
-            fontSize: fontSize,
-            height: 1,
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-      );
-      tp.layout();
-      tp.paint(
-        canvas,
-        Offset(
-          left + (cell - tp.width) / 2,
-          top + (cell - tp.height) / 2,
-        ),
-      );
-    }
+  for (final tile in _tiles) {
+    final rect = cellRect(tile.row, tile.col);
+    final rr = RRect.fromRectAndRadius(rect, cellRadius);
+    // drop shadow
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect.translate(0, cell * 0.03), cellRadius),
+      Paint()..color = Colors.black.withValues(alpha: 0.22),
+    );
+    canvas.drawRRect(rr, Paint()..color = tile.color);
+    // top sheen
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(rect.left, rect.top, rect.width, rect.height * 0.46),
+        cellRadius,
+      ),
+      Paint()..color = Colors.white.withValues(alpha: 0.16),
+    );
 
-    // Game name at bottom — font scales with canvas so text never overflows.
-    final namePainter = TextPainter(
+    final fontSize = tile.value < 10 ? cell * 0.52 : cell * 0.40;
+    final tp = TextPainter(
       text: TextSpan(
-        text: '2048',
+        text: tile.value.toString(),
         style: TextStyle(
           color: Colors.white,
           fontWeight: FontWeight.w900,
-          fontSize: size.width * 0.18,
-          letterSpacing: 1.0,
-          shadows: const [Shadow(color: Colors.black26, blurRadius: 4)],
+          fontSize: fontSize,
+          height: 1,
         ),
       ),
       textDirection: TextDirection.ltr,
-    );
-    namePainter.layout();
-    namePainter.paint(
+    )..layout();
+    tp.paint(
       canvas,
       Offset(
-        (size.width - namePainter.width) / 2,
-        size.height - namePainter.height - size.height * 0.04,
+        rect.left + (cell - tp.width) / 2,
+        rect.top + (cell - tp.height) / 2,
       ),
     );
   }
-
-  @override
-  bool shouldRepaint(_Tile2048LogoPainter old) => false;
 }

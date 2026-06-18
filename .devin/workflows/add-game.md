@@ -6,24 +6,62 @@ description: Add a new mini game to Minivo — scaffolds all files, registers th
 
 When the user requests a new game, follow these steps **in order**. Every game MUST follow the existing patterns exactly.
 
+## The Production Bar (read first — this is the quality target)
+
+You are shipping a game to a published app that already has 27 polished games.
+"Done" means ALL of the following, with NO human follow-up:
+
+- **Looks/feels like the other 27.** Reuse the shared scaffolds (`GamePickerScaffold`,
+  `GameDifficultyCard`/`SpinningSlider`, `GameHudBar`, `GenericGameResultScreen`,
+  `LevelCompleteOverlay`, `AnimatedBackground`) and the shared logo
+  (`buildGlassSpotlightLogo`). Never invent parallel UI — match existing games.
+- **Best-in-class UX.** Difficulty picker → game → result loop; a short animated
+  tutorial; haptic feedback (`AudioService`, no audio); a personal best; smooth animations; an empty/
+  win/lose state. The first frame must look intentional.
+- **You decide the scoring model yourself** from the game's nature using the
+  decision tree below (high-score per difficulty / best-time / win-streak /
+  level-progress). Wire it through `ScoreService` or `LevelProgressService` and the
+  result screen + leaderboard/profile stats — don't ask the user which to use.
+- **Level games are bullet-proof:** 10,000 unique levels × 3 difficulties, every
+  one **strictly solvable (exactly one solution)** and **unique within its
+  difficulty**, generated offline and replayed on device with NO runtime solver.
+  See "Level-Based Games — full architecture". This is non-negotiable.
+- **Cannot break in production on any device.** No overflow, no jank, on all 14
+  supported sizes (iPhone SE 320px → iPad Pro 12.9"), portrait, iOS + Android, at
+  up to 1.3× system font. The overflow/responsive/perf test fleet (Step 9d) MUST
+  include the new game and pass.
+- **Fully integrated:** registered in `game_registry.dart` + `game_stats_bootstrap.dart`,
+  full test suite green (`flutter analyze` clean, `flutter test` all pass).
+
+If a test reveals a layout/logic problem, FIX THE GAME CODE and re-run — never
+weaken a test. Never commit; the user handles git.
+
 ## Speed-Run Checklist (TL;DR)
 
 For experienced use — execute these in order, refer to sections below only when needed:
 
-1. **Pick reference game** from decision tree below based on game type
+1. **Pick reference game** from decision tree below based on game type (and the
+   scoring model that fits — high-score / best-time / win-streak / level-progress)
 2. **Read the reference game's screen file** end-to-end as your template
-3. **Create folder** `lib/games/<game_id>/` with 4 files:
+3. **Create folder** `lib/games/<game_id>/` with the 4 core files:
    - `<game_id>_screen.dart` — copy reference, replace game logic
-   - `<game_id>_logo.dart` — CustomPaint logo
+   - `<game_id>_logo.dart` — uses shared `buildGlassSpotlightLogo` (Step 3)
    - `<game_id>_tutorial.dart` — 2-4 animated steps
    - `<game_id>_stats.dart` — stats builder
+   - **Level games add 3 more:** `<game_id>_level_gen.dart`, the GENERATED
+     `<game_id>_seeds.g.dart`, and `test/solvability/generate_<game_id>_seeds.dart`
+     — then run `dart run test/solvability/generate_<game_id>_seeds.dart` to bake
+     30k verified levels (see "Level-Based Games — full architecture")
 4. **Register in `game_registry.dart`** — add imports, builder, GameInfo (at correct trending position)
 5. **Register stats in `game_stats_bootstrap.dart`** — add import + call
 6. **Update tests:**
    - `test/games/game_registry_test.dart` — add ID to expectedIds, bump count to N+1
-   - `test/screens/games_overflow_test.dart` — add ID to _gameIds + _playButtonText
+   - `test/screens/games_overflow_test.dart` — add ID to _gameIds + REAL _playButtonText
    - Create `test/games/<game_id>_test.dart` from template below
-7. **Run:** `flutter analyze lib/` then `flutter test --reporter compact`
+   - Wire into the responsive/overflow/text-scale/perf fleet (Step 9d)
+   - Create `test/games/<game_id>_devicematrix_test.dart` (Step 9e) — every element of every screen state on all 14 devices (iOS + Android), normal + 1.3× text
+   - Level games: create `test/games/<game_id>_solvability_test.dart` (10k×3 strict + unique)
+7. **Run:** `flutter analyze lib/` then `flutter test` — all must pass
 8. **Never commit** — user handles git
 
 ## Quick Reference — Game Type Decision Tree
@@ -72,15 +110,25 @@ Before writing any code, read these reference files to understand the patterns:
 - `lib/core/services/best_stats_registry.dart` — stats registry
 - `lib/core/services/ads_service.dart` — AdsService (rewarded ads, interstitials)
 - `lib/games/game_stats_bootstrap.dart` — where stats are registered
-- Use an existing game as a template (e.g. `lib/games/color_tap/` for arcade, `lib/games/number_merge/` for puzzle, `lib/games/tic_tac_toe/` for board)
+- `lib/games/shared/game_logo_scaffold.dart` — the shared "Glass Spotlight" logo every tile uses (Step 3)
+- `lib/core/services/level_progress_service.dart` + `lib/games/shared/level_complete_overlay.dart` — LEVEL games
+- `lib/games/zip/zip_level_gen.dart` + `lib/games/zip/zip_seeds.g.dart` + `test/solvability/generate_zip_seeds.dart` + `test/games/zip_solvability_test.dart` — the canonical LEVEL-game pipeline (study end-to-end before building one)
+- `test/helpers/game_drivers.dart` + `test/helpers/screen_sizes.dart` — the device/overflow test fleet helpers (Step 9d)
+- Use an existing game as a template (e.g. `lib/games/color_tap/` for arcade, `lib/games/number_merge/` for puzzle, `lib/games/tic_tac_toe/` for board, `lib/games/zip/` for a level puzzle)
 
 ## Step 1: Create Game Folder
 
 Create `lib/games/<game_id>/` with these files:
 - `<game_id>_screen.dart` — main screen (picker + game + game over)
-- `<game_id>_logo.dart` — custom logo widget for home tiles
+- `<game_id>_logo.dart` — logo widget for home tiles (shared scaffold, Step 3)
 - `<game_id>_tutorial.dart` — animated tutorial steps (optional but recommended)
 - `<game_id>_stats.dart` — stats builder for leaderboard/profile screens
+
+**LEVEL-based games additionally create** (see "Level-Based Games — full architecture"):
+- `<game_id>_level_gen.dart` — deterministic engine + solver
+- `<game_id>_seeds.g.dart` — GENERATED salt table (do not hand-edit)
+- `test/solvability/generate_<game_id>_seeds.dart` — offline 30k-level generator
+- `test/games/<game_id>_solvability_test.dart` — verifies strict solvability + uniqueness
 
 The `<game_id>` must be snake_case (e.g. `minesweeper`, `word_search`, `brick_breaker`).
 
@@ -94,7 +142,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/services/ads_service.dart';
-import '../../core/services/audio_service.dart';
+import '../../core/services/audio_service.dart'; // haptic feedback (no audio)
 import '../../core/services/score_service.dart';
 import '../../core/widgets/how_to_play_sheet.dart';
 import '../game_registry.dart';
@@ -319,8 +367,12 @@ Reference implementations: `tic_tac_toe_screen.dart`, `checkers_screen.dart`, `c
   - Board games (AI win): `_wrapper.updateScore(_streak)` before `endGame()` fires
 - Save scores: `ScoreService().saveScore(kMyGameId, score, subKey: diff.subKey)`
 - On game over: `GameWrapper.of(context).endGame(result: 'win')` or `endGame(result: 'loss')` or `endGame(result: 'draw')` — this triggers interstitial ad + analytics with the correct game outcome
-- Play sound on score: `AudioService().playScore()`
-- Play sound on game over: handled automatically by `GameWrapper.endGame()`
+- **NO audio or music, but YES haptic feedback.** The app plays no sound/music and ships no audio assets — never add an `audioplayers`-style package or play a sound file. It DOES use tactile (vibration) feedback via `AudioService` (named "Audio" for historical reasons; it is purely `HapticFeedback`). Wire haptics on the meaningful events:
+  - `AudioService().playTap()` — the primary user action (tap / move / place / flip), when that action doesn't already trigger another haptic.
+  - `AudioService().playScore()` — on scoring / progress (point, merge, match, capture).
+  - `AudioService().playSuccess()` — on win / solve / level-complete.
+  - LOSS / game-over is fired centrally by `GameWrapper.endGame()` — do NOT add a per-game game-over haptic (double-fire).
+  - Do NOT fire a haptic every frame/tick in real-time loops (snake step, dino frame) — only on discrete events. Match the haptic density of existing games.
 - **Do NOT call** `ScoreService().incrementGamePlayCount()` directly — `GameWrapper.endGame()` already handles this centrally
 
 Without `subKey` and `updateScore`, the high score will always show as 0 in the wrapper.
@@ -459,37 +511,105 @@ class _MyGameScreenState extends State<MyGameScreen>
 ```
 This is NOT needed for turn-based games (sudoku, tic-tac-toe, memory match, etc.).
 
-### Level-Based Games (Water Sort pattern)
+### Level-Based Games — full architecture (zip / water_sort / arrow_puzzle pattern)
 
-Level-based games differ from score-based games in these ways:
+A level-based game is a PUZZLE with a guaranteed-solvable, hand-quality
+progression: **10,000 distinct levels per difficulty × 3 difficulties = 30,000
+puzzles**, every one verified offline to be **strictly solvable** and **unique
+across its difficulty**, then replayed byte-for-byte on device with **no solver
+running at runtime**. Levels past 10,000 wrap (level 10001 == level 1) while the
+displayed counter keeps climbing. This is mandatory — never ship a level game
+that generates puzzles live on device or that can produce an unsolvable level.
 
-1. **Use `LevelProgressService`** instead of (or alongside) `ScoreService` for level tracking:
-   ```dart
-   import '../../core/services/level_progress_service.dart';
+Study all three reference implementations end-to-end before writing anything:
+- `lib/games/zip/` (Hamiltonian-path puzzle — clean reference)
+- `lib/games/water_sort/` (state-space puzzle)
+- `lib/games/arrow_puzzle/` (geometric puzzle)
+and their tests `test/games/<game>_solvability_test.dart` + generators
+`test/solvability/generate_<game>_seeds.dart`.
+
+**A level game adds three files to `lib/games/<game_id>/` beyond the usual four:**
+
+1. **`<game_id>_level_gen.dart`** — the pure, deterministic engine. It MUST expose:
+   - `<Game>LevelResult` — an immutable value holding the puzzle (grid dims,
+     layout, the stored canonical solution, any walls/constraints).
+   - `generate<Game>LevelWithSalt(int level, int diffIndex, int salt)` — builds a
+     candidate puzzle purely from `(level, diffIndex, salt)` using a **seeded**
+     `math.Random(...)` ONLY (never `Random()` without a seed, never
+     `DateTime.now()`/wall-clock — generation must be 100% reproducible).
+   - `count<Game>Solutions(result, {int cap = 2})` — the SOLVER. Counts distinct
+     valid solutions, short-circuiting at `cap`. "Strictly solvable" ==
+     `count...Solutions(r, cap: 2) == 1` (exactly one solution). Used offline and
+     in tests only.
+   - `generate<Game>Level(int level, int diffIndex)` — the **on-device** entry
+     point. Computes `eff = (level - 1) % <game>LevelsPerDifficulty + 1`, looks up
+     the baked salt via `<game>SaltFor(eff, diffIndex)`, and rebuilds with that
+     salt. **No solver call here.** The result is identical to the offline-verified
+     puzzle.
+   - A difficulty curve: a function mapping `(level, diffIndex)` to the puzzle
+     SIZE/complexity (grid size, element count, constraint count). Make it ramp
+     smoothly and cap (e.g. zip grid 5→9, water_sort 4→14 colours). Harder
+     difficulty = larger caps.
+
+2. **`<game_id>_seeds.g.dart`** — GENERATED, do not hand-edit. Contains
+   `const int <game>LevelsPerDifficulty = 10000;`, a base64-packed `Uint16` salt
+   table (3 × 10000), and `<game>SaltFor(level, diffIndex)`. Produced by the
+   generator below.
+
+3. **`test/solvability/generate_<game>_seeds.dart`** — the offline generator
+   (copy `generate_zip_seeds.dart` and adapt). For each difficulty × level it
+   searches salts `0.._maxSalt` for the FIRST salt that yields a puzzle that is
+   (a) strictly solvable (`count...Solutions == 1`) and (b) whose `signatureOf(r)`
+   (a canonical string of the layout) is not already used by another level in that
+   difficulty — guaranteeing cross-level uniqueness. It runs across
+   `Platform.numberOfProcessors` isolates, resolves signature collisions serially,
+   ABORTS without writing if any level fails, and packs the winning salts into
+   `<game_id>_seeds.g.dart`. Run it from the repo root:
    ```
-
-2. **Level state fields** (replace score fields):
-   ```dart
-   int _currentLevel = 1;
-   int _totalLevels = 1000; // per difficulty
-   bool _levelComplete = false;
+   dart run test/solvability/generate_<game>_seeds.dart
    ```
+   (Generating 30k verified levels takes minutes — that's expected.)
 
-3. **Level progression**: On level complete, increment level and show `LevelCompleteOverlay`:
-   ```dart
-   void _onLevelComplete() {
-     LevelProgressService().saveLevel(kMyGameId, _difficulty.subKey, _currentLevel);
-     setState(() => _levelComplete = true);
-   }
-   ```
+**Wire-up in the screen (`LevelProgressService`, exact API):**
+```dart
+import '../../core/services/level_progress_service.dart';
+import '../shared/level_complete_overlay.dart';
 
-4. **HUD shows level instead of score**: `GameHudBar` center shows `Level $_currentLevel` or progress bar
+final lps = LevelProgressService();
+// Start: read the player's current level for this difficulty (defaults to 1).
+_level = lps.getCurrentLevel(kMyGameId, diff.subKey);
+final result = generate<Game>Level(_level, diff.index); // trust result.gridSize etc.
+// Persist mid-puzzle so a kill/return resumes:
+lps.saveGameState(kMyGameId, diff.subKey, {...serializable state...});
+final saved = lps.getGameState(kMyGameId, diff.subKey); // restore on _startGame
+// On solve:
+lps.advanceLevel(kMyGameId, diff.subKey);        // current+1, bumps highest
+lps.saveLevelBest(kMyGameId, diff.subKey, _level, _moves); // optional best-per-level
+```
+The picker's play sub-label shows the next level:
+`'Level ${lps.getCurrentLevel(kMyGameId, _pickerDifficulty.subKey)}'`.
 
-5. **Result screen**: Shows levels completed, not score. Use `game_result.GenericGameResultScreen` with level-specific stats.
+**Level-complete flow:** show `LevelCompleteOverlay`, then advance via the
+rewarded gate so progression and the interstitial cadence stay centralized:
+```dart
+GameWrapper.of(context).completeLevelWithAd(onComplete: () { if (mounted) _nextLevel(); });
+```
+`_nextLevel()` re-reads `getCurrentLevel`, regenerates, and resets per-level state.
 
-6. **Rewarded continue**: Typically "extra space" or "undo last move" rather than "continue from score"
+**HUD** shows `LEVEL <n>` (not a score). **Result screen** headline is
+`'Level $_level Complete!'` with level-specific stats (moves/time). **Rewarded
+continue** for level games is usually "extra space"/"undo last move", not
+"continue from score".
 
-Reference: Study `lib/games/water_sort/water_sort_screen.dart` for the full pattern.
+**Mandatory level-game tests** (in addition to the standard suite):
+`test/games/<game>_solvability_test.dart` (copy `zip_solvability_test.dart`) must
+assert, for all 10,000 levels × 3 difficulties:
+- `<game>LevelsPerDifficulty == 10000` (seed table fully populated),
+- every level strictly solvable (`count...Solutions(r, cap: 2) == 1`),
+- cross-level uniqueness (all signatures distinct, count == 10000),
+- determinism (same `(level, diff)` rebuilds identically),
+- wrap-around (level `10000+k` equals level `k`, still strictly solvable).
+These run long; tag them with `timeout: Timeout(Duration(minutes: 30))`.
 
 ### AnimatedDifficultyIcon in Picker
 
@@ -506,16 +626,44 @@ Import: `import '../shared/animated_difficulty_icon.dart';`
 
 ## Step 3: Create the Logo File (`<game_id>_logo.dart`)
 
+Every one of the 27 games uses ONE shared logo system — the "Glass Spotlight"
+scaffold in `lib/games/shared/game_logo_scaffold.dart`. You MUST use it so the
+new tile is visually consistent (themed gradient bg, accent spotlight, centered
+hero art, frosted name bar). Do NOT hand-roll a bespoke `CustomPainter` card.
+
+The game supplies only four things: a 2-tone background gradient, an accent
+colour, the title, and an `art(canvas, zone)` painter that draws the game's
+hero icon inside the given square `zone` (centered, upper-middle of the card).
+Draw the art relative to `zone` (use `zone.center`, `zone.width`, etc.) so it
+scales with the tile.
+
 ```dart
-Widget buildMyGameLogo(double size) {
-  return SizedBox(
-    width: size, height: size,
-    child: CustomPaint(size: Size(size, size), painter: _MyGameLogoPainter()),
-  );
+import 'package:flutter/material.dart';
+import '../shared/game_logo_scaffold.dart';
+
+const _bg = [Color(0xFF...), Color(0xFF...)]; // top→bottom gradient (themed)
+const _accent = Color(0xFF...);               // matches the game's accent
+
+Widget buildMyGameLogo(double size) => buildGlassSpotlightLogo(
+      size: size,
+      title: 'My Game',
+      bg: _bg,
+      accent: _accent,
+      art: _drawArt,
+    );
+
+void _drawArt(Canvas canvas, Rect zone) {
+  // Draw the game's signature icon inside `zone` (a square). Keep it simple,
+  // bold, and high-contrast — it renders as small as ~64px on home tiles.
+  // e.g. canvas.drawRRect(...), canvas.drawPath(...), a few shapes that read
+  // instantly. Study existing `<game>_logo.dart` files for the art level.
 }
 ```
 
-The logo is a `CustomPainter` that fills the given square. It appears on home screen tiles. Study existing logos for style (gradient bg, themed icons, game name at bottom).
+The same `buildMyGameLogo` builder feeds both the home-screen tile and the
+picker mascot. Pick `bg`/`accent` to match the game's in-screen accent colours
+so the tile, picker, and gameplay feel like one product. The title auto-fits a
+single line; no need to size text yourself.
 
 ## Step 4: Create Tutorial File (`<game_id>_tutorial.dart`)
 
@@ -657,11 +805,15 @@ Every new game MUST be wired into **three** test files. Forgetting any of them m
 This file tests every game's ready and playing states across **14 device sizes** (iPhone SE through iPad Pro 12.9"). Two changes are needed:
 
 1. Add `'<game_id>'` to the `_gameIds` list (keep alphabetical order).
-2. Add a case to the `_playButtonText` switch expression:
+2. Add a case to the `_playButtonText` switch expression with the REAL start
+   button so the PLAYING state is actually exercised (not just the picker):
    ```dart
-   '<game_id>' => 'Play <Game Name>',
+   '<game_id>' => 'Play <Game Name>',          // single-player games
+   '<game_id>' => 'Play vs. AI',               // AI / two-player board games
    ```
-   For **multiplayer** games that use `Play vs. AI` / `Play with a Friend` instead of a single Play button, use the fallthrough default `'Tap to Start'` — the test handles "button not found" gracefully.
+   Do NOT leave multiplayer games on the `'Tap to Start'` default — that label
+   doesn't exist on their picker, so the tap is skipped and the board is never
+   rendered (a real coverage hole that previously hid playing-state overflows).
 
 ### 9c. Create `test/games/<game_id>_test.dart`
 
@@ -898,6 +1050,83 @@ Use the single-player template above as a base, but replace tests 3/5/6/7/8 with
     });
 ```
 
+### 9d. Wire into the responsive / overflow / accessibility fleet
+
+The repo has a device-matrix test fleet that guarantees NO game breaks (overflow,
+slowness) on ANY supported device. A new game MUST be added to it — these catch
+the prod-breaking layout bugs the per-game test above does not.
+
+Shared driver: `test/helpers/game_drivers.dart` — `initGameTest()`, the
+`gamePlayButton` map (gameId → primary start button), `selectDifficultyStop`
+(drives the `SpinningSlider` to a difficulty), `tapPlay`, and `levelCurrentKey`
+(seeds a level for level games). `test/helpers/screen_sizes.dart` defines the 14
+supported devices; `pumpScreen(..., textScale:)` renders at a font scale.
+
+Required edits/additions:
+1. **`test/helpers/game_drivers.dart`** — add `'<game_id>'` to `allGameIds` and to
+   the `gamePlayButton` map (`'Play vs. AI'` for two-player, else `'Play <Name>'`).
+2. **`test/games/max_board_overflow_test.dart`** — if the board size scales with
+   difficulty or level, add a `_MaxConfig` driving it to its DENSEST render (HARD +,
+   for level games, the level that maxes the grid via `levelCurrentKey`). Asserts
+   no overflow on all 14 devices.
+3. **`test/games/difficulty_sweep_overflow_test.dart`** — if board geometry differs
+   per difficulty, add `[gameId, name, playText]` so every difficulty is rendered.
+4. **`test/games/two_player_playing_overflow_test.dart`** — if it's an AI/two-player
+   board game, add `[gameId, name]` so the live board is swept on all devices.
+5. **`test/games/level_boundary_overflow_test.dart`** — LEVEL games only: add a
+   `_LevelGame` with a level spread crossing every grid-size transition + a wrapped
+   level (e.g. `[1, 5, 13, 100, 9999, 10013]`).
+6. **`test/a11y/games_text_scaling_test.dart`** — automatically covers every id in
+   `allGameIds` at 1.3× text scale (picker + playing); just ensure step 1 is done.
+7. **`test/performance/level_gen_perf_test.dart`** — LEVEL games only: add a group
+   asserting `generate<Game>Level(maxLevel, diff)` stays under the per-level time
+   budget (guards against accidental on-device solving / slowness).
+
+The universal invariant these assert is **no overflow + the board actually
+rendered**, on every device, at every difficulty/level, at normal and large text.
+If a new game trips one, FIX THE GAME LAYOUT (responsive sizing via
+`LayoutBuilder`, `FittedBox(scaleDown)` on fixed HUD rows, scroll views) — never
+weaken the test.
+
+### 9e. Exhaustive per-element coverage across the FULL device matrix (mandatory)
+
+Beyond "no overflow", every game ships with a dedicated test file
+`test/games/<game_id>_devicematrix_test.dart` that verifies **every element of
+every screen state, on every supported device, on both platforms, at normal and
+large text**. This is what guarantees the game cannot break in production.
+
+**The device matrix already covers both platforms.** `allTestDevices`
+(`test/helpers/screen_sizes.dart`) is 14 devices = **7 Android + 7 iOS**, from the
+smallest phone (320×568) through foldables and tablets to iPad Pro 12.9
+(1024×1366), each with its real `devicePixelRatio` and `TargetPlatform`.
+`pumpScreen` applies platform-correct safe-area insets (iOS notch top 47 / home
+indicator 34; Android status bar 24) and themes with the device's platform — so
+iterating `allTestDevices` IS testing iOS + Android. Do not hardcode one size.
+
+For EACH game state, loop over ALL `allTestDevices` (and rerun the critical ones
+at `textScale: 1.3`) and assert every element individually:
+
+| State | How to reach it | Assert (per device) |
+|-------|-----------------|---------------------|
+| **Picker** | initial frame | back button, help/`?`, favorite heart, mascot/logo, title, difficulty label, `SpinningSlider`, hint text, best pill, every play button — all present, no overflow |
+| **Playing** | `selectDifficultyStop` + `tapPlay` | every HUD element (each score/level/time/best label + value), back button, restart button, the full board (every cell/tile/pit/column hit-testable), any hint nudge / mode toggle — present, inside `SafeArea`, no overflow |
+| **Paused** | `GameWrapper.of(ctx).pauseGame()` via the game's pause affordance | overlay shows Paused + Resume + Restart + Quit (+ their icons); resume dismisses it |
+| **Game over / result** | drive to a real win AND a real loss/draw | headline, badge, every stat column, every `GameResultAction` button (correct labels), New-Best badge when applicable — present, no overflow |
+| **Level complete** (level games) | solve a level | `LevelCompleteOverlay` + next-level action present, no overflow |
+
+Element-level checks every device-matrix test MUST include:
+1. **Presence** — each element found (`findsOneWidget` / `findsWidgets` for repeated labels).
+2. **No overflow** — `expectNoOverflow(device, '<state>')` after every state (the `OverflowDetector` is already armed by `pumpScreen`).
+3. **Corners / edges within SafeArea** — edge-anchored controls (back top-left, restart top-right, hint/mode bottom) must render fully on notched iOS and cutout Android. Assert their `tester.getRect(...)` sits inside the device's safe area (top/bottom insets above), so nothing hides under a notch/home-indicator.
+4. **Tap targets ≥ 44×44** — for every interactive control, `expect(tester.getSize(finder).shortestSide, greaterThanOrEqualTo(44))` (the project minimum; see `test/a11y/tap_targets_test.dart`).
+5. **Board completeness** — for grid/board games, assert the rendered interactive cell count equals the expected dimension (e.g. 81 for 9×9) on every device, and that the densest difficulty/level still fits (driven via the Step-9d fleet).
+6. **Large text** — repeat presence + no-overflow at `textScale: 1.3` on the narrow devices (the game is auto-covered by `games_text_scaling_test.dart`, but assert your game-specific HUD labels survive scaling too).
+
+Reuse the helpers (`initGameTest`, `pumpScreen`, `selectDifficultyStop`, `tapPlay`,
+`expectNoOverflow`, `cleanUp`, `allTestDevices`) — do not reinvent the harness.
+This file will contain many tests (states × 14 devices × elements); that volume is
+intended. If any assertion fails, FIX THE GAME, never the test.
+
 ### Required Test Categories (minimum)
 
 Every game test file MUST cover at least these categories:
@@ -927,7 +1156,17 @@ For **multiplayer games**, tests 3/5/6/7/8 must cover **both AI and 2P modes** s
 ### Run Tests
 
 // turbo
-After creating/updating all three test files, run them in this order:
+After creating/updating the test files, run them in this order:
+
+0. **LEVEL games only — bake & verify the 30k levels FIRST** (the screen won't
+   work until the seed table exists):
+```bash
+dart run test/solvability/generate_<game_id>_seeds.dart   # writes <game_id>_seeds.g.dart
+flutter test test/games/<game_id>_solvability_test.dart   # all 10k×3 strict + unique
+```
+   The generator must finish with zero failures; the solvability test must be all
+   green. If a level fails to find a unique-solution salt, fix the difficulty curve
+   / generator in `<game_id>_level_gen.dart` and regenerate — never relax the test.
 
 1. Per-game test:
 ```bash
@@ -939,9 +1178,12 @@ flutter test test/games/<game_id>_test.dart --reporter compact
 flutter test test/games/game_registry_test.dart --reporter compact
 ```
 
-3. Multi-device overflow test (validates ready + playing state on 14 devices):
+3. Device/overflow fleet + the per-element device-matrix file (ready + playing + paused + result + every element on all 14 devices, iOS + Android, normal + 1.3× text):
 ```bash
-flutter test test/screens/games_overflow_test.dart --reporter compact
+flutter test test/games/<game_id>_devicematrix_test.dart test/screens/games_overflow_test.dart \
+  test/games/max_board_overflow_test.dart test/games/difficulty_sweep_overflow_test.dart \
+  test/games/two_player_playing_overflow_test.dart test/a11y/games_text_scaling_test.dart --reporter compact
+# LEVEL games also: test/games/level_boundary_overflow_test.dart test/performance/level_gen_perf_test.dart
 ```
 
 4. Full test suite (ensures nothing else broke):
@@ -955,9 +1197,10 @@ All tests MUST pass at every step. If any fail, fix the game code (not the tests
 
 - [ ] Folder `lib/games/<game_id>/` created
 - [ ] `<game_id>_screen.dart` — picker + game + game over
-- [ ] `<game_id>_logo.dart` — custom painted logo
+- [ ] `<game_id>_logo.dart` — uses shared `buildGlassSpotlightLogo` (consistent with all 27 games)
 - [ ] `<game_id>_tutorial.dart` — animated tutorial steps
 - [ ] `<game_id>_stats.dart` — stats builder for leaderboard/profile
+- [ ] Scoring model chosen to fit the game (high-score / best-time / win-streak / level-progress) and wired through result + stats
 - [ ] Registered in `GameRegistry._builders`
 - [ ] `GameInfo` added to `GameRegistry.allGames` at correct trending position with appropriate `playCount`
 - [ ] Stats registered in `game_stats_bootstrap.dart`
@@ -967,7 +1210,7 @@ All tests MUST pass at every step. If any fail, fix the game code (not the tests
 - [ ] Rewarded undo wired (multiplayer board games with AI mode only — see step 7c)
 - [ ] Undo window PlayerStrip UX: human `isActive` during undo window, AI NOT active
 - [ ] `ScoreService` wired (saveScore, getHighScore, isFavorite)
-- [ ] `AudioService().playScore()` on point gain
+- [ ] Haptic feedback wired via `AudioService` — `playTap` (primary action), `playScore` (progress), `playSuccess` (win/solve/level-complete); NO audio/music or audio assets; game-over haptic left to `GameWrapper.endGame()`
 - [ ] Tutorial wired (showHowToPlaySheet with gameId)
 - [ ] `endGame(result:)` passes correct result — `'win'`/`'loss'`/`'draw'` (not bare `endGame()`)
 - [ ] Every `GameResultAction` has an `actionId:` (e.g. `'play_again'`, `'change_mode'`, `'home'`)
@@ -983,6 +1226,10 @@ All tests MUST pass at every step. If any fail, fix the game code (not the tests
 - [ ] `test/games/game_registry_test.dart` updated — add `<game_id>` to `expectedIds` and bump count
 - [ ] `test/screens/games_overflow_test.dart` updated — add `<game_id>` to `_gameIds` and `_playButtonText`
 - [ ] `test/games/<game_id>_test.dart` created with all required test cases (registry, title, play, difficulty, HUD, pause/resume, pause icons)
+- [ ] Wired into the device fleet (Step 9d): `test/helpers/game_drivers.dart` (`allGameIds` + `gamePlayButton`), and the relevant overflow/difficulty/text-scale tests
+- [ ] `test/games/<game_id>_devicematrix_test.dart` created (Step 9e): every element of every state (picker, playing, paused, result, level-complete) asserted present + no-overflow + within SafeArea + tap-target ≥44px on ALL 14 devices (7 iOS + 7 Android) at normal + 1.3× text
+- [ ] **LEVEL games:** `<game_id>_level_gen.dart` (seeded generation + solver), `<game_id>_seeds.g.dart` generated, `generate_<game_id>_seeds.dart` runs with zero failures
+- [ ] **LEVEL games:** `<game_id>_solvability_test.dart` green — all 10,000×3 strictly solvable (1 solution) + unique + deterministic + wrap-around; perf budget test added
 - [ ] All tests pass: `flutter test --reporter compact` (full suite, not just game tests)
 
 ## Important
@@ -992,13 +1239,16 @@ All tests MUST pass at every step. If any fail, fix the game code (not the tests
 ## Key Rules
 
 - Portrait orientation only
+- **No audio or music** (no sound files / audio packages), but DO add **haptic feedback** via `AudioService` (`playTap`/`playScore`/`playSuccess`) on the primary action, scoring, and win/solve — matching existing games
 - Minimum tap target: 44x44
 - Use rounded corners (14-16px), subtle shadows, pastel accents
 - Swipe gestures (if any) must work on the FULL screen, not just the board
 - Font: Poppins via Google Fonts (inherited from AppTheme)
 - Keep it lightweight — no heavy assets, pure Flutter widgets or CustomPaint
 - Game logic MUST be self-contained in the game folder
-- Reuse shared widgets: GamePickerScaffold, GameHudBar, GameSinglePickerBody, GenericGameResultScreen, AnimatedBackground, RewardedContinueAction
+- Reuse shared widgets: GamePickerScaffold, GameHudBar, GameSinglePickerBody/GameAiPickerBody, GameDifficultyCard/SpinningSlider, GenericGameResultScreen, LevelCompleteOverlay, AnimatedBackground, RewardedContinueAction, and `buildGlassSpotlightLogo` for the tile/logo
+- Decide the scoring model from the game itself (don't ask): high-score per difficulty / best-time / win-streak / level-progress — wire via ScoreService or LevelProgressService
+- LEVEL games: 10,000 unique, strictly-solvable levels × 3 difficulties, generated offline, replayed on device (no runtime solver). Never generate puzzles live or ship an unsolvable level.
 
 ## Current Game Roster (ordered by trending popularity)
 

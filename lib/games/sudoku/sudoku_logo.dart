@@ -1,187 +1,83 @@
 import 'package:flutter/material.dart';
 
-Widget buildSudokuLogo(double size) {
-  return Container(
-    width: size,
-    height: size,
-    decoration: const BoxDecoration(
-      gradient: LinearGradient(
-        colors: [Color(0xFF4F46E5), Color(0xFF6366F1), Color(0xFF818CF8)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      ),
-    ),
-    child: CustomPaint(
-      size: Size(size, size),
-      painter: _SudokuLogoPainter(),
-    ),
-  );
-}
+import '../shared/game_logo_scaffold.dart';
 
-class _SudokuLogoPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-
-    // Subtle radial glow
-    final glowPaint = Paint()
-      ..shader = RadialGradient(
-        colors: [
-          const Color(0xFFA5B4FC).withValues(alpha: 0.30),
-          Colors.transparent,
-        ],
-      ).createShader(Rect.fromCircle(center: Offset(w / 2, h * 0.38), radius: w * 0.52));
-    canvas.drawRect(Rect.fromLTWH(0, 0, w, h), glowPaint);
-
-    // Grid occupies top 74% of the logo
-    final gridSize = w * 0.78;
-    final gridLeft = (w - gridSize) / 2;
-    final gridTop  = h * 0.05;
-    final cellSize = gridSize / 9;
-
-    // Grid data — a real partially-filled Sudoku snapshot
-    // 0 = empty, shown as blank cell
-    const grid = [
-      [5, 3, 0, 0, 7, 0, 0, 0, 0],
-      [6, 0, 0, 1, 9, 5, 0, 0, 0],
-      [0, 9, 8, 0, 0, 0, 0, 6, 0],
-      [8, 0, 0, 0, 6, 0, 0, 0, 3],
-      [4, 0, 0, 8, 0, 3, 0, 0, 1],
-      [7, 0, 0, 0, 2, 0, 0, 0, 6],
-      [0, 6, 0, 0, 0, 0, 2, 8, 0],
-      [0, 0, 0, 4, 1, 9, 0, 0, 5],
-      [0, 0, 0, 0, 8, 0, 0, 7, 9],
-    ];
-
-    // Cells that form the "highlighted" top-left box (completed)
-    const highlightBox = {0, 1, 2}; // box row indices with box col indices 0,1,2
-
-    // Draw cell backgrounds
-    for (int r = 0; r < 9; r++) {
-      for (int c = 0; c < 9; c++) {
-        final cellRect = Rect.fromLTWH(
-          gridLeft + c * cellSize,
-          gridTop  + r * cellSize,
-          cellSize,
-          cellSize,
-        );
-        final inHighlightBox = highlightBox.contains(r) && highlightBox.contains(c);
-        if (inHighlightBox && grid[r][c] != 0) {
-          // Completed box — warm accent tint
-          canvas.drawRect(
-            cellRect,
-            Paint()..color = const Color(0xFFA5B4FC).withValues(alpha: 0.32),
-          );
-        } else if (grid[r][c] != 0) {
-          // Given cell — slight white tint
-          canvas.drawRect(
-            cellRect,
-            Paint()..color = Colors.white.withValues(alpha: 0.10),
-          );
-        }
-      }
-    }
-
-    // Draw grid lines
-    final thinLine = Paint()
-      ..color = Colors.white.withValues(alpha: 0.25)
-      ..strokeWidth = 0.5;
-    final thickLine = Paint()
-      ..color = Colors.white.withValues(alpha: 0.70)
-      ..strokeWidth = 1.8;
-
-    for (int i = 0; i <= 9; i++) {
-      final x = gridLeft + i * cellSize;
-      final y = gridTop  + i * cellSize;
-      final linePaint = i % 3 == 0 ? thickLine : thinLine;
-      // vertical
-      canvas.drawLine(Offset(x, gridTop), Offset(x, gridTop + gridSize), linePaint);
-      // horizontal
-      canvas.drawLine(Offset(gridLeft, y), Offset(gridLeft + gridSize, y), linePaint);
-    }
-
-    // Draw numbers
-    for (int r = 0; r < 9; r++) {
-      for (int c = 0; c < 9; c++) {
-        if (grid[r][c] == 0) continue;
-        final inHighlightBox = highlightBox.contains(r) && highlightBox.contains(c);
-        final numColor = inHighlightBox
-            ? Colors.white
-            : Colors.white.withValues(alpha: 0.70);
-        final tp = TextPainter(
-          text: TextSpan(
-            text: '${grid[r][c]}',
-            style: TextStyle(
-              color: numColor,
-              fontSize: cellSize * 0.55,
-              fontWeight: inHighlightBox ? FontWeight.w900 : FontWeight.w600,
-              height: 1,
-            ),
-          ),
-          textDirection: TextDirection.ltr,
-        )..layout();
-        tp.paint(
-          canvas,
-          Offset(
-            gridLeft + c * cellSize + (cellSize - tp.width) / 2,
-            gridTop  + r * cellSize + (cellSize - tp.height) / 2,
-          ),
-        );
-      }
-    }
-
-    // Glow on the highlighted top-left box
-    final boxGlow = Paint()
-      ..color = const Color(0xFF818CF8).withValues(alpha: 0.55)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(gridLeft - 1, gridTop - 1, cellSize * 3 + 2, cellSize * 3 + 2),
-        const Radius.circular(4),
-      ),
-      boxGlow,
+Widget buildSudokuLogo(double size) => buildGlassSpotlightLogo(
+      size: size,
+      title: 'Sudoku',
+      bg: const [Color(0xFF312E81), Color(0xFF1E1B4B)],
+      accent: const Color(0xFF818CF8),
+      art: _sudokuArt,
     );
 
-    // "SUDOKU" text at bottom
-    _drawGameName(canvas, w, h);
-  }
+void _sudokuArt(Canvas canvas, Rect zone) {
+  const n = 3;
+  // Inset slightly so the thick outer border stays inside zone.
+  final inset = zone.width * 0.04;
+  final boardSize = zone.width - inset * 2;
+  final left = zone.left + inset;
+  final top = zone.top + (zone.height - boardSize) / 2;
+  final cell = boardSize / n;
 
-  void _drawGameName(Canvas canvas, double w, double h) {
-    void paintText(String text, double fontSize, Color color, double yPos) {
-      // Shadow
-      final shadow = TextPainter(
-        text: TextSpan(
-          text: text,
-          style: TextStyle(
-            color: Colors.black.withValues(alpha: 0.35),
-            fontSize: fontSize,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 2.0,
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      shadow.paint(canvas, Offset((w - shadow.width) / 2 + 1, yPos + 1.5));
-
-      final tp = TextPainter(
-        text: TextSpan(
-          text: text,
-          style: TextStyle(
-            color: color,
-            fontSize: fontSize,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 2.0,
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      tp.paint(canvas, Offset((w - tp.width) / 2, yPos));
+  // faint cell fills
+  final fill = Paint()..color = Colors.white.withValues(alpha: 0.08);
+  for (int r = 0; r < n; r++) {
+    for (int c = 0; c < n; c++) {
+      if ((r + c).isEven) {
+        canvas.drawRect(
+          Rect.fromLTWH(left + c * cell, top + r * cell, cell, cell),
+          fill,
+        );
+      }
     }
-
-    paintText('SUDOKU', w * 0.115, Colors.white, h * 0.795);
   }
 
-  @override
-  bool shouldRepaint(_SudokuLogoPainter old) => false;
+  // thin inner lines
+  final thin = Paint()
+    ..color = Colors.white.withValues(alpha: 0.45)
+    ..strokeWidth = boardSize * 0.012;
+  for (int i = 1; i < n; i++) {
+    final x = left + i * cell;
+    final y = top + i * cell;
+    canvas.drawLine(Offset(x, top), Offset(x, top + boardSize), thin);
+    canvas.drawLine(Offset(left, y), Offset(left + boardSize, y), thin);
+  }
+
+  // thick outer border
+  final outer = Paint()
+    ..color = Colors.white
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = boardSize * 0.035;
+  canvas.drawRRect(
+    RRect.fromRectAndRadius(
+      Rect.fromLTWH(left, top, boardSize, boardSize),
+      Radius.circular(boardSize * 0.04),
+    ),
+    outer,
+  );
+
+  // a few filled digits
+  void digit(int r, int c, String d) {
+    final cx = left + c * cell + cell / 2;
+    final cy = top + r * cell + cell / 2;
+    final tp = TextPainter(
+      text: TextSpan(
+        text: d,
+        style: TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w900,
+          fontSize: cell * 0.6,
+          height: 1,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(canvas, Offset(cx - tp.width / 2, cy - tp.height / 2));
+  }
+
+  digit(0, 0, '5');
+  digit(0, 2, '3');
+  digit(1, 1, '7');
+  digit(2, 0, '1');
+  digit(2, 2, '9');
 }

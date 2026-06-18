@@ -50,7 +50,8 @@ void main() {
       await tester.tap(find.text('Play Minesweeper'));
       await tester.pump(const Duration(milliseconds: 500));
       expect(find.text('Play Minesweeper'), findsNothing);
-      expect(find.text('Flag Mode OFF'), findsOneWidget);
+      expect(find.text('Dig'), findsOneWidget);
+      expect(find.text('Flag'), findsOneWidget);
       expectNoOverflow(_device, 'Minesweeper playing');
       cleanUp(tester);
     });
@@ -59,9 +60,10 @@ void main() {
       await pumpScreen(tester, _device, _build(), settle: false);
       await tester.tap(find.text('Play Minesweeper'));
       await tester.pump(const Duration(milliseconds: 500));
-      await tester.tap(find.text('Flag Mode OFF'));
+      await tester.tap(find.text('Flag'));
       await tester.pump(const Duration(milliseconds: 300));
-      expect(find.text('Flag Mode ON'), findsOneWidget);
+      expect(find.text('Dig'), findsOneWidget);
+      expect(find.text('Flag'), findsOneWidget);
       cleanUp(tester);
     });
 

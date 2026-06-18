@@ -355,6 +355,7 @@ class _DinoRunScreenState extends State<DinoRunScreen>
       obs.x -= _currentSpeed * dt;
       if (!obs.scored && obs.x + obs.width < dinoX) {
         obs.scored = true;
+        AudioService().playScore();
         _score += 1;
         if (_score > _bestScore) {
           _bestScore = _score;
@@ -450,9 +451,7 @@ class _DinoRunScreenState extends State<DinoRunScreen>
       iconChild: Builder(builder: (ctx) {
         final info = GameRegistry.getById(kDinoRunGameId);
         final logo = info?.buildBrandedLogo(size: 84);
-        if (logo != null) {
-          return ClipRRect(borderRadius: BorderRadius.circular(42), child: logo);
-        }
+        if (logo != null) return logo;
         return const Icon(Icons.directions_run_rounded, size: 40, color: _kAccent);
       }),
       title: 'Dino Run',

@@ -1,210 +1,177 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
 import '../../core/widgets/animated_demo.dart';
 import '../../core/widgets/how_to_play_sheet.dart';
 
-List<GameHowToPlayStep> zipSteps() => [
-  GameHowToPlayStep(
-    text: 'Draw a path through every cell in the grid. Swipe to connect cells.',
-    demo: AnimatedDemo(
-      period: const Duration(seconds: 3),
-      painter: (t) => _DrawPathPainter(t),
-      canvasSize: const Size(200, 160),
-    ),
-  ),
-  GameHowToPlayStep(
-    text: 'Numbered cells must be visited in order: 1 → 2 → 3 and so on.',
-    demo: AnimatedDemo(
-      period: const Duration(seconds: 3),
-      painter: (t) => _NumberOrderPainter(t),
-      canvasSize: const Size(200, 160),
-    ),
-  ),
-  GameHowToPlayStep(
-    text: 'Fill every cell to complete the puzzle. Backtrack by retracing your path!',
-    demo: AnimatedDemo(
-      period: const Duration(seconds: 3),
-      painter: (t) => _CompletePainter(t),
-      canvasSize: const Size(200, 160),
-    ),
-  ),
-];
+// Tutorial demos that mirror the real Zip board: a grid of cells, numbered
+// checkpoints drawn as dark circles, and a gradient path drawn cell-to-cell.
+const _kPathStart = Color(0xFF22C55E);
+const _kPathEnd = Color(0xFF16A34A);
+const _kCellBg = Color(0xFFDCFCE7);
 
-class _DrawPathPainter extends CustomPainter {
+// A 4x4 snake solution path (row-by-row boustrophedon) — 16 cells.
+const List<List<int>> _solution = [
+  [0, 0], [0, 1], [0, 2], [0, 3],
+  [1, 3], [1, 2], [1, 1], [1, 0],
+  [2, 0], [2, 1], [2, 2], [2, 3],
+  [3, 3], [3, 2], [3, 1], [3, 0],
+];
+// Checkpoints: path index -> number (1 at the start, ascending along the path).
+const Map<int, String> _checkpoints = {0: '1', 5: '2', 10: '3', 15: '4'};
+
+List<GameHowToPlayStep> zipSteps() => [
+      GameHowToPlayStep(
+        text: 'Swipe to draw one path that visits every cell exactly once.',
+        demo: AnimatedDemo(
+          period: const Duration(seconds: 3),
+          painter: (t) => _ZipBoardPainter(t, drawFraction: t),
+          canvasSize: const Size(200, 170),
+        ),
+      ),
+      GameHowToPlayStep(
+        text: 'Pass through the numbered cells in order: 1 → 2 → 3 → 4.',
+        demo: AnimatedDemo(
+          period: const Duration(seconds: 4),
+          painter: (t) => _ZipBoardPainter(t, drawFraction: t, highlightOrder: true),
+          canvasSize: const Size(200, 170),
+        ),
+      ),
+      GameHowToPlayStep(
+        text: 'Fill every cell to win. Retrace your path to undo a move.',
+        demo: AnimatedDemo(
+          period: const Duration(seconds: 3),
+          painter: (t) => _ZipBoardPainter(1.0, drawFraction: 1.0, celebrate: t),
+          canvasSize: const Size(200, 170),
+        ),
+      ),
+    ];
+
+class _ZipBoardPainter extends CustomPainter {
   final double t;
-  _DrawPathPainter(this.t);
+  final double drawFraction; // 0..1 how much of the path is drawn
+  final bool highlightOrder;
+  final double celebrate; // 0..1 pulse when complete
+
+  _ZipBoardPainter(this.t,
+      {required this.drawFraction, this.highlightOrder = false, this.celebrate = -1});
 
   @override
   void paint(Canvas canvas, Size size) {
-    final cellS = 28.0;
-    final gap = 4.0;
-    final cols = 3, rows = 3;
+    const cols = 4, rows = 4;
+    const cellS = 30.0, gap = 4.0;
     final totalW = cols * cellS + (cols - 1) * gap;
     final totalH = rows * cellS + (rows - 1) * gap;
     final ox = (size.width - totalW) / 2;
     final oy = (size.height - totalH) / 2;
 
+    Offset center(int r, int c) => Offset(
+          ox + c * (cellS + gap) + cellS / 2,
+          oy + r * (cellS + gap) + cellS / 2,
+        );
+
+    // cells
     for (int r = 0; r < rows; r++) {
       for (int c = 0; c < cols; c++) {
         final rect = RRect.fromRectAndRadius(
           Rect.fromLTWH(ox + c * (cellS + gap), oy + r * (cellS + gap), cellS, cellS),
-          const Radius.circular(5),
+          const Radius.circular(6),
         );
-        canvas.drawRRect(rect, Paint()..color = Colors.white.withValues(alpha: 0.10));
-        canvas.drawRRect(rect, Paint()..color = Colors.white.withValues(alpha: 0.25)..style = PaintingStyle.stroke..strokeWidth = 0.5);
+        canvas.drawRRect(rect, Paint()..color = _kCellBg.withValues(alpha: 0.18));
+        canvas.drawRRect(
+            rect,
+            Paint()
+              ..color = Colors.white.withValues(alpha: 0.22)
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 0.8);
       }
     }
 
-    final pathCells = [
-      [0, 0], [0, 1], [0, 2],
-      [1, 2], [1, 1], [1, 0],
-      [2, 0], [2, 1], [2, 2],
-    ];
-    final progress = (t * pathCells.length).clamp(0.0, pathCells.length.toDouble());
-    final fullCells = progress.floor();
-
-    final linePaint = Paint()
-      ..color = const Color(0xFF818CF8)
-      ..strokeWidth = 3
-      ..strokeCap = StrokeCap.round;
-
-    for (int i = 0; i < fullCells && i < pathCells.length; i++) {
-      final r = pathCells[i][0], c = pathCells[i][1];
-      final cx = ox + c * (cellS + gap) + cellS / 2;
-      final cy = oy + r * (cellS + gap) + cellS / 2;
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(ox + c * (cellS + gap), oy + r * (cellS + gap), cellS, cellS),
-          const Radius.circular(5),
-        ),
-        Paint()..color = const Color(0xFF818CF8).withValues(alpha: 0.30),
-      );
-      if (i > 0) {
-        final pr = pathCells[i - 1][0], pc = pathCells[i - 1][1];
-        final px = ox + pc * (cellS + gap) + cellS / 2;
-        final py = oy + pr * (cellS + gap) + cellS / 2;
-        canvas.drawLine(Offset(px, py), Offset(cx, cy), linePaint);
+    // path (gradient, rounded) up to drawFraction
+    final drawn = (drawFraction * (_solution.length - 1)).clamp(0.0, (_solution.length - 1).toDouble());
+    final fullSegs = drawn.floor();
+    if (drawFraction > 0) {
+      final path = Path();
+      final first = center(_solution[0][0], _solution[0][1]);
+      path.moveTo(first.dx, first.dy);
+      for (int i = 1; i <= fullSegs && i < _solution.length; i++) {
+        final p = center(_solution[i][0], _solution[i][1]);
+        path.lineTo(p.dx, p.dy);
       }
-    }
-
-    if (fullCells > 0 && fullCells < pathCells.length) {
-      final frac = progress - fullCells;
-      final pr = pathCells[fullCells - 1][0], pc = pathCells[fullCells - 1][1];
-      final nr = pathCells[fullCells][0], nc = pathCells[fullCells][1];
-      final px = ox + pc * (cellS + gap) + cellS / 2;
-      final py = oy + pr * (cellS + gap) + cellS / 2;
-      final nx = ox + nc * (cellS + gap) + cellS / 2;
-      final ny = oy + nr * (cellS + gap) + cellS / 2;
-      canvas.drawLine(Offset(px, py), Offset(px + (nx - px) * frac, py + (ny - py) * frac), linePaint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(_DrawPathPainter old) => true;
-}
-
-class _NumberOrderPainter extends CustomPainter {
-  final double t;
-  _NumberOrderPainter(this.t);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final cx = size.width / 2;
-    final cy = size.height / 2;
-
-    final nums = ['1', '2', '3', '4'];
-    final positions = [
-      Offset(cx - 50, cy - 15),
-      Offset(cx - 15, cy - 15),
-      Offset(cx + 20, cy - 15),
-      Offset(cx + 55, cy - 15),
-    ];
-
-    final activeIdx = (t * 4).floor().clamp(0, 3);
-
-    for (int i = 0; i < 4; i++) {
-      final isActive = i <= activeIdx;
-      final pos = positions[i];
-      canvas.drawCircle(
-        pos,
-        14,
-        Paint()..color = isActive ? const Color(0xFF818CF8) : Colors.white.withValues(alpha: 0.15),
+      if (fullSegs < _solution.length - 1) {
+        final frac = drawn - fullSegs;
+        final a = center(_solution[fullSegs][0], _solution[fullSegs][1]);
+        final b = center(_solution[fullSegs + 1][0], _solution[fullSegs + 1][1]);
+        path.lineTo(a.dx + (b.dx - a.dx) * frac, a.dy + (b.dy - a.dy) * frac);
+      }
+      canvas.drawPath(
+        path,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 9
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round
+          ..shader = ui.Gradient.linear(
+            Offset(ox, oy),
+            Offset(ox + totalW, oy + totalH),
+            [_kPathStart, _kPathEnd],
+          ),
       );
+    }
+
+    // checkpoints (dark circle + white number) — always visible
+    final nextNum = highlightOrder ? (1 + (t * 4).floor()).clamp(1, 4) : 0;
+    for (final entry in _checkpoints.entries) {
+      final cell = _solution[entry.key];
+      final ctr = center(cell[0], cell[1]);
+      final cr = cellS * 0.34;
+      final isNext = highlightOrder && int.parse(entry.value) == nextNum;
+      canvas.drawCircle(ctr.translate(0, 1), cr, Paint()..color = Colors.black.withValues(alpha: 0.20));
+      canvas.drawCircle(ctr, cr, Paint()..color = const Color(0xFF1F2937));
+      if (isNext) {
+        canvas.drawCircle(
+            ctr,
+            cr + 3,
+            Paint()
+              ..color = _kPathStart
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 2.5);
+      }
       final tp = TextPainter(
         text: TextSpan(
-          text: nums[i],
-          style: TextStyle(
-            color: isActive ? Colors.white : Colors.white.withValues(alpha: 0.4),
-            fontSize: 14,
-            fontWeight: FontWeight.w900,
-          ),
+          text: entry.value,
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: cellS * 0.42, height: 1),
         ),
         textDirection: TextDirection.ltr,
       )..layout();
-      tp.paint(canvas, Offset(pos.dx - tp.width / 2, pos.dy - tp.height / 2));
-
-      if (i > 0 && i <= activeIdx) {
-        canvas.drawLine(
-          Offset(positions[i - 1].dx + 14, positions[i - 1].dy),
-          Offset(pos.dx - 14, pos.dy),
-          Paint()..color = const Color(0xFF818CF8)..strokeWidth = 2..strokeCap = StrokeCap.round,
-        );
-      }
+      tp.paint(canvas, Offset(ctr.dx - tp.width / 2, ctr.dy - tp.height / 2));
     }
 
-    final label = '1 → 2 → 3 → 4';
-    final ltp = TextPainter(
-      text: TextSpan(text: label, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12, fontWeight: FontWeight.w700)),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    ltp.paint(canvas, Offset(cx - ltp.width / 2, cy + 28));
+    // complete badge
+    if (celebrate >= 0) {
+      final scale = 0.85 + 0.15 * math.sin(celebrate * math.pi * 2);
+      final bc = Offset(ox + totalW - 6, oy - 2);
+      canvas.save();
+      canvas.translate(bc.dx, bc.dy);
+      canvas.scale(scale);
+      canvas.drawCircle(Offset.zero, 13, Paint()..color = const Color(0xFF22C55E));
+      final check = Path()
+        ..moveTo(-5, 0)
+        ..lineTo(-1.5, 4)
+        ..lineTo(6, -4);
+      canvas.drawPath(
+          check,
+          Paint()
+            ..color = Colors.white
+            ..strokeWidth = 2.5
+            ..strokeCap = StrokeCap.round
+            ..style = PaintingStyle.stroke);
+      canvas.restore();
+    }
   }
 
   @override
-  bool shouldRepaint(_NumberOrderPainter old) => true;
-}
-
-class _CompletePainter extends CustomPainter {
-  final double t;
-  _CompletePainter(this.t);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final cx = size.width / 2;
-    final cy = size.height / 2;
-
-    final scale = 0.8 + 0.2 * math.sin(t * math.pi * 2);
-
-    canvas.save();
-    canvas.translate(cx, cy - 10);
-    canvas.scale(scale);
-
-    final checkPaint = Paint()
-      ..color = const Color(0xFF22C55E)
-      ..strokeWidth = 4
-      ..strokeCap = StrokeCap.round
-      ..style = PaintingStyle.stroke;
-
-    canvas.drawCircle(Offset.zero, 24, Paint()..color = const Color(0xFF22C55E).withValues(alpha: 0.2));
-    canvas.drawCircle(Offset.zero, 24, Paint()..color = const Color(0xFF22C55E)..style = PaintingStyle.stroke..strokeWidth = 2);
-
-    final checkPath = Path()
-      ..moveTo(-10, 0)
-      ..lineTo(-3, 8)
-      ..lineTo(12, -8);
-    canvas.drawPath(checkPath, checkPaint);
-
-    canvas.restore();
-
-    final tp = TextPainter(
-      text: const TextSpan(text: 'Complete!', style: TextStyle(color: Color(0xFF22C55E), fontSize: 16, fontWeight: FontWeight.w900)),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    tp.paint(canvas, Offset(cx - tp.width / 2, cy + 24));
-  }
-
-  @override
-  bool shouldRepaint(_CompletePainter old) => true;
+  bool shouldRepaint(_ZipBoardPainter old) => true;
 }

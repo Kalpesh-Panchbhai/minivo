@@ -258,6 +258,7 @@ class _DotsAndBoxesScreenState extends State<DotsAndBoxesScreen>
       }
     }
     final claimed = claimedBoxes.length;
+    if (claimed > 0) _audio.playScore();
     if (_currentPlayer == 0) {
       _p1Score += claimed;
       _undoClaimedCount = claimed;
@@ -639,9 +640,7 @@ class _ModePickerScreen extends StatelessWidget {
       iconChild: Builder(builder: (ctx) {
         final info = GameRegistry.getById(kDotsAndBoxesGameId);
         final logo = info?.buildBrandedLogo(size: 84);
-        if (logo != null) {
-          return ClipRRect(borderRadius: BorderRadius.circular(42), child: logo);
-        }
+        if (logo != null) return logo;
         return const Icon(Icons.grid_4x4_rounded, size: 40, color: Color(0xFF339AF0));
       }),
       title:    'Dots & Boxes',

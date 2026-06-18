@@ -731,12 +731,7 @@ class _ModePickerScreen extends StatelessWidget {
       iconChild: Builder(builder: (ctx) {
         final info = GameRegistry.getById(kTicTacToeGameId);
         final logo = info?.buildBrandedLogo(size: 84);
-        if (logo != null) {
-          return ClipRRect(
-            borderRadius: BorderRadius.circular(42),
-            child: logo,
-          );
-        }
+        if (logo != null) return logo;
         return const Icon(Icons.close_rounded, size: 40, color: Color(0xFF6C4EF3));
       }),
       title: 'Tic Tac Toe',

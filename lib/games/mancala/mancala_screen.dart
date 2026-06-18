@@ -515,9 +515,7 @@ class _MancalaScreenState extends State<MancalaScreen> {
       iconChild: Builder(builder: (ctx) {
         final info = GameRegistry.getById(kMancalaGameId);
         final logo = info?.buildBrandedLogo(size: 84);
-        if (logo != null) {
-          return ClipRRect(borderRadius: BorderRadius.circular(42), child: logo);
-        }
+        if (logo != null) return logo;
         return const Icon(Icons.circle_rounded, size: 40, color: _kAiColor);
       }),
       title: 'Mancala',

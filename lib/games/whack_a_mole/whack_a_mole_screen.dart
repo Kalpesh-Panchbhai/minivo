@@ -454,11 +454,9 @@ class _WhackAMoleScreenState extends State<WhackAMoleScreen>
         period: const Duration(seconds: 14),
       ),
       iconRingColors: const [_kAccent, _kAccentLt, _kAccent],
-      iconChild: ClipOval(
-        child: GameRegistry.getById(kWhackAMoleGameId)
+      iconChild: GameRegistry.getById(kWhackAMoleGameId)
                 ?.buildBrandedLogo(size: 84) ??
             const SizedBox.shrink(),
-      ),
       title: 'Whack-a-Mole',
       subtitle: 'Tap Fast • Score Big',
       onBack: () => context.pop(),
@@ -700,20 +698,25 @@ class _ScorePill extends StatelessWidget {
               ),
             ],
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              _col('SCORE', '$score', score < 0 ? _kRed : color),
-              const SizedBox(width: 12),
-              Container(width: 1, height: 28, color: _kAccent.withValues(alpha: 0.20)),
-              const SizedBox(width: 12),
-              _col('BEST', '$best', const Color(0xFF8B7BA7)),
-              const SizedBox(width: 12),
-              Container(width: 1, height: 28, color: _kAccent.withValues(alpha: 0.20)),
-              const SizedBox(width: 12),
-              _col('TIME', '${secs}s', isLow ? _kRed : const Color(0xFF2E7D32)),
-            ],
+          // Scale the stat row down on narrow widths / large text scale so it
+          // never overflows the HUD's center slot.
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _col('SCORE', '$score', score < 0 ? _kRed : color),
+                const SizedBox(width: 12),
+                Container(width: 1, height: 28, color: _kAccent.withValues(alpha: 0.20)),
+                const SizedBox(width: 12),
+                _col('BEST', '$best', const Color(0xFF8B7BA7)),
+                const SizedBox(width: 12),
+                Container(width: 1, height: 28, color: _kAccent.withValues(alpha: 0.20)),
+                const SizedBox(width: 12),
+                _col('TIME', '${secs}s', isLow ? _kRed : const Color(0xFF2E7D32)),
+              ],
+            ),
           ),
         ),
       ],

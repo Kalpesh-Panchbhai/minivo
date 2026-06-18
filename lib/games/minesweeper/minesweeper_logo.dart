@@ -2,176 +2,129 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-Widget buildMinesweeperLogo(double size) {
-  return SizedBox(
-    width: size,
-    height: size,
-    child: CustomPaint(
-      size: Size(size, size),
-      painter: _MinesweeperLogoPainter(),
-    ),
-  );
-}
+import '../shared/game_logo_scaffold.dart';
 
-class _MinesweeperLogoPainter extends CustomPainter {
-  static const _kBg1 = Color(0xFF1A2744);
-  static const _kBg2 = Color(0xFF0F1B33);
-  static const _kAccent = Color(0xFF4A7CFF);
-  static const _kMine = Color(0xFFEF4444);
-  static const _kFlag = Color(0xFFFF9800);
-  static const _kRevealed = Color(0xFFE8ECF0);
-  static const _kHidden = Color(0xFFCCD5E0);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-
-    final bgRect = Rect.fromLTWH(0, 0, w, h);
-    canvas.drawRect(
-      bgRect,
-      Paint()
-        ..shader = const LinearGradient(
-          colors: [_kBg1, _kBg2],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ).createShader(bgRect),
+Widget buildMinesweeperLogo(double size) => buildGlassSpotlightLogo(
+      size: size,
+      title: 'Minesweeper',
+      bg: const [Color(0xFF1E3A8A), Color(0xFF0B1E4D)],
+      accent: const Color(0xFF60A5FA),
+      art: _minesweeperArt,
     );
 
-    canvas.drawCircle(
-      Offset(w * 0.5, h * 0.42),
-      w * 0.45,
-      Paint()
-        ..shader = RadialGradient(
-          colors: [_kAccent.withValues(alpha: 0.15), Colors.transparent],
-        ).createShader(Rect.fromCircle(center: Offset(w * 0.5, h * 0.42), radius: w * 0.45)),
-    );
+void _minesweeperArt(Canvas canvas, Rect zone) {
+  const n = 3;
+  final gap = zone.width * 0.06;
+  final cell = (zone.width - gap * (n - 1)) / n;
 
-    final gridSize = w * 0.62;
-    final cellSize = gridSize / 4;
-    final startX = (w - gridSize) / 2;
-    final startY = h * 0.14;
+  Rect cellRect(int r, int c) => Rect.fromLTWH(
+      zone.left + c * (cell + gap), zone.top + r * (cell + gap), cell, cell);
+  Offset center(int r, int c) => cellRect(r, c).center;
 
-    for (int r = 0; r < 4; r++) {
-      for (int c = 0; c < 4; c++) {
-        final x = startX + c * cellSize;
-        final y = startY + r * cellSize;
-        final rect = RRect.fromRectAndRadius(
-          Rect.fromLTWH(x + 1, y + 1, cellSize - 2, cellSize - 2),
-          Radius.circular(cellSize * 0.15),
-        );
-
-        final isRevealed = (r + c) % 3 == 0 || (r == 0 && c == 0) || (r == 2 && c == 1);
-        final isMineCell = r == 1 && c == 2;
-        final isFlagCell = r == 3 && c == 0;
-
-        if (isMineCell) {
-          canvas.drawRRect(rect, Paint()..color = _kMine.withValues(alpha: 0.85));
-          _drawMineIcon(canvas, x + cellSize / 2, y + cellSize / 2, cellSize * 0.28);
-        } else if (isFlagCell) {
-          canvas.drawRRect(rect, Paint()..color = _kHidden);
-          _drawFlag(canvas, x + cellSize / 2, y + cellSize / 2, cellSize * 0.28);
-        } else if (isRevealed) {
-          canvas.drawRRect(rect, Paint()..color = _kRevealed);
-          final num = ((r * 4 + c) % 3) + 1;
-          if (num > 0) {
-            final tp = TextPainter(
-              text: TextSpan(
-                text: '$num',
-                style: TextStyle(
-                  color: _numberColor(num),
-                  fontSize: cellSize * 0.45,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              textDirection: TextDirection.ltr,
-            )..layout();
-            tp.paint(canvas, Offset(x + cellSize / 2 - tp.width / 2, y + cellSize / 2 - tp.height / 2));
-          }
-        } else {
-          canvas.drawRRect(rect, Paint()..color = _kHidden);
-          canvas.drawRRect(
-            rect,
-            Paint()
-              ..color = Colors.white.withValues(alpha: 0.12)
-              ..style = PaintingStyle.stroke
-              ..strokeWidth = 0.8,
-          );
-        }
-      }
-    }
-
-    final textY = h - h * 0.18;
-    final pillH = h * 0.16;
-    final pillRect = RRect.fromRectAndRadius(
-      Rect.fromCenter(center: Offset(w / 2, textY), width: w * 0.92, height: pillH),
-      const Radius.circular(8),
-    );
-    canvas.drawRRect(
-      pillRect,
-      Paint()
-        ..shader = const LinearGradient(
-          colors: [_kAccent, Color(0xFF2A5CCC)],
-        ).createShader(pillRect.outerRect),
-    );
+  // Raised tile look helper.
+  void raisedTile(int r, int c) {
+    final rr = RRect.fromRectAndRadius(cellRect(r, c), Radius.circular(cell * 0.18));
+    canvas.drawRRect(rr, Paint()..color = const Color(0xFFCBD5E1));
+    // Top-left highlight bevel.
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        Rect.fromLTWH(pillRect.left, pillRect.top, pillRect.width, pillH * 0.45),
-        const Radius.circular(8),
+        Rect.fromLTWH(cellRect(r, c).left, cellRect(r, c).top, cell, cell * 0.42),
+        Radius.circular(cell * 0.18),
       ),
-      Paint()..color = Colors.white.withValues(alpha: 0.14),
+      Paint()..color = Colors.white.withValues(alpha: 0.45),
     );
-
-    final tp = TextPainter(
-      text: TextSpan(
-        text: 'MINESWEEPER',
-        style: TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w900,
-          fontSize: w * 0.095,
-          letterSpacing: 0.4,
-          shadows: [Shadow(color: Colors.black.withValues(alpha: 0.30), offset: const Offset(0, 1), blurRadius: 2)],
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    tp.paint(canvas, Offset((w - tp.width) / 2, textY - tp.height / 2));
+    canvas.drawRRect(
+      rr,
+      Paint()
+        ..color = const Color(0xFF64748B)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = cell * 0.05,
+    );
   }
 
-  void _drawMineIcon(Canvas canvas, double cx, double cy, double r) {
-    canvas.drawCircle(Offset(cx, cy), r, Paint()..color = Colors.white);
-    for (int i = 0; i < 8; i++) {
-      final angle = i * math.pi / 4;
-      canvas.drawLine(
-        Offset(cx + math.cos(angle) * r * 0.5, cy + math.sin(angle) * r * 0.5),
-        Offset(cx + math.cos(angle) * r * 1.3, cy + math.sin(angle) * r * 1.3),
-        Paint()
-          ..color = Colors.white
-          ..strokeWidth = 1.5
-          ..strokeCap = StrokeCap.round,
-      );
+  void revealedTile(int r, int c) {
+    final rr = RRect.fromRectAndRadius(cellRect(r, c), Radius.circular(cell * 0.18));
+    canvas.drawRRect(rr, Paint()..color = const Color(0xFFEFF4FA));
+    canvas.drawRRect(
+      rr,
+      Paint()
+        ..color = const Color(0xFFB6C2D4)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = cell * 0.04,
+    );
+  }
+
+  // All tiles raised by default.
+  for (int r = 0; r < n; r++) {
+    for (int c = 0; c < n; c++) {
+      raisedTile(r, c);
     }
   }
 
-  void _drawFlag(Canvas canvas, double cx, double cy, double r) {
-    final pole = Paint()
-      ..color = _kFlag
-      ..strokeWidth = 1.5
-      ..strokeCap = StrokeCap.round;
-    canvas.drawLine(Offset(cx, cy - r), Offset(cx, cy + r * 0.8), pole);
-    final flag = Path()
-      ..moveTo(cx, cy - r)
-      ..lineTo(cx + r * 0.9, cy - r * 0.45)
-      ..lineTo(cx, cy - r * 0.05)
-      ..close();
-    canvas.drawPath(flag, Paint()..color = _kMine);
-  }
+  // Number "2" on a revealed tile (top-left).
+  revealedTile(0, 0);
+  final numCtr = center(0, 0);
+  final numTp = TextPainter(
+    text: TextSpan(
+      text: '2',
+      style: TextStyle(
+        color: const Color(0xFF2563EB),
+        fontWeight: FontWeight.w900,
+        fontSize: cell * 0.6,
+        height: 1,
+      ),
+    ),
+    textDirection: TextDirection.ltr,
+  )..layout();
+  numTp.paint(canvas, Offset(numCtr.dx - numTp.width / 2, numCtr.dy - numTp.height / 2));
 
-  Color _numberColor(int n) {
-    const colors = [Color(0xFF2196F3), Color(0xFF4CAF50), Color(0xFFF44336)];
-    return colors[(n - 1).clamp(0, colors.length - 1)];
+  // Black mine with spikes (centre).
+  final mineCtr = center(1, 1);
+  final mr = cell * 0.26;
+  for (int i = 0; i < 8; i++) {
+    final angle = i * math.pi / 4;
+    canvas.drawLine(
+      mineCtr,
+      Offset(mineCtr.dx + math.cos(angle) * mr * 1.5,
+          mineCtr.dy + math.sin(angle) * mr * 1.5),
+      Paint()
+        ..color = const Color(0xFF111827)
+        ..strokeWidth = cell * 0.07
+        ..strokeCap = StrokeCap.round,
+    );
   }
+  canvas.drawCircle(mineCtr, mr, Paint()..color = const Color(0xFF111827));
+  canvas.drawCircle(
+    mineCtr.translate(-mr * 0.3, -mr * 0.3),
+    mr * 0.3,
+    Paint()..color = Colors.white.withValues(alpha: 0.7),
+  );
 
-  @override
-  bool shouldRepaint(_MinesweeperLogoPainter old) => false;
+  // Red flag (bottom-right).
+  final flagCtr = center(2, 2);
+  final poleTop = Offset(flagCtr.dx - cell * 0.05, flagCtr.dy - cell * 0.28);
+  final poleBottom = Offset(flagCtr.dx - cell * 0.05, flagCtr.dy + cell * 0.28);
+  // Base.
+  canvas.drawLine(
+    Offset(flagCtr.dx - cell * 0.22, poleBottom.dy),
+    Offset(flagCtr.dx + cell * 0.22, poleBottom.dy),
+    Paint()
+      ..color = const Color(0xFF111827)
+      ..strokeWidth = cell * 0.07
+      ..strokeCap = StrokeCap.round,
+  );
+  canvas.drawLine(
+    poleTop,
+    poleBottom,
+    Paint()
+      ..color = const Color(0xFF111827)
+      ..strokeWidth = cell * 0.06
+      ..strokeCap = StrokeCap.round,
+  );
+  final flag = Path()
+    ..moveTo(poleTop.dx, poleTop.dy)
+    ..lineTo(poleTop.dx + cell * 0.3, poleTop.dy + cell * 0.12)
+    ..lineTo(poleTop.dx, poleTop.dy + cell * 0.24)
+    ..close();
+  canvas.drawPath(flag, Paint()..color = const Color(0xFFEF4444));
 }

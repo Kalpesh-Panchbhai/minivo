@@ -358,6 +358,7 @@ class _ReversiScreenState extends State<ReversiScreen>
     final oppMoves = _getValidMoves(opponent);
 
     if (flips.isNotEmpty) {
+      AudioService().playScore();
       _waitingForFlip = true;
       if (oppMoves.isNotEmpty) {
         _pendingOpponent = opponent;
@@ -648,12 +649,7 @@ class _ReversiScreenState extends State<ReversiScreen>
       iconChild: Builder(builder: (ctx) {
         final info = GameRegistry.getById(_gameId);
         final logo = info?.buildBrandedLogo(size: 84);
-        if (logo != null) {
-          return ClipRRect(
-            borderRadius: BorderRadius.circular(42),
-            child: logo,
-          );
-        }
+        if (logo != null) return logo;
         return const Icon(Icons.circle, size: 40, color: _kAccent);
       }),
       title: 'Reversi',

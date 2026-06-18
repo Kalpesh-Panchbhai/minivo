@@ -645,9 +645,7 @@ class _TapTapDashScreenState extends State<TapTapDashScreen>
       iconChild: Builder(builder: (ctx) {
         final info = GameRegistry.getById(kTapTapDashGameId);
         final logo = info?.buildBrandedLogo(size: 84);
-        if (logo != null) {
-          return ClipRRect(borderRadius: BorderRadius.circular(42), child: logo);
-        }
+        if (logo != null) return logo;
         return const Icon(Icons.directions_run_rounded, size: 40, color: _kAccent);
       }),
       title: 'Tap Tap Dash',

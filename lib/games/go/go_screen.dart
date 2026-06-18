@@ -623,9 +623,7 @@ class _GoScreenState extends State<GoScreen> with TickerProviderStateMixin {
       iconChild: Builder(builder: (ctx) {
         final info = GameRegistry.getById(kGoGameId);
         final logo = info?.buildBrandedLogo(size: 84);
-        if (logo != null) {
-          return ClipRRect(borderRadius: BorderRadius.circular(42), child: logo);
-        }
+        if (logo != null) return logo;
         return const Icon(Icons.circle_outlined, size: 40, color: _kAiColor);
       }),
       title: 'Go',

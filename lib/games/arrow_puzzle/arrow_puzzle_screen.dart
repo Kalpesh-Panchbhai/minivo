@@ -21,6 +21,7 @@ import '../shared/game_hud_bar.dart';
 import '../shared/generic_game_result_screen.dart' as game_result;
 import '../shared/level_complete_overlay.dart';
 import 'arrow_puzzle_logo.dart';
+import 'arrow_puzzle_level_gen.dart' as gen;
 import 'arrow_puzzle_tutorial.dart';
 
 const kArrowPuzzleGameId = 'arrow_puzzle';
@@ -48,14 +49,6 @@ extension _DifficultyX on _Difficulty {
   DifficultyKind get kind => [DifficultyKind.easy, DifficultyKind.medium, DifficultyKind.hard][index];
   String get hint => ['Relaxed', 'Tricky', 'Intense'][index];
   String get subKey => ['easy', 'medium', 'hard'][index];
-  int arrowCount(int level) {
-    final base = [10, 14, 20][index];
-    final perLevel = [2, 3, 4][index];
-    final cap = [40, 50, 60][index];
-    return base + ((level - 1) * perLevel).clamp(0, cap);
-  }
-  int get minArrowLen => [4, 3, 2][index];
-  int get maxArrowLen => [7, 5, 4][index];
 }
 
 enum _ArrowDir { up, down, left, right }
@@ -237,337 +230,16 @@ class _ArrowPuzzleScreenState extends State<ArrowPuzzleScreen> with TickerProvid
   Set<int> _boardCells = {};
 
   void _generateLevel(_Difficulty diff) {
-    for (int attempt = 0; attempt < 20; attempt++) {
-      final seed = _level * 1337 + diff.index * 42 + attempt * 9973;
-      final rng = math.Random(seed);
-      final nArrows = diff.arrowCount(_level);
-      final avgLen = (diff.minArrowLen + diff.maxArrowLen) / 2;
-      final gridSide = math.sqrt(nArrows * avgLen).ceil().clamp(6, 24);
-      _gridCols = gridSide;
-      _gridRows = (gridSide * 1.2).ceil().clamp(6, 28);
-
-      _boardCells = _generateIrregularShape(rng, nArrows);
-      _arrows = _fillBoardWithArrows(rng, _boardCells, diff);
-      _validateNodiagonals();
-      _totalArrows = _arrows.length;
-      _ensureSolvable(rng);
-      _validateNodiagonals();
-      if (_isSolvable()) return;
-    }
-  }
-
-  void _validateNodiagonals() {
-    for (int ai = 0; ai < _arrows.length; ai++) {
-      final a = _arrows[ai];
-      final clean = <Offset>[a.segments.first];
-      for (int i = 1; i < a.segments.length; i++) {
-        final prev = clean.last;
-        final cur = a.segments[i];
-        final dx = (cur.dx - prev.dx).round().abs();
-        final dy = (cur.dy - prev.dy).round().abs();
-        if ((dx == 1 && dy == 0) || (dx == 0 && dy == 1)) {
-          clean.add(cur);
-        }
-      }
-      if (clean.length < 2) {
-        _arrows.removeAt(ai);
-        ai--;
-        continue;
-      }
-      if (clean.length != a.segments.length) {
-        final last = clean.last;
-        final prev = clean[clean.length - 2];
-        final ddx = (last.dx - prev.dx).round();
-        final ddy = (last.dy - prev.dy).round();
-        _ArrowDir hd;
-        if (ddx == 1) { hd = _ArrowDir.right; }
-        else if (ddx == -1) { hd = _ArrowDir.left; }
-        else if (ddy == 1) { hd = _ArrowDir.down; }
-        else { hd = _ArrowDir.up; }
-        _arrows[ai] = _Arrow(id: a.id, segments: clean, headDir: hd);
-      }
-    }
-  }
-
-  int _cellKey(int c, int r) => c * 10000 + r;
-
-  Set<int> _generateIrregularShape(math.Random rng, int nArrows) {
-    final targetCells = nArrows * 4;
-    final shape = <int>{};
-    final cx = _gridCols ~/ 2;
-    final cy = _gridRows ~/ 2;
-    shape.add(_cellKey(cx, cy));
-
-    final frontier = <int>[_cellKey(cx, cy)];
-    final dirs = [
-      [0, -1], [0, 1], [-1, 0], [1, 0],
-    ];
-
-    while (shape.length < targetCells && frontier.isNotEmpty) {
-      final idx = rng.nextInt(frontier.length);
-      final key = frontier[idx];
-      final fc = key ~/ 10000;
-      final fr = key % 10000;
-
-      final shuffled = List<List<int>>.from(dirs)..shuffle(rng);
-      bool expanded = false;
-      for (final d in shuffled) {
-        final nc = fc + d[0];
-        final nr = fr + d[1];
-        if (nc < 0 || nc >= _gridCols || nr < 0 || nr >= _gridRows) continue;
-        final nk = _cellKey(nc, nr);
-        if (shape.contains(nk)) continue;
-        shape.add(nk);
-        frontier.add(nk);
-        expanded = true;
-        if (shape.length >= targetCells) break;
-      }
-      if (!expanded) {
-        frontier.removeAt(idx);
-      }
-    }
-    return shape;
-  }
-
-  List<_Arrow> _fillBoardWithArrows(math.Random rng, Set<int> boardCells, _Difficulty diff) {
-    final uncovered = Set<int>.from(boardCells);
-    final arrows = <_Arrow>[];
-    int nextId = 0;
-    final cardDirs = [
-      [0, -1], [0, 1], [-1, 0], [1, 0],
-    ];
-
-    List<List<int>> perpDirs(int dc, int dr) {
-      if (dc == 0) return [[-1, 0], [1, 0]];
-      return [[0, -1], [0, 1]];
-    }
-
-    bool wouldLoop(List<Offset> segs, int nc, int nr) {
-      for (int i = 0; i < segs.length - 1; i++) {
-        final sc2 = segs[i].dx.round();
-        final sr2 = segs[i].dy.round();
-        final dx = (nc - sc2).abs();
-        final dy = (nr - sr2).abs();
-        if ((dx == 1 && dy == 0) || (dx == 0 && dy == 1)) {
-          return true;
-        }
-      }
-      return false;
-    }
-
-    while (uncovered.isNotEmpty) {
-      final startKey = uncovered.elementAt(rng.nextInt(uncovered.length));
-      final sc = startKey ~/ 10000;
-      final sr = startKey % 10000;
-
-      final targetLen = diff.minArrowLen + rng.nextInt(diff.maxArrowLen - diff.minArrowLen + 1);
-      final dirIdx = rng.nextInt(4);
-      int dc = cardDirs[dirIdx][0];
-      int dr = cardDirs[dirIdx][1];
-
-      final segments = <Offset>[Offset(sc.toDouble(), sr.toDouble())];
-      int curC = sc, curR = sr;
-
-      for (int s = 1; s < targetLen; s++) {
-        bool stepped = false;
-
-        if (s >= 1 && rng.nextInt(3) > 0) {
-          final perps = perpDirs(dc, dr)..shuffle(rng);
-          for (final pd in perps) {
-            final nc = curC + pd[0];
-            final nr = curR + pd[1];
-            final nk = _cellKey(nc, nr);
-            if (boardCells.contains(nk) && uncovered.contains(nk) && !wouldLoop(segments, nc, nr)) {
-              segments.add(Offset(nc.toDouble(), nr.toDouble()));
-              curC = nc;
-              curR = nr;
-              dc = pd[0];
-              dr = pd[1];
-              stepped = true;
-              break;
-            }
-          }
-        }
-
-        if (!stepped) {
-          final nc = curC + dc;
-          final nr = curR + dr;
-          final nk = _cellKey(nc, nr);
-          if (boardCells.contains(nk) && uncovered.contains(nk) && !wouldLoop(segments, nc, nr)) {
-            segments.add(Offset(nc.toDouble(), nr.toDouble()));
-            curC = nc;
-            curR = nr;
-          } else {
-            final allDirs = List<List<int>>.from(cardDirs)..shuffle(rng);
-            bool found = false;
-            for (final ad in allDirs) {
-              if (ad[0] == -dc && ad[1] == -dr) continue;
-              final nc2 = curC + ad[0];
-              final nr2 = curR + ad[1];
-              final nk2 = _cellKey(nc2, nr2);
-              if (boardCells.contains(nk2) && uncovered.contains(nk2) && !wouldLoop(segments, nc2, nr2)) {
-                segments.add(Offset(nc2.toDouble(), nr2.toDouble()));
-                curC = nc2;
-                curR = nr2;
-                dc = ad[0];
-                dr = ad[1];
-                found = true;
-                break;
-              }
-            }
-            if (!found) break;
-          }
-        }
-      }
-
-      if (segments.length < 2) {
-        for (final d in cardDirs) {
-          final nc = sc + d[0];
-          final nr = sr + d[1];
-          final nk = _cellKey(nc, nr);
-          if (boardCells.contains(nk) && uncovered.contains(nk)) {
-            segments.add(Offset(nc.toDouble(), nr.toDouble()));
-            break;
-          }
-        }
-      }
-
-      if (segments.length < 2) {
-        uncovered.remove(startKey);
-        for (final d in cardDirs) {
-          final nc = sc + d[0];
-          final nr = sr + d[1];
-          final nk = _cellKey(nc, nr);
-          if (boardCells.contains(nk)) {
-            bool attached = false;
-            for (int ai = 0; ai < arrows.length && !attached; ai++) {
-              final a = arrows[ai];
-              final lastSeg = a.segments.last;
-              if (lastSeg.dx.round() == nc && lastSeg.dy.round() == nr) {
-                final newSegs = List<Offset>.from(a.segments)
-                  ..add(Offset(sc.toDouble(), sr.toDouble()));
-                final newLast = newSegs.last;
-                final newPrev = newSegs[newSegs.length - 2];
-                final ddx2 = (newLast.dx - newPrev.dx).round();
-                final ddy2 = (newLast.dy - newPrev.dy).round();
-                _ArrowDir newHead;
-                if (ddx2 == 1) { newHead = _ArrowDir.right; }
-                else if (ddx2 == -1) { newHead = _ArrowDir.left; }
-                else if (ddy2 == 1) { newHead = _ArrowDir.down; }
-                else { newHead = _ArrowDir.up; }
-                arrows[ai] = _Arrow(id: a.id, segments: newSegs, headDir: newHead);
-                attached = true;
-              } else if (a.segments.first.dx.round() == nc && a.segments.first.dy.round() == nr) {
-                final newSegs = [Offset(sc.toDouble(), sr.toDouble()), ...a.segments];
-                arrows[ai] = _Arrow(id: a.id, segments: newSegs, headDir: a.headDir);
-                attached = true;
-              }
-            }
-            if (attached) break;
-          }
-        }
-        continue;
-      }
-
-      final last = segments.last;
-      final prev = segments[segments.length - 2];
-      final ddx = (last.dx - prev.dx).round();
-      final ddy = (last.dy - prev.dy).round();
-      _ArrowDir headDir;
-      if (ddx == 1) {
-        headDir = _ArrowDir.right;
-      } else if (ddx == -1) {
-        headDir = _ArrowDir.left;
-      } else if (ddy == 1) {
-        headDir = _ArrowDir.down;
-      } else {
-        headDir = _ArrowDir.up;
-      }
-
-      final arrow = _Arrow(id: nextId++, segments: segments, headDir: headDir);
-      arrows.add(arrow);
-      for (final seg in segments) {
-        uncovered.remove(_cellKey(seg.dx.round(), seg.dy.round()));
-      }
-    }
-
-    return arrows;
-  }
-
-  bool _isSolvable() {
-    final remaining = List<int>.generate(_arrows.length, (i) => i);
-    bool progress = true;
-    while (remaining.isNotEmpty && progress) {
-      progress = false;
-      for (final idx in List<int>.from(remaining)) {
-        bool canFree = true;
-        for (final otherIdx in remaining) {
-          if (otherIdx == idx) continue;
-          if (_arrows[idx].isBlockedBy(_arrows[otherIdx])) {
-            canFree = false;
-            break;
-          }
-        }
-        if (canFree) {
-          remaining.remove(idx);
-          progress = true;
-          break;
-        }
-      }
-    }
-    return remaining.isEmpty;
-  }
-
-  void _ensureSolvable(math.Random rng) {
-    for (int pass = 0; pass < 200; pass++) {
-      final remaining = List<int>.generate(_arrows.length, (i) => i);
-      final freed = <int>{};
-      bool progress = true;
-
-      while (remaining.isNotEmpty && progress) {
-        progress = false;
-        for (final idx in List<int>.from(remaining)) {
-          bool canFree = true;
-          for (final otherIdx in remaining) {
-            if (otherIdx == idx) continue;
-            if (_arrows[idx].isBlockedBy(_arrows[otherIdx])) {
-              canFree = false;
-              break;
-            }
-          }
-          if (canFree) {
-            remaining.remove(idx);
-            freed.add(idx);
-            progress = true;
-            break;
-          }
-        }
-      }
-
-      if (remaining.isEmpty) break;
-
-      final stuck = remaining[rng.nextInt(remaining.length)];
-      final a = _arrows[stuck];
-      final revSegs = a.segments.reversed.toList();
-      final reversed = _Arrow(
-        id: a.id,
-        segments: revSegs,
-        headDir: _headDirFromSegments(revSegs),
-      );
-      _arrows[stuck] = reversed;
-    }
+    final result = gen.generateArrowLevel(_level, diff.index);
+    _gridCols = result.gridCols;
+    _gridRows = result.gridRows;
+    _boardCells = result.boardCells;
+    _arrows = result.arrows.map((a) => _Arrow(
+      id: a.id,
+      segments: a.segments.map((p) => Offset(p.dx, p.dy)).toList(),
+      headDir: _ArrowDir.values[a.headDir.index],
+    )).toList();
     _totalArrows = _arrows.length;
-  }
-
-  _ArrowDir _headDirFromSegments(List<Offset> segs) {
-    final last = segs.last;
-    final prev = segs[segs.length - 2];
-    final ddx = (last.dx - prev.dx).round();
-    final ddy = (last.dy - prev.dy).round();
-    if (ddx == 1) return _ArrowDir.right;
-    if (ddx == -1) return _ArrowDir.left;
-    if (ddy == 1) return _ArrowDir.down;
-    return _ArrowDir.up;
   }
 
   void _onArrowTap(int arrowId) {
@@ -643,6 +315,7 @@ class _ArrowPuzzleScreenState extends State<ArrowPuzzleScreen> with TickerProvid
       final lps = LevelProgressService();
       lps.advanceLevel(kArrowPuzzleGameId, diff.subKey);
       GameWrapper.of(context).updateScore(_level);
+      AudioService().playSuccess();
       _showAppreciation();
       return;
     }
@@ -927,7 +600,7 @@ class _ArrowPuzzleScreenState extends State<ArrowPuzzleScreen> with TickerProvid
                       final spanR = maxR - minR + 1;
                       final maxW = constraints.maxWidth;
                       final maxH = constraints.maxHeight;
-                      final cell = math.min(maxW / spanC, maxH / spanR).clamp(24.0, 48.0);
+                      final cell = math.min(maxW / spanC, maxH / spanR).clamp(18.0, 20.0);
                       final boardW = cell * spanC;
                       final boardH = cell * spanR;
                       return SizedBox(
@@ -1228,7 +901,7 @@ class _BoardPainter extends CustomPainter {
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6));
     }
 
-    final strokeW = cell * 0.08;
+    final strokeW = cell * 0.16;
     final color = isHint ? const Color(0xFF22C55E) : arrow.headDir.color;
 
     final bodyPath = ui.Path();
@@ -1252,8 +925,8 @@ class _BoardPainter extends CustomPainter {
     final ndx = dx / len;
     final ndy = dy / len;
 
-    final headLen = cell * 0.30;
-    final headW = cell * 0.18;
+    final headLen = cell * 0.38;
+    final headW = cell * 0.24;
     final tipX = head.dx + ndx * cell * 0.25;
     final tipY = head.dy + ndy * cell * 0.25;
     final perpX = -ndy;

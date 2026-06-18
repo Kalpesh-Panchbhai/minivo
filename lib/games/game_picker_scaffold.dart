@@ -295,6 +295,7 @@ class _GamePickerIcon extends StatelessWidget {
     final colors = ringColors.length >= 3
         ? ringColors
         : [...ringColors, ringColors.first];
+    final radius = size * 0.26;
     return Container(
       width: size,
       height: size,
@@ -303,16 +304,21 @@ class _GamePickerIcon extends StatelessWidget {
           colors: colors,
           stops: const [0.0, 0.5, 1.0],
         ),
-        shape: BoxShape.circle,
+        borderRadius: BorderRadius.circular(radius),
+        boxShadow: [
+          BoxShadow(
+            color: colors.first.withValues(alpha: 0.35),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       padding: const EdgeInsets.all(4),
-      child: Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          shape: BoxShape.circle,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(radius - 4),
+        child: SizedBox.expand(
+          child: FittedBox(fit: BoxFit.cover, child: child),
         ),
-        padding: const EdgeInsets.all(10),
-        child: child,
       ),
     );
   }

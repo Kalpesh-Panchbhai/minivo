@@ -1,122 +1,73 @@
 import 'package:flutter/material.dart';
 
-Widget buildDinoRunLogo(double size) {
-  return Container(
-    width: size,
-    height: size,
-    decoration: const BoxDecoration(
-      gradient: LinearGradient(
-        colors: [Color(0xFFF7F7F7), Color(0xFFE8E8E8)],
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-      ),
-    ),
-    child: ClipRect(
-      child: CustomPaint(
-        size: Size(size, size),
-        painter: _DinoRunLogoPainter(),
-      ),
-    ),
+import '../shared/game_logo_scaffold.dart';
+
+Widget buildDinoRunLogo(double size) => buildGlassSpotlightLogo(
+      size: size,
+      title: 'Dino Run',
+      bg: const [Color(0xFF374151), Color(0xFF111827)],
+      accent: const Color(0xFF9CA3AF),
+      art: _dinoRunArt,
+    );
+
+void _dinoRunArt(Canvas canvas, Rect zone) {
+  final w = zone.width;
+  const dino = Color(0xFFE5E7EB);
+  const ground = Color(0xFF9CA3AF);
+
+  // Ground line near the bottom of the zone.
+  final groundY = zone.bottom - zone.height * 0.14;
+  canvas.drawLine(
+    Offset(zone.left + w * 0.02, groundY),
+    Offset(zone.right - w * 0.02, groundY),
+    Paint()
+      ..color = ground
+      ..strokeWidth = w * 0.022
+      ..strokeCap = StrokeCap.round,
   );
-}
-
-class _DinoRunLogoPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final cs = size.width / 6;
-
-    _drawGround(canvas, size, cs);
-    _drawCactus(canvas, size, cs);
-    _drawDino(canvas, size, cs);
-    _drawLabel(canvas, size);
+  // Dashes under the ground line.
+  final dashPaint = Paint()
+    ..color = ground.withValues(alpha: 0.5)
+    ..strokeWidth = w * 0.012;
+  for (double x = zone.left + w * 0.06; x < zone.right - w * 0.08; x += w * 0.18) {
+    canvas.drawLine(Offset(x, groundY + w * 0.05),
+        Offset(x + w * 0.07, groundY + w * 0.05), dashPaint);
   }
 
-  void _drawGround(Canvas canvas, Size size, double cs) {
-    final groundY = size.height * 0.78;
-    canvas.drawLine(
-      Offset(0, groundY),
-      Offset(size.width, groundY),
-      Paint()
-        ..color = const Color(0xFF535353)
-        ..strokeWidth = 1.5,
-    );
-    final dirtPaint = Paint()
-      ..color = const Color(0xFF535353).withValues(alpha: 0.3)
-      ..strokeWidth = 1;
-    for (double x = cs * 0.5; x < size.width; x += cs * 1.2) {
-      canvas.drawLine(
-        Offset(x, groundY + 4),
-        Offset(x + cs * 0.4, groundY + 4),
-        dirtPaint,
-      );
-    }
-  }
+  // Blocky T-rex (light gray) on the left, standing on the ground line.
+  final dinoX = zone.left + w * 0.1;
+  final s = w * 0.034; // pixel size — dino is ~21 cells tall.
+  drawPixelDino(canvas, dinoX, groundY, s, dino, const Color(0xFF1F2937));
 
-  void _drawCactus(Canvas canvas, Size size, double cs) {
-    final groundY = size.height * 0.78;
-    final cx = size.width * 0.72;
-    final paint = Paint()..color = const Color(0xFF535353);
-
-    final trunkW = cs * 0.22;
-    final trunkH = cs * 1.1;
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(cx - trunkW / 2, groundY - trunkH, trunkW, trunkH),
-        Radius.circular(trunkW * 0.3),
-      ),
-      paint,
-    );
-
-    final armW = cs * 0.18;
-    final armH = cs * 0.5;
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(cx + trunkW / 2, groundY - trunkH * 0.7, armW, armH),
-        Radius.circular(armW * 0.4),
-      ),
-      paint,
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(cx - trunkW / 2 - armW, groundY - trunkH * 0.5, armW, armH * 0.7),
-        Radius.circular(armW * 0.4),
-      ),
-      paint,
-    );
-  }
-
-  void _drawDino(Canvas canvas, Size size, double cs) {
-    final groundY = size.height * 0.78;
-    final cx = size.width * 0.28;
-    drawPixelDino(canvas, cx, groundY, cs * 0.14, const Color(0xFF535353), const Color(0xFFF7F7F7));
-  }
-
-  void _drawLabel(Canvas canvas, Size size) {
-    final fontSize = size.width * 0.125;
-    final textPainter = TextPainter(
-      text: TextSpan(
-        text: 'DINO RUN',
-        style: TextStyle(
-          color: const Color(0xFF535353),
-          fontWeight: FontWeight.w900,
-          fontSize: fontSize,
-          letterSpacing: 0.5,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    );
-    textPainter.layout();
-    textPainter.paint(
-      canvas,
-      Offset(
-        (size.width - textPainter.width) / 2,
-        size.height - textPainter.height - size.height * 0.03,
-      ),
-    );
-  }
-
-  @override
-  bool shouldRepaint(_DinoRunLogoPainter old) => false;
+  // Small cactus to the right.
+  final cactusPaint = Paint()..color = ground;
+  final cx = zone.right - w * 0.22;
+  final trunkW = w * 0.05;
+  final trunkH = w * 0.28;
+  canvas.drawRRect(
+    RRect.fromRectAndRadius(
+      Rect.fromLTWH(cx - trunkW / 2, groundY - trunkH, trunkW, trunkH),
+      Radius.circular(trunkW * 0.4),
+    ),
+    cactusPaint,
+  );
+  final armW = w * 0.04;
+  // Right arm.
+  canvas.drawRRect(
+    RRect.fromRectAndRadius(
+      Rect.fromLTWH(cx + trunkW / 2, groundY - trunkH * 0.75, armW, trunkH * 0.45),
+      Radius.circular(armW * 0.5),
+    ),
+    cactusPaint,
+  );
+  // Left arm.
+  canvas.drawRRect(
+    RRect.fromRectAndRadius(
+      Rect.fromLTWH(cx - trunkW / 2 - armW, groundY - trunkH * 0.6, armW, trunkH * 0.35),
+      Radius.circular(armW * 0.5),
+    ),
+    cactusPaint,
+  );
 }
 
 void drawPixelDino(Canvas canvas, double x, double groundY, double s,

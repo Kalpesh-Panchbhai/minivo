@@ -31,6 +31,9 @@ Future<void> _checkTapSize(WidgetTester tester, Widget screen) async {
   // and matches the explicit project requirement.
   await expectLater(tester, meetsGuideline(iOSTapTargetGuideline));
   handle.dispose();
+  cleanUp(tester);
+  await tester.pumpWidget(const SizedBox.shrink());
+  await tester.pump(const Duration(seconds: 1));
 }
 
 void main() {

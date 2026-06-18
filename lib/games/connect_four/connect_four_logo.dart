@@ -1,119 +1,69 @@
 import 'package:flutter/material.dart';
 
-Widget buildConnectFourLogo(double size) {
-  return SizedBox(
-    width: size,
-    height: size,
-    child: CustomPaint(
-      size: Size(size, size),
-      painter: _ConnectFourLogoPainter(),
-    ),
-  );
-}
+import '../shared/game_logo_scaffold.dart';
 
-class _ConnectFourLogoPainter extends CustomPainter {
-  static const _kBoard = Color(0xFF3366CC);
-  static const _kRed = Color(0xFFE85D75);
-  static const _kYellow = Color(0xFFF5C542);
+Widget buildConnectFourLogo(double size) => buildGlassSpotlightLogo(
+      size: size,
+      title: 'Connect Four',
+      bg: const [Color(0xFF1E3A8A), Color(0xFF0B1E4D)],
+      accent: const Color(0xFFFBBF24),
+      art: _connectFourArt,
+    );
 
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-
-    final bgRect = Rect.fromLTWH(0, 0, w, h);
-    canvas.drawRect(
-      bgRect,
+void _connectFourArt(Canvas canvas, Rect zone) {
+  // Blue board panel.
+  final boardRR =
+      RRect.fromRectAndRadius(zone, Radius.circular(zone.width * 0.1));
+  canvas.drawRRect(boardRR.shift(const Offset(0, 2)),
+      Paint()..color = Colors.black.withValues(alpha: 0.25));
+  canvas.drawRRect(boardRR, Paint()..color = const Color(0xFF2563EB));
+  canvas.drawRRect(
+      boardRR,
       Paint()
-        ..shader = const LinearGradient(
-          colors: [Color(0xFF1A3A7A), Color(0xFF2952A3)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ).createShader(bgRect),
-    );
+        ..color = Colors.white.withValues(alpha: 0.25)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = zone.width * 0.025);
 
-    final boardW = w * 0.82;
-    final boardH = h * 0.52;
-    final bx = (w - boardW) / 2;
-    final by = h * 0.18;
-    final boardRect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(bx, by, boardW, boardH),
-      const Radius.circular(8),
-    );
-    canvas.drawRRect(boardRect, Paint()..color = _kBoard);
+  const cols = 4;
+  const rows = 3;
+  final pad = zone.width * 0.1;
+  final inner = zone.width - pad * 2;
+  final cellW = inner / cols;
+  final cellH = (zone.height - pad * 2) / rows;
+  final hole = (cellW < cellH ? cellW : cellH) * 0.34;
 
-    const cols = 4;
-    const rows = 3;
-    final cellW = boardW / cols;
-    final cellH = boardH / rows;
-    final r = cellW * 0.30;
+  // 0 = empty (dark), 1 = red disc, 2 = yellow disc.
+  const grid = [
+    [0, 2, 1, 0],
+    [0, 1, 2, 1],
+    [2, 1, 2, 1],
+  ];
 
-    final grid = [
-      [0, 0, 2, 0],
-      [0, 1, 1, 0],
-      [1, 2, 1, 2],
-    ];
+  const empty = Color(0xFF0B1E4D);
+  const red = Color(0xFFF87171);
+  const yellow = Color(0xFFFBBF24);
 
-    final holePaint = Paint()..color = const Color(0xFF1A3A7A);
-
-    for (int row = 0; row < rows; row++) {
-      for (int col = 0; col < cols; col++) {
-        final cx = bx + col * cellW + cellW / 2;
-        final cy = by + row * cellH + cellH / 2;
-        final v = grid[row][col];
-        if (v == 0) {
-          canvas.drawCircle(Offset(cx, cy), r, holePaint);
-        } else {
-          final color = v == 1 ? _kRed : _kYellow;
-          canvas.drawCircle(Offset(cx, cy), r, Paint()..color = color);
-          canvas.drawCircle(
-            Offset(cx - r * 0.25, cy - r * 0.25),
-            r * 0.18,
-            Paint()..color = Colors.white.withValues(alpha: 0.45),
-          );
-        }
+  for (int r = 0; r < rows; r++) {
+    for (int c = 0; c < cols; c++) {
+      final center = Offset(
+        zone.left + pad + cellW * (c + 0.5),
+        zone.top + pad + cellH * (r + 0.5),
+      );
+      final v = grid[r][c];
+      final color = v == 0
+          ? empty
+          : v == 1
+              ? red
+              : yellow;
+      canvas.drawCircle(center, hole, Paint()..color = color);
+      if (v != 0) {
+        // Glossy highlight on filled discs.
+        canvas.drawCircle(
+          center.translate(-hole * 0.28, -hole * 0.28),
+          hole * 0.3,
+          Paint()..color = Colors.white.withValues(alpha: 0.45),
+        );
       }
     }
-
-    final textY = h - h * 0.20;
-    final pillH = h * 0.16;
-    final pillRect = RRect.fromRectAndRadius(
-      Rect.fromCenter(
-          center: Offset(w / 2, textY), width: w * 0.88, height: pillH),
-      const Radius.circular(8),
-    );
-    canvas.drawRRect(
-      pillRect,
-      Paint()
-        ..shader = const LinearGradient(
-          colors: [Color(0xFFE85D75), Color(0xFFF5C542)],
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-        ).createShader(pillRect.outerRect),
-    );
-
-    final tp = TextPainter(
-      text: TextSpan(
-        text: 'CONNECT 4',
-        style: TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w900,
-          fontSize: w * 0.115,
-          letterSpacing: 0.6,
-          shadows: [
-            Shadow(
-              color: Colors.black.withValues(alpha: 0.30),
-              offset: const Offset(0, 1),
-              blurRadius: 2,
-            ),
-          ],
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    tp.paint(canvas, Offset((w - tp.width) / 2, textY - tp.height / 2));
   }
-
-  @override
-  bool shouldRepaint(_ConnectFourLogoPainter old) => false;
 }

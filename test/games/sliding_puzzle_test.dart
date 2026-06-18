@@ -39,16 +39,9 @@ void main() {
       cleanUp(tester);
     });
 
-    testWidgets('shows theme picker', (tester) async {
+    testWidgets('difficulty picker shows default Medium label', (tester) async {
       await pumpScreen(tester, _device, _build(), settle: false);
-      expect(find.text('Numbers'), findsOneWidget);
-      expect(find.text('Animals'), findsOneWidget);
-      cleanUp(tester);
-    });
-
-    testWidgets('shows grid size options', (tester) async {
-      await pumpScreen(tester, _device, _build(), settle: false);
-      expect(find.text('4×4'), findsOneWidget);
+      expect(find.text('Medium'), findsOneWidget);
       cleanUp(tester);
     });
 
@@ -57,7 +50,7 @@ void main() {
       await tester.tap(find.text('Play Sliding Puzzle'));
       await tester.pump(const Duration(milliseconds: 500));
       expect(find.text('Play Sliding Puzzle'), findsNothing);
-      expect(find.textContaining('Moves:'), findsOneWidget);
+      expect(find.text('MOVES'), findsOneWidget);
       expectNoOverflow(_device, 'Sliding Puzzle playing');
       cleanUp(tester);
     });

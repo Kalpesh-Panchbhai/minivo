@@ -458,16 +458,21 @@ class _SlidingPuzzleScreenState extends State<SlidingPuzzleScreen> {
               BoxShadow(color: _kAccent.withValues(alpha: 0.18), blurRadius: 12, offset: const Offset(0, 6)),
             ],
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              _statCol('MOVES', '$_moves', color),
-              _pillDivider(),
-              _statCol('TIME', _formatTime(_elapsedSeconds), const Color(0xFF6B7280)),
-              _pillDivider(),
-              _statCol('BEST', _bestTime > 0 ? _formatTime(_bestTime) : '—', const Color(0xFFFEC84B)),
-            ],
+          // Scale the stat row down on narrow widths / large text scale so it
+          // never overflows the HUD's center slot.
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _statCol('MOVES', '$_moves', color),
+                _pillDivider(),
+                _statCol('TIME', _formatTime(_elapsedSeconds), const Color(0xFF6B7280)),
+                _pillDivider(),
+                _statCol('BEST', _bestTime > 0 ? _formatTime(_bestTime) : '—', const Color(0xFFFEC84B)),
+              ],
+            ),
           ),
         ),
       ],

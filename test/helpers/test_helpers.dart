@@ -87,6 +87,7 @@ Future<void> pumpScreen(
   TestDevice device,
   Widget screen, {
   bool settle = true,
+  double textScale = 1.0,
 }) async {
   await tester.binding.setSurfaceSize(Size(device.width, device.height));
   tester.view.devicePixelRatio = device.pixelRatio;
@@ -100,6 +101,7 @@ Future<void> pumpScreen(
       data: MediaQueryData(
         size: Size(device.width, device.height),
         devicePixelRatio: device.pixelRatio,
+        textScaler: TextScaler.linear(textScale),
         padding: EdgeInsets.only(
           top: device.platform == TargetPlatform.iOS ? 47 : 24,
           bottom: device.platform == TargetPlatform.iOS ? 34 : 0,

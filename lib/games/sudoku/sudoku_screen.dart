@@ -249,6 +249,7 @@ class _SudokuScreenState extends State<SudokuScreen> {
         _flashingRows  = newFlashRows;
         _flashingCols  = newFlashCols;
         _flashingBoxes = newFlashBoxes;
+        AudioService().playScore();
       });
       Future.delayed(const Duration(milliseconds: 700), () {
         if (mounted) setState(() { _flashingRows = {}; _flashingCols = {}; _flashingBoxes = {}; });
@@ -283,6 +284,7 @@ class _SudokuScreenState extends State<SudokuScreen> {
       _idleStuck = false;
       _resetIdleTimer();
       _recomputeCompletion(r, c);
+      AudioService().playTap();
     } else {
       _consecutiveWrongs++;
       _resetIdleTimer();
@@ -380,6 +382,7 @@ class _SudokuScreenState extends State<SudokuScreen> {
     _stopwatch.stop();
     final secs = _stopwatch.elapsed.inSeconds;
     setState(() => _elapsedSeconds = secs);
+    AudioService().playSuccess();
 
     final score = kSudokuMaxScore - secs;
     final isNew = await ScoreService()
@@ -438,7 +441,7 @@ class _SudokuScreenState extends State<SudokuScreen> {
         period: const Duration(seconds: 14),
       ),
       iconRingColors: const [_kAccent, _kAccentLt, _kAccent],
-      iconChild: ClipOval(child: buildSudokuLogo(90)),
+      iconChild: buildSudokuLogo(90),
       title: 'Sudoku',
       subtitle: 'Fill the grid • Logic & Deduction',
       onBack: () => context.pop(),

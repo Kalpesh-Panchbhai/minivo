@@ -1,97 +1,107 @@
 import 'package:flutter/material.dart';
 
-Widget buildGomokuLogo(double size) {
-  return Container(
-    width: size,
-    height: size,
-    decoration: const BoxDecoration(
-      gradient: LinearGradient(
-        colors: [Color(0xFF4A90D9), Color(0xFF2C5F9E), Color(0xFF1A3A6B)],
+import '../shared/game_logo_scaffold.dart';
+
+Widget buildGomokuLogo(double size) => buildGlassSpotlightLogo(
+      size: size,
+      title: 'Gomoku',
+      bg: const [Color(0xFF1E3A8A), Color(0xFF0B1E4D)],
+      accent: const Color(0xFF60A5FA),
+      art: _GomokuArt,
+    );
+
+// ignore: non_constant_identifier_names
+void _GomokuArt(Canvas canvas, Rect zone) {
+  // Board panel.
+  final board = RRect.fromRectAndRadius(zone, Radius.circular(zone.width * 0.06));
+  canvas.drawRRect(
+    board,
+    Paint()
+      ..shader = const LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
-      ),
-    ),
-    child: CustomPaint(
-      size: Size(size, size),
-      painter: _GomokuLogoPainter(),
-    ),
+        colors: [Color(0xFF3B6BC9), Color(0xFF24477F)],
+      ).createShader(zone),
   );
-}
+  canvas.drawRRect(
+    board,
+    Paint()
+      ..color = const Color(0xFF93C5FD)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = zone.width * 0.018,
+  );
 
-class _GomokuLogoPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-    final boardSize = w * 0.76;
-    final left = (w - boardSize) / 2;
-    final top = h * 0.06;
-    const gridLines = 7;
-    final cellSize = boardSize / (gridLines - 1);
+  // 6x6 intersection grid.
+  const n = 6;
+  final margin = zone.width * 0.13;
+  final inner = zone.width - margin * 2;
+  final step = inner / (n - 1);
+  final originX = zone.left + margin;
+  final originY = zone.top + margin;
 
-    final linePaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.2)
-      ..strokeWidth = 1.0;
+  double gx(int c) => originX + c * step;
+  double gy(int r) => originY + r * step;
 
-    for (int i = 0; i < gridLines; i++) {
-      final offset = i * cellSize;
-      canvas.drawLine(Offset(left, top + offset), Offset(left + boardSize, top + offset), linePaint);
-      canvas.drawLine(Offset(left + offset, top), Offset(left + offset, top + boardSize), linePaint);
-    }
+  final linePaint = Paint()
+    ..color = Colors.white.withValues(alpha: 0.22)
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = zone.width * 0.008;
 
-    void drawStone(int r, int c, bool isBlack) {
-      final cx = left + c * cellSize;
-      final cy = top + r * cellSize;
-      final radius = cellSize * 0.38;
-      canvas.drawCircle(Offset(cx, cy + 1), radius, Paint()..color = Colors.black.withValues(alpha: 0.2));
-      canvas.drawCircle(Offset(cx, cy), radius, Paint()..color = isBlack ? const Color(0xFF212121) : Colors.white);
-      if (!isBlack) {
-        canvas.drawCircle(Offset(cx, cy), radius, Paint()..color = Colors.grey.withValues(alpha: 0.3)..style = PaintingStyle.stroke..strokeWidth = 0.8);
-      }
-    }
-
-    // Diagonal win line for black
-    drawStone(1, 1, true);
-    drawStone(2, 2, true);
-    drawStone(3, 3, true);
-    drawStone(4, 4, true);
-    drawStone(5, 5, true);
-
-    drawStone(1, 4, false);
-    drawStone(2, 5, false);
-    drawStone(3, 4, false);
-    drawStone(4, 5, false);
-
-    // Win line glow
-    final startOff = Offset(left + 1 * cellSize, top + 1 * cellSize);
-    final endOff = Offset(left + 5 * cellSize, top + 5 * cellSize);
-    canvas.drawLine(startOff, endOff, Paint()
-      ..color = Colors.amber.withValues(alpha: 0.4)
-      ..strokeWidth = cellSize * 0.15
-      ..strokeCap = StrokeCap.round
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6));
-    canvas.drawLine(startOff, endOff, Paint()
-      ..color = Colors.amber.withValues(alpha: 0.7)
-      ..strokeWidth = cellSize * 0.06
-      ..strokeCap = StrokeCap.round);
-
-    final fontSize = w * 0.11;
-    final tp = TextPainter(
-      text: TextSpan(
-        text: 'GOMOKU',
-        style: TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w900,
-          fontSize: fontSize,
-          letterSpacing: 1,
-          shadows: const [Shadow(color: Colors.black26, blurRadius: 4)],
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    tp.paint(canvas, Offset((w - tp.width) / 2, h - tp.height - h * 0.03));
+  for (int i = 0; i < n; i++) {
+    canvas.drawLine(Offset(gx(i), gy(0)), Offset(gx(i), gy(n - 1)), linePaint);
+    canvas.drawLine(Offset(gx(0), gy(i)), Offset(gx(n - 1), gy(i)), linePaint);
   }
 
-  @override
-  bool shouldRepaint(_GomokuLogoPainter old) => false;
+  final stoneR = step * 0.40;
+
+  // Winning line: five black stones across the middle row.
+  const winRow = 2;
+  final winStart = Offset(gx(0), gy(winRow));
+  final winEnd = Offset(gx(4), gy(winRow));
+  // Glow under the winning line.
+  canvas.drawLine(
+    winStart,
+    winEnd,
+    Paint()
+      ..color = const Color(0xFFFBBF24).withValues(alpha: 0.55)
+      ..strokeWidth = stoneR * 0.9
+      ..strokeCap = StrokeCap.round
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+  );
+  canvas.drawLine(
+    winStart,
+    winEnd,
+    Paint()
+      ..color = const Color(0xFFFCD34D).withValues(alpha: 0.85)
+      ..strokeWidth = stoneR * 0.30
+      ..strokeCap = StrokeCap.round,
+  );
+
+  void stone(int r, int c, bool black) {
+    final ctr = Offset(gx(c), gy(r));
+    canvas.drawCircle(ctr.translate(0, stoneR * 0.18), stoneR,
+        Paint()..color = Colors.black.withValues(alpha: 0.30));
+    canvas.drawCircle(
+      ctr,
+      stoneR,
+      Paint()
+        ..shader = RadialGradient(
+          center: const Alignment(-0.4, -0.4),
+          colors: black
+              ? const [Color(0xFF4B4B4B), Color(0xFF0A0A0A)]
+              : const [Colors.white, Color(0xFFCBD5E1)],
+        ).createShader(Rect.fromCircle(center: ctr, radius: stoneR)),
+    );
+  }
+
+  // Five black stones in a row (the win).
+  for (int c = 0; c < 5; c++) {
+    stone(winRow, c, true);
+  }
+
+  // A few scattered white stones.
+  stone(0, 1, false);
+  stone(1, 3, false);
+  stone(4, 2, false);
+  stone(3, 4, false);
 }

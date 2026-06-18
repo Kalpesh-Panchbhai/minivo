@@ -481,7 +481,7 @@ class _NumberMergeScreenState extends State<NumberMergeScreen> {
       _isNewBestScore = true;
     }
     ScoreService().saveScore(kNumberMergeGameId, newScore, subKey: diff.subKey);
-    if (gained > 0) AudioService().playScore();
+    if (gained > 0) AudioService().playScore(); else AudioService().playTap();
 
     setState(() {
       _tiles = allTiles;
@@ -491,6 +491,7 @@ class _NumberMergeScreenState extends State<NumberMergeScreen> {
     GameWrapper.of(context).updateScore(newScore);
 
     if (!_won && allTiles.any((t) => !t.mergedOut && t.value >= diff.target)) {
+      AudioService().playSuccess();
       setState(() => _won = true);
     }
 
@@ -574,11 +575,9 @@ class _NumberMergeScreenState extends State<NumberMergeScreen> {
         period: const Duration(seconds: 10),
       ),
       iconRingColors: const [_kGolden, _kOrange, _kGolden],
-      iconChild: ClipOval(
-        child: GameRegistry.getById(kNumberMergeGameId)
+      iconChild: GameRegistry.getById(kNumberMergeGameId)
                 ?.buildBrandedLogo(size: 84) ??
             const SizedBox.shrink(),
-      ),
       title: '2048 Merge',
       subtitle: 'Slide • Merge • Reach the goal',
       onBack: () => context.pop(),

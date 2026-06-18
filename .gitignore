@@ -29,6 +29,8 @@ Desktop.ini
 **/doc/api/
 **/ios/Flutter/.last_build_id
 *.g.dart
+# Pre-generated level seed tables are committed data (not build-time output).
+!**/*_seeds.g.dart
 *.freezed.dart
 *.mocks.dart
 

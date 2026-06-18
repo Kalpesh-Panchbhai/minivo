@@ -1,127 +1,109 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 
-Widget buildTapTapDashLogo(double size) {
-  return Container(
-    width: size,
-    height: size,
-    decoration: const BoxDecoration(
-      gradient: LinearGradient(
-        colors: [Color(0xFF1A1A2E), Color(0xFF16213E)],
+import '../shared/game_logo_scaffold.dart';
+
+Widget buildTapTapDashLogo(double size) => buildGlassSpotlightLogo(
+      size: size,
+      title: 'Tap Tap Dash',
+      bg: const [Color(0xFF0E7490), Color(0xFF083344)],
+      accent: const Color(0xFF38BDF8),
+      art: _tapTapDashArt,
+    );
+
+void _tapTapDashArt(Canvas canvas, Rect zone) {
+  // A winding zig-zag track made of segments, with a small runner travelling
+  // along it.
+  final w = zone.width;
+
+  Offset p(double fx, double fy) =>
+      Offset(zone.left + w * fx, zone.top + zone.height * fy);
+
+  // zig-zag waypoints across the zone
+  final pts = [
+    p(0.08, 0.74),
+    p(0.34, 0.74),
+    p(0.34, 0.42),
+    p(0.62, 0.42),
+    p(0.62, 0.16),
+    p(0.92, 0.16),
+  ];
+
+  final track = Path()..moveTo(pts.first.dx, pts.first.dy);
+  for (int i = 1; i < pts.length; i++) {
+    track.lineTo(pts[i].dx, pts[i].dy);
+  }
+
+  // soft outer glow
+  canvas.drawPath(
+    track,
+    Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = w * 0.18
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..color = const Color(0xFF38BDF8).withValues(alpha: 0.18)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+  );
+
+  // dim full track
+  canvas.drawPath(
+    track,
+    Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = w * 0.10
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..color = const Color(0xFF38BDF8).withValues(alpha: 0.32),
+  );
+
+  // bright "travelled" portion from the start up to the runner
+  final runner = pts[2]; // sits on the second corner
+  final travelled = Path()..moveTo(pts[0].dx, pts[0].dy);
+  travelled.lineTo(pts[1].dx, pts[1].dy);
+  travelled.lineTo(runner.dx, runner.dy);
+  canvas.drawPath(
+    travelled,
+    Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = w * 0.10
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..shader = LinearGradient(
+        colors: const [Color(0xFFBAE6FD), Color(0xFF38BDF8)],
+      ).createShader(zone),
+  );
+
+  // runner: a rounded triangle pointing along the track (upward here)
+  final rs = w * 0.11;
+  final runnerPath = Path()
+    ..moveTo(runner.dx, runner.dy - rs)
+    ..lineTo(runner.dx + rs * 0.86, runner.dy + rs * 0.7)
+    ..lineTo(runner.dx - rs * 0.86, runner.dy + rs * 0.7)
+    ..close();
+
+  // runner glow
+  canvas.drawCircle(
+    runner,
+    rs * 1.4,
+    Paint()
+      ..color = const Color(0xFF38BDF8).withValues(alpha: 0.30)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+  );
+  canvas.drawPath(
+    runnerPath,
+    Paint()
+      ..shader = const LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-      ),
-    ),
-    child: ClipRect(
-      child: CustomPaint(
-        size: Size(size, size),
-        painter: _TapTapDashLogoPainter(),
-      ),
-    ),
+        colors: [Color(0xFFE0F2FE), Color(0xFF38BDF8)],
+      ).createShader(Rect.fromCircle(center: runner, radius: rs)),
   );
-}
-
-class _TapTapDashLogoPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final s = size.width;
-    _drawPath(canvas, s);
-    _drawRunner(canvas, s);
-    _drawLabel(canvas, size);
-  }
-
-  void _drawPath(Canvas canvas, double s) {
-    final pathPaint = Paint()
-      ..color = const Color(0xFF00D4FF).withValues(alpha: 0.3)
-      ..strokeWidth = s * 0.12
-      ..strokeCap = StrokeCap.round
-      ..style = PaintingStyle.stroke;
-
-    final glowPaint = Paint()
-      ..color = const Color(0xFF00D4FF).withValues(alpha: 0.1)
-      ..strokeWidth = s * 0.18
-      ..strokeCap = StrokeCap.round
-      ..style = PaintingStyle.stroke;
-
-    final trail = Path();
-    trail.moveTo(s * 0.15, s * 0.30);
-    trail.lineTo(s * 0.45, s * 0.30);
-    trail.lineTo(s * 0.45, s * 0.55);
-    trail.lineTo(s * 0.70, s * 0.55);
-
-    canvas.drawPath(trail, glowPaint);
-    canvas.drawPath(trail, pathPaint);
-
-    final activePaint = Paint()
-      ..color = const Color(0xFF00D4FF)
-      ..strokeWidth = s * 0.12
-      ..strokeCap = StrokeCap.round
-      ..style = PaintingStyle.stroke;
-
-    final active = Path();
-    active.moveTo(s * 0.15, s * 0.30);
-    active.lineTo(s * 0.35, s * 0.30);
-
-    canvas.drawPath(active, activePaint);
-  }
-
-  void _drawRunner(Canvas canvas, double s) {
-    final cx = s * 0.35;
-    final cy = s * 0.30;
-    final r = s * 0.05;
-
-    canvas.drawCircle(
-      Offset(cx, cy),
-      r * 2.5,
-      Paint()..color = const Color(0xFF00D4FF).withValues(alpha: 0.2),
-    );
-    canvas.drawCircle(
-      Offset(cx, cy),
-      r,
-      Paint()..color = const Color(0xFF00D4FF),
-    );
-
-    final sparkPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.8)
-      ..strokeWidth = 1.5
-      ..strokeCap = StrokeCap.round;
-    for (int i = 0; i < 4; i++) {
-      final angle = (i * math.pi / 2) + math.pi / 4;
-      final inner = r * 1.8;
-      final outer = r * 2.8;
-      canvas.drawLine(
-        Offset(cx + math.cos(angle) * inner, cy + math.sin(angle) * inner),
-        Offset(cx + math.cos(angle) * outer, cy + math.sin(angle) * outer),
-        sparkPaint,
-      );
-    }
-  }
-
-  void _drawLabel(Canvas canvas, Size size) {
-    final fontSize = size.width * 0.10;
-    final textPainter = TextPainter(
-      text: TextSpan(
-        text: 'TAP TAP DASH',
-        style: TextStyle(
-          color: const Color(0xFF00D4FF),
-          fontWeight: FontWeight.w900,
-          fontSize: fontSize,
-          letterSpacing: 1.0,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    );
-    textPainter.layout();
-    textPainter.paint(
-      canvas,
-      Offset(
-        (size.width - textPainter.width) / 2,
-        size.height - textPainter.height - size.height * 0.04,
-      ),
-    );
-  }
-
-  @override
-  bool shouldRepaint(_TapTapDashLogoPainter old) => false;
+  canvas.drawPath(
+    runnerPath,
+    Paint()
+      ..color = Colors.white.withValues(alpha: 0.85)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = w * 0.015
+      ..strokeJoin = StrokeJoin.round,
+  );
 }

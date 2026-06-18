@@ -375,6 +375,7 @@ class _FlappyTapScreenState extends State<FlappyTapScreen>
       if (!pipe.scored && pipe.x + _kPipeWidth < birdX - _kBirdRadius) {
         pipe.scored = true;
         _score += diff.pointsPerPipe;
+        AudioService().playScore();
         if (_score > _bestScore) {
           _bestScore = _score;
           _isNewBestScore = true;
@@ -474,11 +475,9 @@ class _FlappyTapScreenState extends State<FlappyTapScreen>
         period: const Duration(seconds: 12),
       ),
       iconRingColors: const [_kFlappyAccent, _kFlappyDark, _kFlappyAccent],
-      iconChild: ClipOval(
-        child: GameRegistry.getById(kFlappyTapGameId)
+      iconChild: GameRegistry.getById(kFlappyTapGameId)
                 ?.buildBrandedLogo(size: 84) ??
             const SizedBox.shrink(),
-      ),
       title: 'Flappy Tap',
       subtitle: 'Tap • Dodge • Fly',
       onBack: () => context.pop(),

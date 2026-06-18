@@ -841,6 +841,7 @@ class _SolitaireScreenState extends State<SolitaireScreen> with TickerProviderSt
       _bestTime = _elapsedSeconds;
       ScoreService().saveScore(kSolitaireGameId, _elapsedSeconds, subKey: _activeDifficulty!.subKey);
     }
+    if (won) AudioService().playSuccess();
     GameWrapper.of(context).updateScore(_elapsedSeconds);
     setState(() {});
     WidgetsBinding.instance.addPostFrameCallback((_) {

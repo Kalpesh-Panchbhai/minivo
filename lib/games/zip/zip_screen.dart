@@ -21,6 +21,7 @@ import '../shared/game_hud_bar.dart';
 import '../shared/generic_game_result_screen.dart' as game_result;
 import '../shared/level_complete_overlay.dart';
 import 'zip_logo.dart';
+import 'zip_level_gen.dart' as gen;
 import 'zip_tutorial.dart';
 
 const kZipGameId = 'zip';
@@ -118,50 +119,12 @@ class _ZipScreenState extends State<ZipScreen> with SingleTickerProviderStateMix
         gameId: kZipGameId);
   }
 
-  int _gridSizeForLevel(int level, _Difficulty diff) {
-    switch (diff) {
-      case _Difficulty.easy:
-        if (level <= 8) return 5;
-        if (level <= 20) return 6;
-        return 7;
-      case _Difficulty.medium:
-        if (level <= 6) return 6;
-        if (level <= 15) return 7;
-        return 8;
-      case _Difficulty.hard:
-        if (level <= 5) return 7;
-        if (level <= 12) return 8;
-        return 9;
-    }
-  }
-
-  int _cpCount(int n, int level, _Difficulty diff) {
-    final total = n * n;
-    final raw = switch (diff) {
-      _Difficulty.easy => 3 + math.min(level ~/ 4, 4),
-      _Difficulty.medium => 4 + math.min(level ~/ 3, 6),
-      _Difficulty.hard => 5 + math.min(level ~/ 2, 8),
-    };
-    return raw.clamp(2, total ~/ 3).toInt();
-  }
-
-  int _wallCount(int n, int level, _Difficulty diff) {
-    final maxW = (2 * n * (n - 1)) ~/ 4;
-    final raw = switch (diff) {
-      _Difficulty.easy => math.min(level ~/ 3, 4),
-      _Difficulty.medium => 2 + math.min(level ~/ 2, 10),
-      _Difficulty.hard => 4 + math.min(level, 18),
-    };
-    return raw.clamp(0, maxW).toInt();
-  }
-
   void _startGame(_Difficulty diff) {
     final lps = LevelProgressService();
     _level = lps.getCurrentLevel(kZipGameId, diff.subKey);
     _gameOver = false;
     _won = false;
     _moves = 0;
-    _gridSize = _gridSizeForLevel(_level, diff);
     _hintsUsed = 0;
     _hintCell = null;
     _generateLevel(diff);
@@ -174,49 +137,13 @@ class _ZipScreenState extends State<ZipScreen> with SingleTickerProviderStateMix
   }
 
   void _generateLevel(_Difficulty diff) {
-    final rng = math.Random(_level * 7919 + diff.index * 6271);
-    final n = _gridSize;
-    final total = n * n;
-
-    List<int>? path;
-    for (int attempt = 0; attempt < 100; attempt++) {
-      path = _findHamiltonianPath(n, math.Random(rng.nextInt(1 << 30)));
-      if (path != null && path.length == total) break;
-      path = null;
-    }
-    path ??= _generateSnakePath(n);
-    _solutionPath = path;
-
-    final pathEdges = <String>{};
-    for (int i = 0; i < path.length - 1; i++) {
-      pathEdges.add(_edgeKey(path[i], path[i + 1]));
-    }
-
-    final numWalls = _wallCount(n, _level, diff);
-    final candidates = <String>[];
-    for (int r = 0; r < n; r++) {
-      for (int c = 0; c < n; c++) {
-        final idx = r * n + c;
-        if (c < n - 1) {
-          final k = _edgeKey(idx, idx + 1);
-          if (!pathEdges.contains(k)) candidates.add(k);
-        }
-        if (r < n - 1) {
-          final k = _edgeKey(idx, idx + n);
-          if (!pathEdges.contains(k)) candidates.add(k);
-        }
-      }
-    }
-    candidates.shuffle(rng);
-    _walls = candidates.take(numWalls).toSet();
-
-    final numCp = _cpCount(n, _level, diff);
-    _checkpoints = {};
-    for (int i = 0; i < numCp; i++) {
-      final pathIdx =
-          numCp == 1 ? 0 : (i * (total - 1) / (numCp - 1)).round();
-      _checkpoints[pathIdx] = i + 1;
-    }
+    final result = gen.generateZipLevel(_level, diff.index);
+    // Trust the generated grid size: past level 10k the puzzle wraps to a
+    // lower-numbered (possibly smaller) board, so _level can't be used here.
+    _gridSize = result.gridSize;
+    _solutionPath = result.solutionPath;
+    _walls = result.walls;
+    _checkpoints = result.checkpoints;
 
     final hue = math.Random().nextDouble() * 360;
     _levelAccent = HSLColor.fromAHSL(1, hue, 0.70, 0.45).toColor();
@@ -229,68 +156,7 @@ class _ZipScreenState extends State<ZipScreen> with SingleTickerProviderStateMix
     _playerPath = [];
   }
 
-  String _edgeKey(int a, int b) {
-    final lo = math.min(a, b), hi = math.max(a, b);
-    return '$lo:$hi';
-  }
-
-  bool _hasWall(int a, int b) => _walls.contains(_edgeKey(a, b));
-
-  List<int>? _findHamiltonianPath(int n, math.Random rng) {
-    final total = n * n;
-    final visited = List.filled(total, false);
-    final path = <int>[];
-    final start = rng.nextInt(total);
-    visited[start] = true;
-    path.add(start);
-    while (path.length < total) {
-      final cur = path.last;
-      final nbs = _getNeighbors(cur, n)..shuffle(rng);
-      int best = -1, bestDeg = 999;
-      for (final nb in nbs) {
-        if (visited[nb]) continue;
-        final deg = _unvisitedDeg(nb, visited, n);
-        if (deg < bestDeg) {
-          bestDeg = deg;
-          best = nb;
-        }
-      }
-      if (best == -1) return null;
-      visited[best] = true;
-      path.add(best);
-    }
-    return path;
-  }
-
-  List<int> _getNeighbors(int idx, int n) {
-    final r = idx ~/ n, c = idx % n;
-    final res = <int>[];
-    if (r > 0) res.add((r - 1) * n + c);
-    if (r < n - 1) res.add((r + 1) * n + c);
-    if (c > 0) res.add(r * n + c - 1);
-    if (c < n - 1) res.add(r * n + c + 1);
-    return res;
-  }
-
-  int _unvisitedDeg(int idx, List<bool> visited, int n) {
-    int c = 0;
-    for (final nb in _getNeighbors(idx, n)) {
-      if (!visited[nb]) c++;
-    }
-    return c;
-  }
-
-  List<int> _generateSnakePath(int n) {
-    final p = <int>[];
-    for (int r = 0; r < n; r++) {
-      if (r.isEven) {
-        for (int c = 0; c < n; c++) p.add(r * n + c);
-      } else {
-        for (int c = n - 1; c >= 0; c--) p.add(r * n + c);
-      }
-    }
-    return p;
-  }
+  bool _hasWall(int a, int b) => _walls.contains(gen.edgeKey(a, b));
 
   int _cellIdx(int row, int col) => row * _gridSize + col;
 
@@ -432,7 +298,6 @@ class _ZipScreenState extends State<ZipScreen> with SingleTickerProviderStateMix
     _hintFromCell = null;
     _hintsUsed = 0;
     _hintAnim.stop();
-    _gridSize = _gridSizeForLevel(_level, diff);
     _generateLevel(diff);
     _resetIdleTimer();
     setState(() {});

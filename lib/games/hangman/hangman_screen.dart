@@ -352,9 +352,7 @@ class _HangmanScreenState extends State<HangmanScreen> {
       iconChild: Builder(builder: (ctx) {
         final info = GameRegistry.getById(kHangmanGameId);
         final logo = info?.buildBrandedLogo(size: 84);
-        if (logo != null) {
-          return ClipRRect(borderRadius: BorderRadius.circular(42), child: logo);
-        }
+        if (logo != null) return logo;
         return const Icon(Icons.text_fields_rounded, size: 40, color: _kAccent);
       }),
       title: 'Hangman',
@@ -675,62 +673,70 @@ class _Keyboard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: _rows.map((row) {
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 3),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: row.map((letter) {
-              final guessed = guessedLetters.contains(letter);
-              final isCorrect = guessed && word.contains(letter);
-              final isWrong = guessed && !word.contains(letter);
+    return LayoutBuilder(builder: (context, constraints) {
+      final maxRowLen = _rows.map((r) => r.length).reduce((a, b) => a > b ? a : b);
+      final hPad = 2.5;
+      final keyW = ((constraints.maxWidth - maxRowLen * hPad * 2) / maxRowLen).clamp(24.0, 32.0);
+      final keyH = (keyW * 1.25).clamp(30.0, 40.0);
+      final fontSize = (keyW * 0.47).clamp(11.0, 15.0);
 
-              Color bg;
-              Color fg;
-              if (isCorrect) {
-                bg = _kCorrect;
-                fg = Colors.white;
-              } else if (isWrong) {
-                bg = const Color(0xFFE5E5E5);
-                fg = const Color(0xFFBBBBBB);
-              } else {
-                bg = Colors.white;
-                fg = const Color(0xFF1E1B4B);
-              }
+      return Column(
+        children: _rows.map((row) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 3),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: row.map((letter) {
+                final guessed = guessedLetters.contains(letter);
+                final isCorrect = guessed && word.contains(letter);
+                final isWrong = guessed && !word.contains(letter);
 
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 2.5),
-                child: GestureDetector(
-                  onTap: enabled && !guessed ? () => onTap(letter) : null,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    width: 32,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: bg,
-                      borderRadius: BorderRadius.circular(8),
-                      boxShadow: guessed
-                          ? []
-                          : [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 4, offset: const Offset(0, 2))],
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      letter,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: fg,
+                Color bg;
+                Color fg;
+                if (isCorrect) {
+                  bg = _kCorrect;
+                  fg = Colors.white;
+                } else if (isWrong) {
+                  bg = const Color(0xFFE5E5E5);
+                  fg = const Color(0xFFBBBBBB);
+                } else {
+                  bg = Colors.white;
+                  fg = const Color(0xFF1E1B4B);
+                }
+
+                return Padding(
+                  padding: EdgeInsets.symmetric(horizontal: hPad),
+                  child: GestureDetector(
+                    onTap: enabled && !guessed ? () => onTap(letter) : null,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: keyW,
+                      height: keyH,
+                      decoration: BoxDecoration(
+                        color: bg,
+                        borderRadius: BorderRadius.circular(8),
+                        boxShadow: guessed
+                            ? []
+                            : [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 4, offset: const Offset(0, 2))],
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        letter,
+                        style: TextStyle(
+                          fontSize: fontSize,
+                          fontWeight: FontWeight.w700,
+                          color: fg,
+                        ),
                       ),
                     ),
                   ),
-                ),
-              );
-            }).toList(),
-          ),
-        );
-      }).toList(),
-    );
+                );
+              }).toList(),
+            ),
+          );
+        }).toList(),
+      );
+    });
   }
 }
 

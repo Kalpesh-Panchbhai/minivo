@@ -1,87 +1,92 @@
 import 'package:flutter/material.dart';
 
-Widget buildGoLogo(double size) {
-  return Container(
-    width: size,
-    height: size,
-    decoration: const BoxDecoration(
-      gradient: LinearGradient(
-        colors: [Color(0xFFD4A76A), Color(0xFFC4944E), Color(0xFFA67C3D)],
+import '../shared/game_logo_scaffold.dart';
+
+Widget buildGoLogo(double size) => buildGlassSpotlightLogo(
+      size: size,
+      title: 'Go',
+      bg: const [Color(0xFF5C3A21), Color(0xFF2A1A0F)],
+      accent: const Color(0xFFE0B873),
+      art: _GoArt,
+    );
+
+// ignore: non_constant_identifier_names
+void _GoArt(Canvas canvas, Rect zone) {
+  // Wooden board panel.
+  final board = RRect.fromRectAndRadius(zone, Radius.circular(zone.width * 0.06));
+  canvas.drawRRect(
+    board,
+    Paint()
+      ..shader = const LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
-      ),
-    ),
-    child: CustomPaint(
-      size: Size(size, size),
-      painter: _GoLogoPainter(),
-    ),
+        colors: [Color(0xFFE7B66E), Color(0xFFD49B4E)],
+      ).createShader(zone),
   );
-}
+  canvas.drawRRect(
+    board,
+    Paint()
+      ..color = const Color(0xFF7A4F23)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = zone.width * 0.02,
+  );
 
-class _GoLogoPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-    final boardSize = w * 0.75;
-    final left = (w - boardSize) / 2;
-    final top = h * 0.06;
-    const gridLines = 5;
-    final cellSize = boardSize / (gridLines - 1);
+  // 5x5 intersection grid.
+  const n = 5;
+  final margin = zone.width * 0.14;
+  final inner = zone.width - margin * 2;
+  final step = inner / (n - 1);
+  final originX = zone.left + margin;
+  final originY = zone.top + margin;
 
-    final linePaint = Paint()
-      ..color = const Color(0xFF5D4037).withValues(alpha: 0.5)
-      ..strokeWidth = (w * 0.015).clamp(1.0, 3.0);
+  double gx(int c) => originX + c * step;
+  double gy(int r) => originY + r * step;
 
-    for (int i = 0; i < gridLines; i++) {
-      final offset = i * cellSize;
-      canvas.drawLine(Offset(left, top + offset), Offset(left + boardSize, top + offset), linePaint);
-      canvas.drawLine(Offset(left + offset, top), Offset(left + offset, top + boardSize), linePaint);
-    }
+  final linePaint = Paint()
+    ..color = const Color(0xFF5A3A18)
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = zone.width * 0.012;
 
-    final center = boardSize / 2;
-    canvas.drawCircle(Offset(left + center, top + center), w * 0.025, Paint()..color = const Color(0xFF5D4037).withValues(alpha: 0.6));
-
-    void drawStone(int r, int c, Color color) {
-      final cx = left + c * cellSize;
-      final cy = top + r * cellSize;
-      final radius = cellSize * 0.38;
-      canvas.drawCircle(Offset(cx, cy + 1.5), radius, Paint()..color = Colors.black.withValues(alpha: 0.2));
-      canvas.drawCircle(Offset(cx, cy), radius, Paint()..color = color);
-      canvas.drawCircle(
-        Offset(cx - radius * 0.25, cy - radius * 0.25),
-        radius * 0.2,
-        Paint()..color = Colors.white.withValues(alpha: color == Colors.black ? 0.25 : 0.45),
-      );
-    }
-
-    drawStone(1, 1, Colors.black);
-    drawStone(1, 3, Colors.black);
-    drawStone(2, 2, Colors.black);
-    drawStone(3, 1, Colors.black);
-
-    drawStone(1, 2, Colors.white);
-    drawStone(2, 3, Colors.white);
-    drawStone(3, 2, Colors.white);
-    drawStone(3, 3, Colors.white);
-
-    final fontSize = w * 0.18;
-    final tp = TextPainter(
-      text: TextSpan(
-        text: 'GO',
-        style: TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w900,
-          fontSize: fontSize,
-          letterSpacing: 2,
-          shadows: const [Shadow(color: Colors.black26, blurRadius: 4)],
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    tp.paint(canvas, Offset((w - tp.width) / 2, h - tp.height - h * 0.03));
+  for (int i = 0; i < n; i++) {
+    canvas.drawLine(Offset(gx(i), gy(0)), Offset(gx(i), gy(n - 1)), linePaint);
+    canvas.drawLine(Offset(gx(0), gy(i)), Offset(gx(n - 1), gy(i)), linePaint);
   }
 
-  @override
-  bool shouldRepaint(_GoLogoPainter old) => false;
+  // Star points (hoshi): center + two corners.
+  final starPaint = Paint()..color = const Color(0xFF4A2E12);
+  final starR = zone.width * 0.018;
+  for (final sp in const [
+    [2, 2],
+    [0, 0],
+    [4, 4],
+  ]) {
+    canvas.drawCircle(Offset(gx(sp[1]), gy(sp[0])), starR, starPaint);
+  }
+
+  // Stones on intersections.
+  final stoneR = step * 0.42;
+  void stone(int r, int c, bool black) {
+    final ctr = Offset(gx(c), gy(r));
+    canvas.drawCircle(ctr.translate(0, stoneR * 0.18), stoneR,
+        Paint()..color = Colors.black.withValues(alpha: 0.28));
+    canvas.drawCircle(
+      ctr,
+      stoneR,
+      Paint()
+        ..shader = RadialGradient(
+          center: const Alignment(-0.4, -0.4),
+          colors: black
+              ? const [Color(0xFF555555), Color(0xFF0A0A0A)]
+              : const [Colors.white, Color(0xFFC9C9C9)],
+        ).createShader(Rect.fromCircle(center: ctr, radius: stoneR)),
+    );
+  }
+
+  // A small cluster of black and white stones.
+  stone(1, 1, true);
+  stone(1, 2, false);
+  stone(2, 2, true);
+  stone(2, 1, false);
+  stone(3, 3, true);
+  stone(2, 3, false);
 }

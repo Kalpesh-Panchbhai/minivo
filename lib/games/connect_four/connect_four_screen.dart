@@ -651,12 +651,7 @@ class _ConnectFourScreenState extends State<ConnectFourScreen>
       iconChild: Builder(builder: (ctx) {
         final info = GameRegistry.getById(_gameId);
         final logo = info?.buildBrandedLogo(size: 84);
-        if (logo != null) {
-          return ClipRRect(
-            borderRadius: BorderRadius.circular(42),
-            child: logo,
-          );
-        }
+        if (logo != null) return logo;
         return const Icon(Icons.grid_4x4_rounded, size: 40, color: _kAccent);
       }),
       title: 'Connect Four',

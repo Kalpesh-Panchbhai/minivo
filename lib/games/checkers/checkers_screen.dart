@@ -691,9 +691,7 @@ class _CheckersScreenState extends State<CheckersScreen>
       iconChild: Builder(builder: (ctx) {
         final info = GameRegistry.getById(kCheckersGameId);
         final logo = info?.buildBrandedLogo(size: 84);
-        if (logo != null) {
-          return ClipRRect(borderRadius: BorderRadius.circular(42), child: logo);
-        }
+        if (logo != null) return logo;
         return const Icon(Icons.grid_on_rounded, size: 40, color: _kAiColor);
       }),
       title: 'Checkers',

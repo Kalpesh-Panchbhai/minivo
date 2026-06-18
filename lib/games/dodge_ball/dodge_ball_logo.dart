@@ -3,127 +3,91 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../shared/animated_background.dart';
+import '../shared/game_logo_scaffold.dart';
 
-Widget buildDodgeBallLogo(double size) {
-  return Container(
-    width: size,
-    height: size,
-    decoration: const BoxDecoration(
-      gradient: LinearGradient(
-        colors: [Color(0xFF0F0F23), Color(0xFF1A1A3E)],
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-      ),
-    ),
-    child: ClipRect(
-      child: CustomPaint(
-        size: Size(size, size),
-        painter: _DodgeBallLogoPainter(),
-      ),
-    ),
-  );
-}
-
-class _DodgeBallLogoPainter extends CustomPainter {
-  static const _obsColors = [
-    Color(0xFFFF6B6B),
-    Color(0xFFFFD93D),
-    Color(0xFFFF9FF3),
-    Color(0xFF6BCB77),
-    Color(0xFFCC8EFF),
-  ];
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final s = size.width;
-    final cx = s / 2;
-
-    const playerColor = Color(0xFF00D4FF);
-
-    final rng = math.Random(42);
-    for (int i = 0; i < 12; i++) {
-      final sx = rng.nextDouble() * s;
-      final sy = rng.nextDouble() * s * 0.6;
-      canvas.drawCircle(
-        Offset(sx, sy),
-        0.8 + rng.nextDouble() * 0.5,
-        Paint()..color = Colors.white.withValues(alpha: 0.15),
-      );
-    }
-
-    final playerR = s * 0.10;
-    final playerY = s * 0.70;
-    canvas.drawCircle(
-      Offset(cx, playerY),
-      playerR + 6,
-      Paint()
-        ..color = playerColor.withValues(alpha: 0.10)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
-    );
-    final pGrad = RadialGradient(
-      center: const Alignment(-0.3, -0.4),
-      colors: [const Color(0xFF66E5FF), playerColor, const Color(0xFF0099CC)],
-      stops: const [0.0, 0.5, 1.0],
-    );
-    canvas.drawCircle(
-      Offset(cx, playerY),
-      playerR,
-      Paint()..shader = pGrad.createShader(Rect.fromCircle(center: Offset(cx, playerY), radius: playerR)),
-    );
-    canvas.drawCircle(
-      Offset(cx - playerR * 0.22, playerY - playerR * 0.22),
-      playerR * 0.25,
-      Paint()..color = Colors.white.withValues(alpha: 0.35),
+Widget buildDodgeBallLogo(double size) => buildGlassSpotlightLogo(
+      size: size,
+      title: 'Dodge Ball',
+      bg: const [Color(0xFF155E75), Color(0xFF083344)],
+      accent: const Color(0xFF22D3EE),
+      art: _dodgeBallArt,
     );
 
-    final positions = [
-      Offset(s * 0.22, s * 0.18),
-      Offset(s * 0.68, s * 0.13),
-      Offset(s * 0.42, s * 0.35),
-      Offset(s * 0.80, s * 0.30),
-      Offset(s * 0.15, s * 0.45),
-    ];
-    for (int i = 0; i < positions.length; i++) {
-      final pos = positions[i];
-      final color = _obsColors[i];
-      final obsR = s * 0.055;
+void _dodgeBallArt(Canvas canvas, Rect zone) {
+  // A glowing cyan ball weaving between two obstacle bars, with motion trails
+  // behind it.
+  const ballColor = Color(0xFF22D3EE);
 
-      canvas.drawCircle(
-        pos,
-        obsR + 4,
+  // two obstacle bars the ball weaves between (top-left and bottom-right)
+  final barW = zone.width * 0.20;
+  final barH = zone.height * 0.42;
+  final bar1 = Rect.fromLTWH(
+      zone.left + zone.width * 0.06, zone.top + zone.height * 0.04, barW, barH);
+  final bar2 = Rect.fromLTWH(zone.right - zone.width * 0.06 - barW,
+      zone.bottom - zone.height * 0.04 - barH, barW, barH);
+
+  void drawBar(Rect r, List<Color> grad) {
+    final rr = RRect.fromRectAndRadius(r, Radius.circular(barW * 0.28));
+    canvas.drawRRect(
+        rr,
         Paint()
-          ..color = color.withValues(alpha: 0.15)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
-      );
-      canvas.drawCircle(pos, obsR, Paint()..color = color);
-      canvas.drawCircle(
-        Offset(pos.dx - obsR * 0.25, pos.dy - obsR * 0.25),
-        obsR * 0.22,
-        Paint()..color = Colors.white.withValues(alpha: 0.30),
-      );
-    }
+          ..shader = LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: grad,
+          ).createShader(r));
+    canvas.drawRRect(
+        rr,
+        Paint()
+          ..color = Colors.white.withValues(alpha: 0.22)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = barW * 0.08);
+  }
 
-    final fontSize = s * 0.10;
-    final tp = TextPainter(
-      text: TextSpan(
-        text: 'DODGE BALL',
-        style: TextStyle(
-          color: playerColor,
-          fontWeight: FontWeight.w900,
-          fontSize: fontSize,
-          letterSpacing: 1,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    tp.paint(
-      canvas,
-      Offset((s - tp.width) / 2, s - tp.height - s * 0.04),
+  drawBar(bar1, const [Color(0xFFFB7185), Color(0xFFE11D48)]);
+  drawBar(bar2, const [Color(0xFFFBBF24), Color(0xFFD97706)]);
+
+  // weaving path the ball travels (top-right toward bottom-left, S-curve)
+  final ballR = zone.width * 0.11;
+  final ballC = Offset(zone.center.dx, zone.center.dy);
+
+  // motion trails behind the ball (fading toward the upper-right)
+  final trailDir = Offset(zone.width * 0.16, -zone.height * 0.14);
+  for (int i = 3; i >= 1; i--) {
+    final c = ballC + trailDir * i.toDouble();
+    canvas.drawCircle(
+      c,
+      ballR * (1 - i * 0.16),
+      Paint()..color = ballColor.withValues(alpha: 0.10 * (4 - i)),
     );
   }
 
-  @override
-  bool shouldRepaint(_DodgeBallLogoPainter old) => false;
+  // glow halo
+  canvas.drawCircle(
+    ballC,
+    ballR * 1.7,
+    Paint()
+      ..color = ballColor.withValues(alpha: 0.30)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
+  );
+
+  // ball body
+  canvas.drawCircle(
+    ballC,
+    ballR,
+    Paint()
+      ..shader = const RadialGradient(
+        center: Alignment(-0.3, -0.4),
+        colors: [Color(0xFFCFFAFE), ballColor, Color(0xFF0E7490)],
+        stops: [0.0, 0.55, 1.0],
+      ).createShader(Rect.fromCircle(center: ballC, radius: ballR)),
+  );
+  // specular highlight
+  canvas.drawCircle(
+    ballC.translate(-ballR * 0.28, -ballR * 0.30),
+    ballR * 0.26,
+    Paint()..color = Colors.white.withValues(alpha: 0.55),
+  );
 }
 
 class DodgeBallBgPainter extends AnimatedBgPainter {

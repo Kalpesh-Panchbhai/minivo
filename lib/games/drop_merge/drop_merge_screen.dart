@@ -669,10 +669,7 @@ class _ModePickerScreen extends StatelessWidget {
         period: const Duration(seconds: 12),
       ),
       iconRingColors: const [Color(0xFFFF922B), Color(0xFFE8590C), Color(0xFFFF922B)],
-      iconChild: ClipRRect(
-        borderRadius: BorderRadius.circular(42),
-        child: buildDropMergeLogo(84),
-      ),
+      iconChild: buildDropMergeLogo(84),
       title:    'Drop Merge',
       subtitle: 'Drop tiles, merge numbers, chain reactions!',
       onBack:           onBack,

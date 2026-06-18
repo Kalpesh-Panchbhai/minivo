@@ -97,26 +97,79 @@ class _RulePainter extends CustomPainter {
   final double t;
   _RulePainter(this.t);
 
+  static const _red = Color(0xFFEF4444);
+  static const _blue = Color(0xFF3B82F6);
+  static const _green = Color(0xFF22C55E);
+
   @override
   void paint(Canvas canvas, Size size) {
-    final cx = size.width / 2;
-    final cy = size.height / 2;
+    // Alternate between a valid pour (matching tops) and an invalid one.
+    final valid = t < 0.5;
+    final tubeW = 30.0, tubeH = 78.0, gap = 30.0;
+    final totalW = tubeW * 2 + gap;
+    final startX = (size.width - totalW) / 2;
+    final y = size.height * 0.18;
+    final segH = tubeH / 4;
 
-    final checkColor = t < 0.5 ? const Color(0xFF22C55E) : const Color(0xFFEF4444);
-    final icon = t < 0.5 ? '✓' : '✗';
+    void outline(double x) {
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(Rect.fromLTWH(x, y, tubeW, tubeH), const Radius.circular(6)),
+        Paint()..color = Colors.white.withValues(alpha: 0.15),
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(Rect.fromLTWH(x, y, tubeW, tubeH), const Radius.circular(6)),
+        Paint()
+          ..color = Colors.white.withValues(alpha: 0.4)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1,
+      );
+    }
 
-    final tp = TextPainter(
-      text: TextSpan(text: icon, style: TextStyle(color: checkColor, fontSize: 40, fontWeight: FontWeight.w900)),
+    void seg(double x, int slot, Color c) {
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            Rect.fromLTWH(x + 2, y + tubeH - (slot + 1) * segH, tubeW - 4, segH - 2),
+            const Radius.circular(3)),
+        Paint()..color = c,
+      );
+    }
+
+    final x1 = startX, x2 = startX + tubeW + gap;
+    outline(x1);
+    outline(x2);
+    // source (left): top = red
+    seg(x1, 0, _blue);
+    seg(x1, 1, _red);
+    // dest (right): top red (valid) or blue (invalid)
+    seg(x2, 0, valid ? _red : _blue);
+
+    // pour arrow between tops
+    final arrowY = y + 6;
+    final ap = Paint()
+      ..color = (valid ? _green : _red)
+      ..strokeWidth = 2.5
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(Offset(x1 + tubeW + 2, arrowY), Offset(x2 - 4, arrowY), ap);
+    canvas.drawLine(Offset(x2 - 4, arrowY), Offset(x2 - 10, arrowY - 4), ap);
+    canvas.drawLine(Offset(x2 - 4, arrowY), Offset(x2 - 10, arrowY + 4), ap);
+
+    // verdict badge
+    final icon = valid ? '✓' : '✗';
+    final col = valid ? _green : _red;
+    final ip = TextPainter(
+      text: TextSpan(text: icon, style: TextStyle(color: col, fontSize: 26, fontWeight: FontWeight.w900)),
       textDirection: TextDirection.ltr,
     )..layout();
-    tp.paint(canvas, Offset(cx - tp.width / 2, cy - tp.height / 2 - 10));
+    ip.paint(canvas, Offset(size.width / 2 - ip.width / 2, y + tubeH + 6));
 
-    final label = t < 0.5 ? 'Same color → OK' : 'Different → No';
-    final ltp = TextPainter(
-      text: TextSpan(text: label, style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 13, fontWeight: FontWeight.w700)),
+    final label = valid ? 'Same top color → pour OK' : 'Different top color → blocked';
+    final lp = TextPainter(
+      text: TextSpan(
+          text: label,
+          style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 12, fontWeight: FontWeight.w700)),
       textDirection: TextDirection.ltr,
     )..layout();
-    ltp.paint(canvas, Offset(cx - ltp.width / 2, cy + 24));
+    lp.paint(canvas, Offset(size.width / 2 - lp.width / 2, y + tubeH + 34));
   }
 
   @override

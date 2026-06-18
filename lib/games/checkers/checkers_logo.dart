@@ -1,90 +1,62 @@
 import 'package:flutter/material.dart';
 
-Widget buildCheckersLogo(double size) {
-  return Container(
-    width: size,
-    height: size,
-    decoration: const BoxDecoration(
-      gradient: LinearGradient(
-        colors: [Color(0xFF8B5E3C), Color(0xFF6D4227), Color(0xFF4A2C17)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      ),
-    ),
-    child: CustomPaint(
-      size: Size(size, size),
-      painter: _CheckersLogoPainter(),
-    ),
+import '../shared/game_logo_scaffold.dart';
+
+Widget buildCheckersLogo(double size) => buildGlassSpotlightLogo(
+      size: size,
+      title: 'Checkers',
+      bg: const [Color(0xFF5C3A21), Color(0xFF2A1A0F)],
+      accent: const Color(0xFFD2A679),
+      art: _checkersArt,
+    );
+
+void _checkersArt(Canvas canvas, Rect zone) {
+  const n = 4;
+  final cell = zone.width / n;
+
+  // 4x4 checkerboard with alternating light/dark squares.
+  final light = Paint()..color = const Color(0xFFF5DEB3);
+  final dark = Paint()..color = const Color(0xFF6B4226);
+  for (int r = 0; r < n; r++) {
+    for (int c = 0; c < n; c++) {
+      final isDark = (r + c) % 2 == 1;
+      final rect = Rect.fromLTWH(
+          zone.left + c * cell, zone.top + r * cell, cell, cell);
+      canvas.drawRect(rect, isDark ? dark : light);
+    }
+  }
+  // Board border.
+  canvas.drawRect(
+    zone,
+    Paint()
+      ..color = const Color(0xFF3E2015)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = cell * 0.08,
   );
-}
 
-class _CheckersLogoPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-
-    final boardSize = w * 0.78;
-    final boardLeft = (w - boardSize) / 2;
-    final boardTop = h * 0.06;
-    final cell = boardSize / 4;
-
-    final lightPaint = Paint()..color = const Color(0xFFF5DEB3).withValues(alpha: 0.30);
-    final darkPaint = Paint()..color = const Color(0xFF3E2015).withValues(alpha: 0.40);
-
-    for (int r = 0; r < 4; r++) {
-      for (int c = 0; c < 4; c++) {
-        final isDark = (r + c) % 2 == 1;
-        final rect = Rect.fromLTWH(boardLeft + c * cell, boardTop + r * cell, cell, cell);
-        canvas.drawRect(rect, isDark ? darkPaint : lightPaint);
-      }
-    }
-
-    final redPaint = Paint()..color = const Color(0xFFE53935);
-    final redBorder = Paint()
-      ..color = const Color(0xFFFF6F61)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = (w * 0.02).clamp(1.0, 4.0);
-
-    void drawPiece(int r, int c, Paint fill, Paint border) {
-      final cx = boardLeft + (c + 0.5) * cell;
-      final cy = boardTop + (r + 0.5) * cell;
-      final radius = cell * 0.34;
-      canvas.drawCircle(Offset(cx, cy), radius, fill);
-      canvas.drawCircle(Offset(cx, cy), radius, border);
-    }
-
-    final blackPaint = Paint()..color = const Color(0xFF212121);
-    final blackBorder = Paint()
-      ..color = const Color(0xFF616161)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = (w * 0.02).clamp(1.0, 4.0);
-
-    drawPiece(0, 1, blackPaint, blackBorder);
-    drawPiece(0, 3, blackPaint, blackBorder);
-    drawPiece(1, 0, blackPaint, blackBorder);
-
-    drawPiece(2, 3, redPaint, redBorder);
-    drawPiece(3, 0, redPaint, redBorder);
-    drawPiece(3, 2, redPaint, redBorder);
-
-    final fontSize = w * 0.12;
-    final tp = TextPainter(
-      text: TextSpan(
-        text: 'CHECKERS',
-        style: TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w900,
-          fontSize: fontSize,
-          letterSpacing: 0.5,
-          shadows: const [Shadow(color: Colors.black26, blurRadius: 4)],
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    tp.paint(canvas, Offset((w - tp.width) / 2, h - tp.height - h * 0.03));
+  void disc(int r, int c, Color fill, Color rim) {
+    final ctr = Offset(zone.left + (c + 0.5) * cell, zone.top + (r + 0.5) * cell);
+    final radius = cell * 0.36;
+    // Contact shadow.
+    canvas.drawCircle(ctr.translate(0, cell * 0.05), radius,
+        Paint()..color = Colors.black.withValues(alpha: 0.25));
+    canvas.drawCircle(ctr, radius, Paint()..color = fill);
+    // Inner ring detail.
+    canvas.drawCircle(
+      ctr,
+      radius * 0.62,
+      Paint()
+        ..color = rim
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = cell * 0.06,
+    );
+    // Top highlight.
+    canvas.drawCircle(ctr.translate(-radius * 0.3, -radius * 0.3), radius * 0.2,
+        Paint()..color = Colors.white.withValues(alpha: 0.4));
   }
 
-  @override
-  bool shouldRepaint(_CheckersLogoPainter old) => false;
+  // Two red discs and one dark disc on dark squares.
+  disc(0, 1, const Color(0xFFE53935), const Color(0xFFFF8A80));
+  disc(3, 2, const Color(0xFFE53935), const Color(0xFFFF8A80));
+  disc(2, 1, const Color(0xFF1F2937), const Color(0xFF6B7280));
 }

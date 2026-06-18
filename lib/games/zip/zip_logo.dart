@@ -2,126 +2,78 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
-Widget buildZipLogo(double size) {
-  return SizedBox(
-    width: size,
-    height: size,
-    child: CustomPaint(
-      size: Size(size, size),
-      painter: _ZipLogoPainter(),
-    ),
-  );
-}
+import '../shared/game_logo_scaffold.dart';
 
-class _ZipLogoPainter extends CustomPainter {
-  static const _kGreen = Color(0xFF22C55E);
-  static const _kGreenDark = Color(0xFF16A34A);
-  static const _kBg = Color(0xFFF0FDF4);
-  static const _kCellBg = Color(0xFFDCFCE7);
-  static const _kGridLine = Color(0xFFD1D5DB);
-  static const _kEmpty = Color(0xFFF3F4F6);
-  static const _kDark = Color(0xFF1F2937);
+Widget buildZipLogo(double size) => buildGlassSpotlightLogo(
+      size: size,
+      title: 'Zip',
+      bg: const [Color(0xFF0F3D24), Color(0xFF03130A)],
+      accent: const Color(0xFF4ADE80),
+      art: _zipArt,
+    );
 
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
+void _zipArt(Canvas canvas, Rect zone) {
+  const n = 3;
+  final gap = zone.width * 0.07;
+  final cell = (zone.width - gap * (n - 1)) / n;
 
-    final bgRR = RRect.fromRectAndRadius(Rect.fromLTWH(0, 0, w, h), Radius.circular(w * 0.18));
-    canvas.drawRRect(bgRR, Paint()..color = _kBg);
+  Rect cellRect(int r, int c) =>
+      Rect.fromLTWH(zone.left + c * (cell + gap), zone.top + r * (cell + gap), cell, cell);
+  Offset center(int r, int c) => cellRect(r, c).center;
 
-    const n = 4;
-    final cellSz = w * 0.17;
-    final gap = w * 0.025;
-    final gridW = n * cellSz + (n - 1) * gap;
-    final ox = (w - gridW) / 2;
-    final oy = (h - gridW) / 2 - w * 0.04;
-
-    final outerR = Rect.fromLTWH(ox - gap, oy - gap, gridW + 2 * gap, gridW + 2 * gap);
-    final outerRR = RRect.fromRectAndRadius(outerR, Radius.circular(w * 0.1));
-    canvas.save();
-    canvas.clipRRect(outerRR);
-    canvas.drawRect(outerR, Paint()..color = _kGridLine);
-
-    final trail = [
-      [0, 0], [0, 1], [0, 2], [0, 3],
-      [1, 3], [1, 2], [1, 1], [1, 0],
-      [2, 0], [2, 1], [2, 2], [2, 3],
-    ];
-    final trailSet = <int>{};
-    for (final p in trail) trailSet.add(p[0] * n + p[1]);
-
-    for (int r = 0; r < n; r++) {
-      for (int c = 0; c < n; c++) {
-        final x = ox + c * (cellSz + gap);
-        final y = oy + r * (cellSz + gap);
-        final ci = r * n + c;
-        canvas.drawRect(
-          Rect.fromLTWH(x, y, cellSz, cellSz),
-          Paint()..color = trailSet.contains(ci) ? _kCellBg : _kEmpty,
-        );
-      }
+  for (int r = 0; r < n; r++) {
+    for (int c = 0; c < n; c++) {
+      final rr = RRect.fromRectAndRadius(cellRect(r, c), Radius.circular(cell * 0.22));
+      canvas.drawRRect(rr, Paint()..color = Colors.white.withValues(alpha: 0.10));
+      canvas.drawRRect(
+          rr,
+          Paint()
+            ..color = Colors.white.withValues(alpha: 0.28)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = cell * 0.05);
     }
-
-    if (trail.length > 1) {
-      final pathObj = Path();
-      Offset _c(List<int> p) => Offset(ox + p[1] * (cellSz + gap) + cellSz / 2, oy + p[0] * (cellSz + gap) + cellSz / 2);
-      final first = _c(trail.first);
-      final last = _c(trail.last);
-      pathObj.moveTo(first.dx, first.dy);
-      for (int i = 1; i < trail.length; i++) {
-        final p = _c(trail[i]);
-        pathObj.lineTo(p.dx, p.dy);
-      }
-      canvas.drawPath(
-        pathObj,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = cellSz * 0.62
-          ..strokeCap = StrokeCap.round
-          ..strokeJoin = StrokeJoin.round
-          ..shader = ui.Gradient.linear(first, last, [_kGreenDark, _kGreen]),
-      );
-    }
-
-    canvas.restore();
-
-    canvas.drawRRect(outerRR, Paint()..color = const Color(0xFFBBF7D0)..style = PaintingStyle.stroke..strokeWidth = w * 0.015);
-
-    final checkpoints = {0: 1, 5: 2, 11: 3};
-    for (final entry in checkpoints.entries) {
-      final p = trail[entry.key];
-      final cx = ox + p[1] * (cellSz + gap) + cellSz / 2;
-      final cy = oy + p[0] * (cellSz + gap) + cellSz / 2;
-      final cr = cellSz * 0.28;
-      canvas.drawCircle(Offset(cx, cy + 1), cr, Paint()..color = Colors.black.withValues(alpha: 0.15));
-      canvas.drawCircle(Offset(cx, cy), cr, Paint()..color = _kDark);
-      final tp = TextPainter(
-        text: TextSpan(
-          text: '${entry.value}',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: cellSz * 0.32),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      tp.paint(canvas, Offset(cx - tp.width / 2, cy - tp.height / 2));
-    }
-
-    final textY = h - w * 0.12;
-    final tp = TextPainter(
-      text: TextSpan(
-        text: 'ZIP',
-        style: TextStyle(
-          color: _kDark,
-          fontWeight: FontWeight.w900,
-          fontSize: w * 0.14,
-          letterSpacing: 3.0,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    tp.paint(canvas, Offset((w - tp.width) / 2, textY - tp.height / 2));
   }
 
-  @override
-  bool shouldRepaint(_ZipLogoPainter old) => false;
+  const path = [
+    [0, 0], [0, 1], [0, 2],
+    [1, 2], [1, 1], [1, 0],
+    [2, 0], [2, 1], [2, 2],
+  ];
+  final p = Path()
+    ..moveTo(center(path[0][0], path[0][1]).dx, center(path[0][0], path[0][1]).dy);
+  for (int i = 1; i < path.length; i++) {
+    final ctr = center(path[i][0], path[i][1]);
+    p.lineTo(ctr.dx, ctr.dy);
+  }
+  canvas.drawPath(
+    p,
+    Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = cell * 0.34
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..shader = ui.Gradient.linear(
+        zone.topLeft,
+        zone.bottomRight,
+        const [Color(0xFFBBF7D0), Color(0xFF4ADE80)],
+      ),
+  );
+
+  void checkpoint(int r, int c, String num) {
+    final ctr = center(r, c);
+    final cr = cell * 0.32;
+    canvas.drawCircle(ctr.translate(0, 1.5), cr, Paint()..color = Colors.black.withValues(alpha: 0.22));
+    canvas.drawCircle(ctr, cr, Paint()..color = const Color(0xFF0B3D1E));
+    final tp = TextPainter(
+      text: TextSpan(
+          text: num,
+          style: TextStyle(
+              color: Colors.white, fontWeight: FontWeight.w900, fontSize: cell * 0.42, height: 1)),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(canvas, Offset(ctr.dx - tp.width / 2, ctr.dy - tp.height / 2));
+  }
+
+  checkpoint(0, 0, '1');
+  checkpoint(2, 2, '2');
 }

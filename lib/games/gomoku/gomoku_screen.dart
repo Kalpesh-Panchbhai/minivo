@@ -527,9 +527,7 @@ class _GomokuScreenState extends State<GomokuScreen> {
       iconChild: Builder(builder: (ctx) {
         final info = GameRegistry.getById(kGomokuGameId);
         final logo = info?.buildBrandedLogo(size: 84);
-        if (logo != null) {
-          return ClipRRect(borderRadius: BorderRadius.circular(42), child: logo);
-        }
+        if (logo != null) return logo;
         return const Icon(Icons.blur_on_rounded, size: 40, color: _kAiColor);
       }),
       title: 'Gomoku',

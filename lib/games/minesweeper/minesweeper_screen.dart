@@ -346,6 +346,7 @@ class _MinesweeperScreenState extends State<MinesweeperScreen> {
     if (_revealedCount >= totalSafe) {
       _gameOver = true;
       _won = true;
+      AudioService().playSuccess();
       _ticker?.cancel();
       _stopwatch.stop();
       _calculateScore(diff);
@@ -904,18 +905,24 @@ class _MinesweeperScorePill extends StatelessWidget {
               ),
             ],
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              _statCol('SCORE', '$score', color),
-              _divider(),
-              _statCol('TIME', time, const Color(0xFF6B7280)),
-              _divider(),
-              _statCol('💣', '$minesLeft', const Color(0xFFEF4444)),
-              _divider(),
-              _statCol('BEST', '$best', const Color(0xFFF59E0B)),
-            ],
+          // Four stats + dividers exceed the HUD's center slot on 320px-wide
+          // phones (esp. HARD: 3-digit mines/score). Scale the row down to fit
+          // narrow widths instead of overflowing; unchanged on wider screens.
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _statCol('SCORE', '$score', color),
+                _divider(),
+                _statCol('TIME', time, const Color(0xFF6B7280)),
+                _divider(),
+                _statCol('💣', '$minesLeft', const Color(0xFFEF4444)),
+                _divider(),
+                _statCol('BEST', '$best', const Color(0xFFF59E0B)),
+              ],
+            ),
           ),
         ),
       ],

@@ -596,6 +596,7 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen>
       _winBannerLabel = "It's a Tie!";
       _winBannerColor = _kAccent;
     }
+    AudioService().playSuccess();
     setState(() => _showWinBanner = true);
 
     // Save score in AI mode (player's pair count)
@@ -679,11 +680,9 @@ class _MemoryMatchScreenState extends State<MemoryMatchScreen>
         period: const Duration(seconds: 14),
       ),
       iconRingColors: const [_kAccent, _kAccentDk, _kAccent],
-      iconChild: ClipOval(
-        child: GameRegistry.getById(kMemoryMatchGameId)
+      iconChild: GameRegistry.getById(kMemoryMatchGameId)
                 ?.buildBrandedLogo(size: 84) ??
             const SizedBox.shrink(),
-      ),
       title: 'Memory Match',
       subtitle: 'Flip • Match • Remember',
       onBack: () => context.pop(),

@@ -1,92 +1,92 @@
 import 'package:flutter/material.dart';
 
-Widget buildHangmanLogo(double size) {
-  return Container(
-    width: size,
-    height: size,
-    decoration: const BoxDecoration(
-      gradient: LinearGradient(
-        colors: [Color(0xFF6C63FF), Color(0xFF5046E5), Color(0xFF3730A3)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      ),
-    ),
-    child: CustomPaint(
-      size: Size(size, size),
-      painter: _HangmanLogoPainter(),
-    ),
+import '../shared/game_logo_scaffold.dart';
+
+Widget buildHangmanLogo(double size) => buildGlassSpotlightLogo(
+      size: size,
+      title: 'Hangman',
+      bg: const [Color(0xFF3730A3), Color(0xFF1E1B4B)],
+      accent: const Color(0xFF818CF8),
+      art: _hangmanArt,
+    );
+
+void _hangmanArt(Canvas canvas, Rect zone) {
+  final w = zone.width;
+
+  // Gallows frame.
+  final framePaint = Paint()
+    ..color = const Color(0xFFC7D2FE)
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = w * 0.05
+    ..strokeCap = StrokeCap.round
+    ..strokeJoin = StrokeJoin.round;
+
+  final baseY = zone.top + zone.height * 0.74;
+  final topY = zone.top + zone.height * 0.06;
+  final postX = zone.left + w * 0.22;
+  final beamEndX = zone.left + w * 0.62;
+
+  canvas.drawLine(Offset(zone.left + w * 0.1, baseY),
+      Offset(zone.left + w * 0.5, baseY), framePaint); // base
+  canvas.drawLine(Offset(postX, baseY), Offset(postX, topY), framePaint); // post
+  canvas.drawLine(Offset(postX, topY), Offset(beamEndX, topY), framePaint); // beam
+
+  // Rope.
+  final ropeTop = Offset(beamEndX, topY);
+  final ropeBot = Offset(beamEndX, topY + zone.height * 0.14);
+  canvas.drawLine(
+      ropeTop,
+      ropeBot,
+      Paint()
+        ..color = const Color(0xFFFCD34D)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = w * 0.035
+        ..strokeCap = StrokeCap.round);
+
+  // Small round head.
+  final headR = zone.height * 0.07;
+  canvas.drawCircle(
+    Offset(beamEndX, ropeBot.dy + headR),
+    headR,
+    Paint()
+      ..color = const Color(0xFFE0E7FF)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = w * 0.04,
   );
-}
 
-class _HangmanLogoPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
+  // Blanks with letters "_ _ A _" below.
+  const slots = ['', '', 'A', ''];
+  final slotW = w * 0.16;
+  final slotGap = w * 0.05;
+  final totalW = slots.length * slotW + (slots.length - 1) * slotGap;
+  final startX = zone.center.dx - totalW / 2;
+  final lineY = zone.bottom - zone.height * 0.02;
 
-    final paint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.85)
-      ..strokeWidth = (w * 0.03).clamp(2.0, 6.0)
-      ..strokeCap = StrokeCap.round
-      ..style = PaintingStyle.stroke;
+  final underline = Paint()
+    ..color = Colors.white.withValues(alpha: 0.9)
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = w * 0.03
+    ..strokeCap = StrokeCap.round;
 
-    // Gallows
-    final baseY = h * 0.65;
-    final postX = w * 0.25;
-    final topY = h * 0.10;
-    final beamEndX = w * 0.55;
-
-    canvas.drawLine(Offset(w * 0.15, baseY), Offset(w * 0.45, baseY), paint); // base
-    canvas.drawLine(Offset(postX, baseY), Offset(postX, topY), paint);         // pole
-    canvas.drawLine(Offset(postX, topY), Offset(beamEndX, topY), paint);       // beam
-    canvas.drawLine(Offset(beamEndX, topY), Offset(beamEndX, topY + h * 0.08), paint); // rope
-
-    // Person
-    final headCx = beamEndX;
-    final headCy = topY + h * 0.08 + h * 0.06;
-    final headR = h * 0.06;
-    canvas.drawCircle(Offset(headCx, headCy), headR, paint); // head
-
-    final bodyTop = headCy + headR;
-    final bodyBot = bodyTop + h * 0.16;
-    canvas.drawLine(Offset(headCx, bodyTop), Offset(headCx, bodyBot), paint); // body
-
-    final armY = bodyTop + h * 0.06;
-    canvas.drawLine(Offset(headCx, armY), Offset(headCx - w * 0.08, armY + h * 0.08), paint); // left arm
-    canvas.drawLine(Offset(headCx, armY), Offset(headCx + w * 0.08, armY + h * 0.08), paint); // right arm
-
-    canvas.drawLine(Offset(headCx, bodyBot), Offset(headCx - w * 0.06, bodyBot + h * 0.12), paint); // left leg
-    canvas.drawLine(Offset(headCx, bodyBot), Offset(headCx + w * 0.06, bodyBot + h * 0.12), paint); // right leg
-
-    // Letter blanks
-    final blankY = h * 0.78;
-    final blankPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.6)
-      ..strokeWidth = (w * 0.025).clamp(1.5, 4.0)
-      ..strokeCap = StrokeCap.round;
-
-    for (int i = 0; i < 5; i++) {
-      final bx = w * 0.22 + i * w * 0.12;
-      canvas.drawLine(Offset(bx, blankY), Offset(bx + w * 0.08, blankY), blankPaint);
-    }
-
-    final fontSize = w * 0.10;
-    final tp = TextPainter(
-      text: TextSpan(
-        text: 'HANGMAN',
-        style: TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w900,
-          fontSize: fontSize,
-          letterSpacing: 1,
-          shadows: const [Shadow(color: Colors.black26, blurRadius: 4)],
+  for (int i = 0; i < slots.length; i++) {
+    final sx = startX + i * (slotW + slotGap);
+    canvas.drawLine(Offset(sx, lineY), Offset(sx + slotW, lineY), underline);
+    if (slots[i].isNotEmpty) {
+      final tp = TextPainter(
+        text: TextSpan(
+          text: slots[i],
+          style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w900,
+              fontSize: slotW * 1.0,
+              height: 1),
         ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    tp.paint(canvas, Offset((w - tp.width) / 2, h - tp.height - h * 0.02));
+        textDirection: TextDirection.ltr,
+      )..layout();
+      tp.paint(
+        canvas,
+        Offset(sx + slotW / 2 - tp.width / 2, lineY - tp.height - w * 0.02),
+      );
+    }
   }
-
-  @override
-  bool shouldRepaint(_HangmanLogoPainter old) => false;
 }

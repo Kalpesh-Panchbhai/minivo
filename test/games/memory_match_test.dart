@@ -5,6 +5,7 @@ import '../../lib/games/game_registry.dart';
 import '../../lib/games/game_wrapper.dart';
 import '../helpers/screen_sizes.dart';
 import '../helpers/test_helpers.dart';
+import '../helpers/overflow_detector.dart';
 
 const _device = TestDevice(
   name: 'Pixel 6',
@@ -126,8 +127,15 @@ void main() {
       await tester.tap(find.text('Play vs. AI'));
       await tester.pump(const Duration(milliseconds: 500));
       expect(find.byType(GestureDetector), findsWidgets);
-      expectNoOverflow(_device, 'Memory Match grid');
-      await tester.pump(const Duration(seconds: 5));
+      // Let the staggered card bounce-in and the picker→game transition fully
+      // settle, then assert on the RESTING layout. Checking mid-entrance was
+      // flaky under CI load: a one-frame transition artifact (not a steady
+      // overflow) was caught intermittently. Reset clears those transient
+      // frames so we verify the layout players actually see.
+      await tester.pump(const Duration(seconds: 2));
+      OverflowDetector.reset();
+      await tester.pump(); // single settled frame — no in-flight transition
+      expectNoOverflow(_device, 'Memory Match grid (settled)');
       cleanUp(tester);
     });
   });

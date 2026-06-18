@@ -179,24 +179,29 @@ class GenericGameResultScreen extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      '🎉',
-                      style: TextStyle(fontSize: 16),
-                    ),
-                    SizedBox(width: 6),
-                    Text(
-                      'New High Score!',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
-                        color: Colors.white,
-                        letterSpacing: 0.3,
+                // Scale down on narrow cards / large text scale so the badge
+                // never overflows the width-capped result card.
+                child: const FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '🎉',
+                        style: TextStyle(fontSize: 16),
                       ),
-                    ),
-                  ],
+                      SizedBox(width: 6),
+                      Text(
+                        'New High Score!',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                          color: Colors.white,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               )
                   .animate()
@@ -336,9 +341,15 @@ class GameResultStatsRow extends StatelessWidget {
           ),
         ],
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: children,
+      // The result card has a capped width; 4 stats with wide values (or
+      // large text scale) would otherwise overflow this Row even on tablets.
+      // Scale the stats down to fit instead of overflowing.
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: children,
+        ),
       ),
     );
   }
@@ -570,25 +581,32 @@ class _ActionButtonState extends State<_ActionButton> {
             ),
             borderRadius: BorderRadius.circular(16),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                widget.icon,
-                size: 20,
-                color: widget.filled ? Colors.white : widget.color,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                widget.label,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
+          // Long labels (e.g. "Change Difficulty") at large text scale would
+          // overflow a narrow full-width button. Scale the icon+label down to
+          // fit rather than overflow; keeps the full label centered.
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  widget.icon,
+                  size: 20,
                   color: widget.filled ? Colors.white : widget.color,
-                  letterSpacing: 0.2,
                 ),
-              ),
-            ],
+                const SizedBox(width: 8),
+                Text(
+                  widget.label,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: widget.filled ? Colors.white : widget.color,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
