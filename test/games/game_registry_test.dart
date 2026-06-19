@@ -9,12 +9,12 @@ void main() {
       expect(GameRegistry.allGames.isNotEmpty, isTrue);
     });
 
-    test('all 29 games are registered with builders', () {
+    test('all 30 games are registered with builders', () {
       const expectedIds = [
         'arrow_puzzle', 'checkers', 'color_tap', 'connect_four', 'dino_run',
         'dodge_ball', 'dots_and_boxes', 'drop_merge', 'flappy_tap', 'go',
         'gomoku', 'hangman', 'mancala', 'memory_match', 'minesweeper',
-        'number_merge', 'number_sequence', 'queens_puzzle',
+        'number_merge', 'number_sequence', 'patches', 'queens_puzzle',
         'reversi', 'sliding_puzzle', 'snake_classic', 'solitaire',
         'sudoku', 'tango', 'tap_tap_dash', 'tic_tac_toe',
         'water_sort', 'whack_a_mole', 'zip',
@@ -26,7 +26,7 @@ void main() {
     });
 
     test('allGames count matches builder count', () {
-      expect(GameRegistry.allGames.length, 29);
+      expect(GameRegistry.allGames.length, 30);
     });
 
     test('each game has unique id', () {

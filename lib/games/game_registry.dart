@@ -58,6 +58,8 @@ import 'queens_puzzle/queens_puzzle_logo.dart';
 import 'queens_puzzle/queens_puzzle_screen.dart';
 import 'tango/tango_logo.dart';
 import 'tango/tango_screen.dart';
+import 'patches/patches_logo.dart';
+import 'patches/patches_screen.dart';
 
 typedef GameWidgetBuilder = Widget Function();
 
@@ -94,6 +96,7 @@ class GameRegistry {
     'zip': () => const ZipScreen(),
     'queens_puzzle': () => const QueensPuzzleScreen(),
     'tango': () => const TangoScreen(),
+    'patches': () => const PatchesScreen(),
   };
 
   static Widget buildGame(String gameId) {
@@ -221,6 +224,62 @@ class GameRegistry {
       bgColor: Color(0xFFE0E7FF),
       playCount: 37000,
       customLogo: buildZipLogo,
+    ),
+    const GameInfo(
+      id: 'queens_puzzle',
+      name: 'Queens',
+      description: 'Place queens on the board — no two may touch!',
+      howToPlay:
+          'Choose your difficulty (Easy = 5×5, Medium = 6×6–7×7, Hard = 7×7–8×8).\n'
+          'Tap a cell to place a queen. Tap a queen to remove it.\n'
+          'Long press a cell to mark it with an X (elimination marker).\n'
+          'Place exactly one queen in each colored region.\n'
+          'Each row and column must have exactly one queen.\n'
+          'Queens cannot touch — horizontally, vertically, or diagonally.\n'
+          'Solve the puzzle when all queens are placed without conflicts!',
+      category: GameCategory.puzzle,
+      icon: Icons.auto_awesome_rounded,
+      color: Color(0xFF9B59B6),
+      bgColor: Color(0xFFF3E8FF),
+      playCount: 36000,
+      customLogo: buildQueensPuzzleLogo,
+    ),
+    const GameInfo(
+      id: 'tango',
+      name: 'Tango',
+      description: 'Fill the grid with suns and moons — balance rows, columns and clues!',
+      howToPlay:
+          'Choose your difficulty (Easy = 4×4, Medium = 6×6, Hard = 6×6 fewer clues).\n'
+          'Tap a cell to place a Sun. Tap again for Moon. Tap once more to clear.\n'
+          'Every row and column must have an equal number of Suns and Moons.\n'
+          'No three identical symbols may appear consecutively (horizontal or vertical).\n'
+          '"=" clues mean the two cells must match. "×" clues mean they must differ.\n'
+          'Pre-filled cells cannot be changed.\n'
+          'Solve the puzzle when all cells are filled and every rule is satisfied!',
+      category: GameCategory.puzzle,
+      icon: Icons.wb_sunny_rounded,
+      color: Color(0xFFF59E0B),
+      bgColor: Color(0xFFFFF8E1),
+      playCount: 35500,
+      customLogo: buildTangoLogo,
+    ),
+    const GameInfo(
+      id: 'patches',
+      name: 'Patches',
+      description: 'Divide the grid into rectangles — each clue tells you the patch size!',
+      howToPlay:
+          'Choose your difficulty (Easy = 5×5, Medium = 7×7, Hard = 9×9).\n'
+          'Drag across cells to create a rectangular patch.\n'
+          'Each number tells you the area of the patch it belongs to.\n'
+          'Every patch must be a rectangle containing exactly one number.\n'
+          'Tap an existing patch to remove it.\n'
+          'Cover every cell with no gaps and no overlaps to win!',
+      category: GameCategory.puzzle,
+      icon: Icons.grid_view_rounded,
+      color: Color(0xFF6366F1),
+      bgColor: Color(0xFFEEF2FF),
+      playCount: 35000,
+      customLogo: buildPatchesLogo,
     ),
     const GameInfo(
       id: 'arrow_puzzle',
@@ -600,44 +659,6 @@ class GameRegistry {
       bgColor: Color(0xFFFFF8E7),
       playCount: 1000,
       customLogo: buildGoLogo,
-    ),
-    const GameInfo(
-      id: 'queens_puzzle',
-      name: 'Queens',
-      description: 'Place queens on the board — no two may touch!',
-      howToPlay:
-          'Choose your difficulty (Easy = 5×5, Medium = 6×6–7×7, Hard = 7×7–8×8).\n'
-          'Tap a cell to place a queen. Tap a queen to remove it.\n'
-          'Long press a cell to mark it with an X (elimination marker).\n'
-          'Place exactly one queen in each colored region.\n'
-          'Each row and column must have exactly one queen.\n'
-          'Queens cannot touch — horizontally, vertically, or diagonally.\n'
-          'Solve the puzzle when all queens are placed without conflicts!',
-      category: GameCategory.puzzle,
-      icon: Icons.auto_awesome_rounded,
-      color: Color(0xFF9B59B6),
-      bgColor: Color(0xFFF3E8FF),
-      playCount: 4200,
-      customLogo: buildQueensPuzzleLogo,
-    ),
-    const GameInfo(
-      id: 'tango',
-      name: 'Tango',
-      description: 'Fill the grid with suns and moons — balance rows, columns and clues!',
-      howToPlay:
-          'Choose your difficulty (Easy = 4×4, Medium = 6×6, Hard = 6×6 fewer clues).\n'
-          'Tap a cell to place a Sun. Tap again for Moon. Tap once more to clear.\n'
-          'Every row and column must have an equal number of Suns and Moons.\n'
-          'No three identical symbols may appear consecutively (horizontal or vertical).\n'
-          '"=" clues mean the two cells must match. "×" clues mean they must differ.\n'
-          'Pre-filled cells cannot be changed.\n'
-          'Solve the puzzle when all cells are filled and every rule is satisfied!',
-      category: GameCategory.puzzle,
-      icon: Icons.wb_sunny_rounded,
-      color: Color(0xFFF59E0B),
-      bgColor: Color(0xFFFFF8E1),
-      playCount: 3800,
-      customLogo: buildTangoLogo,
     ),
 
   ];
