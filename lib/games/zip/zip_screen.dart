@@ -17,6 +17,7 @@ import '../shared/animated_background.dart';
 import '../shared/animated_difficulty_icon.dart';
 import '../shared/game_control_buttons.dart';
 import '../shared/game_difficulty_picker.dart';
+import '../shared/continue_dialog.dart';
 import '../shared/game_hud_bar.dart';
 import '../shared/generic_game_result_screen.dart' as game_result;
 import '../shared/level_complete_overlay.dart';
@@ -73,6 +74,7 @@ class _ZipScreenState extends State<ZipScreen> with SingleTickerProviderStateMix
   Color _pathEnd = const Color(0xFF16A34A);
   Color _boardBg = const Color(0xFFF0FDF4);
   Color _boardBorder = const Color(0xFFBBF7D0);
+  double _hue = 0;
 
   int _hintsUsed = 0;
   static const _kMaxHints = 3;
@@ -119,15 +121,41 @@ class _ZipScreenState extends State<ZipScreen> with SingleTickerProviderStateMix
         gameId: kZipGameId);
   }
 
-  void _startGame(_Difficulty diff) {
+  void _startGame(_Difficulty diff) async {
     final lps = LevelProgressService();
     _level = lps.getCurrentLevel(kZipGameId, diff.subKey);
+
+    final saved = lps.getGameState(kZipGameId, diff.subKey);
+    final hasSave = saved != null && saved['level'] == _level;
+
+    bool shouldContinue = false;
+    if (hasSave) {
+      shouldContinue = await showContinueDialog(
+        context,
+        gameName: 'Zip',
+        accentColor: diff.color,
+        level: _level,
+      );
+      if (!mounted) return;
+    }
+
     _gameOver = false;
     _won = false;
     _moves = 0;
     _hintsUsed = 0;
     _hintCell = null;
     _generateLevel(diff);
+
+    if (hasSave && shouldContinue) {
+      _playerPath = List<int>.from(saved['playerPath'] as List);
+      _moves = saved['moves'] as int;
+      _hintsUsed = (saved['hintsUsed'] as int?) ?? 0;
+      final savedHue = (saved['hue'] as num?)?.toDouble();
+      if (savedHue != null) _applyHue(savedHue);
+    } else {
+      if (hasSave) lps.clearGameState(kZipGameId, diff.subKey);
+    }
+
     _resetIdleTimer();
     setState(() => _activeDifficulty = diff);
     GameWrapper.of(context)
@@ -145,7 +173,12 @@ class _ZipScreenState extends State<ZipScreen> with SingleTickerProviderStateMix
     _walls = result.walls;
     _checkpoints = result.checkpoints;
 
-    final hue = math.Random().nextDouble() * 360;
+    _applyHue(math.Random().nextDouble() * 360);
+    _playerPath = [];
+  }
+
+  void _applyHue(double hue) {
+    _hue = hue;
     _levelAccent = HSLColor.fromAHSL(1, hue, 0.70, 0.45).toColor();
     _pathStart = HSLColor.fromAHSL(1, hue, 0.72, 0.42).toColor();
     _pathEnd = HSLColor.fromAHSL(1, hue, 0.68, 0.50).toColor();
@@ -153,7 +186,6 @@ class _ZipScreenState extends State<ZipScreen> with SingleTickerProviderStateMix
     _levelDark = HSLColor.fromAHSL(1, hue, 0.50, 0.25).toColor();
     _boardBg = HSLColor.fromAHSL(1, hue, 0.40, 0.97).toColor();
     _boardBorder = HSLColor.fromAHSL(1, hue, 0.45, 0.85).toColor();
-    _playerPath = [];
   }
 
   bool _hasWall(int a, int b) => _walls.contains(gen.edgeKey(a, b));
@@ -215,6 +247,7 @@ class _ZipScreenState extends State<ZipScreen> with SingleTickerProviderStateMix
     _hintFromCell = null;
     _hintAnim.stop();
     _resetIdleTimer();
+    _saveState();
     _checkWin();
   }
 
@@ -227,6 +260,7 @@ class _ZipScreenState extends State<ZipScreen> with SingleTickerProviderStateMix
     _hintFromCell = null;
     _hintAnim.stop();
     _resetIdleTimer();
+    _saveState();
   }
 
   void _checkWin() {
@@ -253,6 +287,7 @@ class _ZipScreenState extends State<ZipScreen> with SingleTickerProviderStateMix
       final lps = LevelProgressService();
       lps.advanceLevel(kZipGameId, diff.subKey);
       lps.saveLevelBest(kZipGameId, diff.subKey, _level, _moves);
+      lps.clearGameState(kZipGameId, diff.subKey);
       GameWrapper.of(context).updateScore(_level);
       AudioService().playScore();
       _showAppreciation();
@@ -365,6 +400,7 @@ class _ZipScreenState extends State<ZipScreen> with SingleTickerProviderStateMix
     _hintAnim.stop();
     _hintAnim.value = 0;
     _hintAnim.repeat();
+    _saveState();
   }
 
   void _restartLevel() {
@@ -372,18 +408,36 @@ class _ZipScreenState extends State<ZipScreen> with SingleTickerProviderStateMix
       _moves = 0;
       _gameOver = false;
       _won = false;
+      _hintsUsed = 0;
       _playerPath = [];
       _hintCell = null;
       _hintFromCell = null;
     });
     _hintAnim.stop();
+    if (_activeDifficulty != null) {
+      LevelProgressService().clearGameState(kZipGameId, _activeDifficulty!.subKey);
+    }
     _resetIdleTimer();
     GameWrapper.of(context).restartGame();
     GameWrapper.of(context).startGame();
     GameWrapper.of(context).updateScore(_level);
   }
 
+  void _saveState() {
+    final diff = _activeDifficulty;
+    if (diff == null || _gameOver || _won) return;
+    if (_playerPath.isEmpty) return;
+    LevelProgressService().saveGameState(kZipGameId, diff.subKey, {
+      'level': _level,
+      'playerPath': _playerPath,
+      'moves': _moves,
+      'hintsUsed': _hintsUsed,
+      'hue': _hue,
+    });
+  }
+
   void _backOrHome() {
+    _saveState();
     final wrapper = GameWrapper.of(context);
     wrapper.handleExit(() {
       if (context.canPop()) {

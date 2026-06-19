@@ -42,6 +42,7 @@ const _gameIds = [
   'number_sequence',
   'water_sort',
   'zip',
+  'queens_puzzle',
 ];
 
 String _playButtonText(String gameId) => switch (gameId) {
@@ -63,6 +64,7 @@ String _playButtonText(String gameId) => switch (gameId) {
   'water_sort'    => 'Play Water Sort',
   'arrow_puzzle'    => 'Play Arrow Puzzle',
   'zip'             => 'Play Zip',
+  'queens_puzzle'   => 'Play Queens',
   _              => 'Tap to Start',
 };
 

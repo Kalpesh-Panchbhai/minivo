@@ -15,6 +15,7 @@ import '../shared/animated_background.dart';
 import '../shared/animated_difficulty_icon.dart';
 import '../shared/game_control_buttons.dart';
 import '../shared/game_difficulty_picker.dart';
+import '../shared/continue_dialog.dart';
 import '../shared/game_hud_bar.dart';
 import '../shared/generic_game_result_screen.dart' as game_result;
 import '../shared/level_complete_overlay.dart';
@@ -156,23 +157,38 @@ class _WaterSortScreenState extends State<WaterSortScreen> with TickerProviderSt
       accent: _kAccent, steps: waterSortSteps(), gameId: kWaterSortGameId);
   }
 
-  void _startGame(_Difficulty diff) {
+  void _startGame(_Difficulty diff) async {
     final lps = LevelProgressService();
     _level = lps.getCurrentLevel(kWaterSortGameId, diff.subKey);
+
+    final saved = lps.getGameState(kWaterSortGameId, diff.subKey);
+    final hasSave = saved != null && saved['level'] == _level;
+
+    bool shouldContinue = false;
+    if (hasSave) {
+      shouldContinue = await showContinueDialog(
+        context,
+        gameName: 'Water Sort',
+        accentColor: diff.color,
+        level: _level,
+      );
+      if (!mounted) return;
+    }
+
     _gameOver = false;
     _won = false;
     _selectedTube = -1;
     _celebratingTubes.clear();
     _generateLevel(diff);
 
-    final saved = lps.getGameState(kWaterSortGameId, diff.subKey);
-    if (saved != null && saved['level'] == _level) {
+    if (hasSave && shouldContinue) {
       _tubes = (saved['tubes'] as List).map((t) => List<int>.from(t as List)).toList();
       _moves = saved['moves'] as int;
       _extraTubeSlots = saved['extraTubeSlots'] as int;
       _completedTubes.clear();
       _completedTubes.addAll((saved['completedTubes'] as List).cast<int>());
     } else {
+      if (hasSave) lps.clearGameState(kWaterSortGameId, diff.subKey);
       _moves = 0;
       _extraTubeSlots = 0;
       _completedTubes.clear();
@@ -414,6 +430,7 @@ class _WaterSortScreenState extends State<WaterSortScreen> with TickerProviderSt
   void _saveState() {
     final diff = _activeDifficulty;
     if (diff == null || _gameOver || _won) return;
+    if (_moves == 0 && _extraTubeSlots == 0) return;
     LevelProgressService().saveGameState(kWaterSortGameId, diff.subKey, {
       'level': _level,
       'tubes': _tubes,

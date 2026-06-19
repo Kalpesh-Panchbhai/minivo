@@ -55,6 +55,7 @@ const _games = <List<String>>[
   ['number_sequence', 'Number Sequence', 'Play Number Sequence'], // 25 / 50 / 100
   ['dots_and_boxes', 'Dots and Boxes', 'Play vs. AI'], // 4x4 / 5x5 / 6x6
   ['hangman', 'Hangman', 'Play Hangman'], // word-length tiers
+  ['queens_puzzle', 'Queens Puzzle', 'Play Queens'], // 5x5 / 6x6 / 7x7 at level 1
 ];
 
 const _diffNames = ['EASY', 'MEDIUM', 'HARD'];

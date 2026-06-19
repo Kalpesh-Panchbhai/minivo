@@ -573,21 +573,163 @@ and their tests `test/games/<game>_solvability_test.dart` + generators
 **Wire-up in the screen (`LevelProgressService`, exact API):**
 ```dart
 import '../../core/services/level_progress_service.dart';
+import '../shared/continue_dialog.dart';
 import '../shared/level_complete_overlay.dart';
 
 final lps = LevelProgressService();
 // Start: read the player's current level for this difficulty (defaults to 1).
 _level = lps.getCurrentLevel(kMyGameId, diff.subKey);
 final result = generate<Game>Level(_level, diff.index); // trust result.gridSize etc.
-// Persist mid-puzzle so a kill/return resumes:
-lps.saveGameState(kMyGameId, diff.subKey, {...serializable state...});
-final saved = lps.getGameState(kMyGameId, diff.subKey); // restore on _startGame
 // On solve:
 lps.advanceLevel(kMyGameId, diff.subKey);        // current+1, bumps highest
 lps.saveLevelBest(kMyGameId, diff.subKey, _level, _moves); // optional best-per-level
 ```
 The picker's play sub-label shows the next level:
 `'Level ${lps.getCurrentLevel(kMyGameId, _pickerDifficulty.subKey)}'`.
+
+### Game State Persistence & Continue Dialog (mandatory for all level games)
+
+Every level-based game MUST persist its in-progress state so the player can
+resume exactly where they left off. The four rules:
+
+1. **Save after every user activity** — any move, hint, tube unlock, path draw,
+   arrow freed, etc. Call `_saveState()` immediately after each activity, not
+   just on exit.
+2. **Show a Continue Dialog on re-entry** — if saved state exists for the
+   current level+difficulty, prompt the user to "Continue" or "Start Fresh"
+   using `showContinueDialog`. If "Start Fresh", clear the saved state.
+3. **On continue, restore the full state** — board, moves, hints used, freed
+   pieces, color scheme, extra slots — everything the user would expect.
+4. **On win or restart, clear saved state** — call `lps.clearGameState(...)`.
+   Reset all per-level counters (`_hintsUsed = 0`, `_moves = 0`, extra
+   slots = 0, etc.) in both `_restartLevel()` and `_nextLevel()`.
+
+**What to save:** Every piece of game-visible state that changes through user
+interaction. Common fields across existing games:
+
+| Game | Saved Fields |
+|------|-------------|
+| Queens Puzzle | playerQueens, xMarkers, hintsUsed |
+| Water Sort | tubes, moves, extraTubeSlots, completedTubes |
+| Zip | playerPath, moves, hintsUsed, hue (color scheme) |
+| Arrow Puzzle | taps, freedCount, hintsUsed, freedArrowIds |
+
+**Activity check:** `_saveState()` must skip saving if the user hasn't done
+anything meaningful yet (just opened and closed = no save). Check for actual
+activity: `if (_moves == 0 && _extraSlots == 0) return;` or
+`if (_playerPath.isEmpty) return;` etc.
+
+**`_startGame` pattern (with continue dialog):**
+```dart
+void _startGame(_Difficulty diff) async {
+  final lps = LevelProgressService();
+  _level = lps.getCurrentLevel(kMyGameId, diff.subKey);
+
+  // Check for saved state
+  final saved = lps.getGameState(kMyGameId, diff.subKey);
+  final hasSave = saved != null && saved['level'] == _level;
+
+  bool shouldContinue = false;
+  if (hasSave) {
+    shouldContinue = await showContinueDialog(
+      context,
+      gameName: 'My Game',
+      accentColor: diff.color,
+      level: _level,
+    );
+    if (!mounted) return;
+  }
+
+  // Reset all state
+  _gameOver = false;
+  _won = false;
+  _moves = 0;
+  _hintsUsed = 0;
+  _generateLevel(diff);
+
+  // Restore saved state if continuing
+  if (hasSave && shouldContinue) {
+    _moves = saved['moves'] as int;
+    _hintsUsed = (saved['hintsUsed'] as int?) ?? 0;
+    // ... restore all other saved fields
+  } else {
+    if (hasSave) lps.clearGameState(kMyGameId, diff.subKey);
+  }
+
+  setState(() => _activeDifficulty = diff);
+  GameWrapper.of(context).setDifficultyAndMode(difficulty: diff.label, subKey: diff.subKey);
+  GameWrapper.of(context).startGame();
+  GameWrapper.of(context).updateScore(_level);
+}
+```
+
+**`_saveState` pattern (called after EVERY activity):**
+```dart
+void _saveState() {
+  final diff = _activeDifficulty;
+  if (diff == null || _gameOver || _won) return;
+  // Activity check — skip if no user interaction yet
+  if (_moves == 0 && _extraSlots == 0) return;
+  LevelProgressService().saveGameState(kMyGameId, diff.subKey, {
+    'level': _level,
+    'moves': _moves,
+    'hintsUsed': _hintsUsed,
+    // ... all game-specific state
+  });
+}
+```
+
+**Where to call `_saveState()`:** After every user-triggered state change:
+- After placing/removing a piece (`_onCellTap`, `_onCellLongPress`)
+- After a pour/move completes
+- After a hint is applied (`_applyHint`)
+- After unlocking an extra slot (rewarded ad callback)
+- After freeing an arrow / drawing a path cell / backtracking
+- In `_backOrHome()` and `_backToPicker()` (safety net)
+
+**Clear state on win (`_endGame`):**
+```dart
+lps.advanceLevel(kMyGameId, diff.subKey);
+lps.clearGameState(kMyGameId, diff.subKey);
+```
+
+**Reset everything on restart (`_restartLevel`):**
+```dart
+void _restartLevel() {
+  setState(() {
+    _moves = 0;
+    _gameOver = false;
+    _won = false;
+    _hintsUsed = 0;          // MUST reset hint count
+    _extraSlots = 0;          // MUST reset extra slots/tubes
+    // ... reset all game-specific state
+  });
+  if (_activeDifficulty != null) {
+    LevelProgressService().clearGameState(kMyGameId, _activeDifficulty!.subKey);
+  }
+}
+```
+
+**Reset everything on next level (`_nextLevel`):**
+```dart
+void _nextLevel() {
+  setState(() {
+    _level++;
+    _moves = 0;
+    _hintsUsed = 0;           // MUST reset hint count
+    _extraSlots = 0;           // MUST reset extra slots
+    _gameOver = false;
+    _won = false;
+  });
+  _generateLevel(_activeDifficulty!);
+  // ... restart game wrapper
+}
+```
+
+Import: `import '../shared/continue_dialog.dart';`
+
+Reference implementations: `queens_puzzle_screen.dart`, `water_sort_screen.dart`,
+`zip_screen.dart`, `arrow_puzzle_screen.dart`.
 
 **Level-complete flow:** show `LevelCompleteOverlay`, then advance via the
 rewarded gate so progression and the interstitial cadence stay centralized:

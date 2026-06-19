@@ -17,6 +17,7 @@ import '../shared/animated_background.dart';
 import '../shared/animated_difficulty_icon.dart';
 import '../shared/game_control_buttons.dart';
 import '../shared/game_difficulty_picker.dart';
+import '../shared/continue_dialog.dart';
 import '../shared/game_hud_bar.dart';
 import '../shared/generic_game_result_screen.dart' as game_result;
 import '../shared/level_complete_overlay.dart';
@@ -208,9 +209,24 @@ class _ArrowPuzzleScreenState extends State<ArrowPuzzleScreen> with TickerProvid
       accent: _kAccent, steps: arrowPuzzleSteps(), gameId: kArrowPuzzleGameId);
   }
 
-  void _startGame(_Difficulty diff) {
+  void _startGame(_Difficulty diff) async {
     final lps = LevelProgressService();
     _level = lps.getCurrentLevel(kArrowPuzzleGameId, diff.subKey);
+
+    final saved = lps.getGameState(kArrowPuzzleGameId, diff.subKey);
+    final hasSave = saved != null && saved['level'] == _level;
+
+    bool shouldContinue = false;
+    if (hasSave) {
+      shouldContinue = await showContinueDialog(
+        context,
+        gameName: 'Arrow Puzzle',
+        accentColor: diff.color,
+        level: _level,
+      );
+      if (!mounted) return;
+    }
+
     _gameOver = false;
     _won = false;
     _taps = 0;
@@ -219,8 +235,22 @@ class _ArrowPuzzleScreenState extends State<ArrowPuzzleScreen> with TickerProvid
     _idleStuck = false;
     _hintsUsed = 0;
     _generateLevel(diff);
-    _resetIdleTimer();
 
+    if (hasSave && shouldContinue) {
+      _taps = saved['taps'] as int;
+      _freedCount = saved['freedCount'] as int;
+      _hintsUsed = (saved['hintsUsed'] as int?) ?? 0;
+      final freedIds = Set<int>.from((saved['freedArrowIds'] as List).cast<int>());
+      for (final a in _arrows) {
+        if (freedIds.contains(a.id)) {
+          a.freed = true;
+        }
+      }
+    } else {
+      if (hasSave) lps.clearGameState(kArrowPuzzleGameId, diff.subKey);
+    }
+
+    _resetIdleTimer();
     setState(() => _activeDifficulty = diff);
     GameWrapper.of(context).setDifficultyAndMode(difficulty: diff.label, subKey: diff.subKey);
     GameWrapper.of(context).startGame();
@@ -304,6 +334,8 @@ class _ArrowPuzzleScreenState extends State<ArrowPuzzleScreen> with TickerProvid
     if (_freedCount >= _totalArrows) {
       _won = true;
       _endGame(true);
+    } else {
+      _saveState();
     }
     setState(() {});
   }
@@ -314,6 +346,7 @@ class _ArrowPuzzleScreenState extends State<ArrowPuzzleScreen> with TickerProvid
       final diff = _activeDifficulty!;
       final lps = LevelProgressService();
       lps.advanceLevel(kArrowPuzzleGameId, diff.subKey);
+      lps.clearGameState(kArrowPuzzleGameId, diff.subKey);
       GameWrapper.of(context).updateScore(_level);
       AudioService().playSuccess();
       _showAppreciation();
@@ -382,6 +415,7 @@ class _ArrowPuzzleScreenState extends State<ArrowPuzzleScreen> with TickerProvid
         _idleStuck = false;
         _hintsUsed++;
         _resetIdleTimer();
+        _saveState();
         _showHint(freeArrow.id);
       },
     );
@@ -426,6 +460,7 @@ class _ArrowPuzzleScreenState extends State<ArrowPuzzleScreen> with TickerProvid
       _won = false;
       _freedCount = 0;
       _consecutiveBlocks = 0;
+      _hintsUsed = 0;
       _idleStuck = false;
       _flyingArrowId = null;
       _blockedArrowId = null;
@@ -453,18 +488,37 @@ class _ArrowPuzzleScreenState extends State<ArrowPuzzleScreen> with TickerProvid
       _idleStuck = false;
       _flyingArrowId = null;
       _blockedArrowId = null;
+      _hintsUsed = 0;
       for (final a in _arrows) {
         a.freed = false;
         a.flyProgress = 0;
       }
     });
+    if (_activeDifficulty != null) {
+      LevelProgressService().clearGameState(kArrowPuzzleGameId, _activeDifficulty!.subKey);
+    }
     _resetIdleTimer();
     GameWrapper.of(context).restartGame();
     GameWrapper.of(context).startGame();
     GameWrapper.of(context).updateScore(_level);
   }
 
+  void _saveState() {
+    final diff = _activeDifficulty;
+    if (diff == null || _gameOver || _won) return;
+    if (_taps == 0) return;
+    final freedIds = _arrows.where((a) => a.freed).map((a) => a.id).toList();
+    LevelProgressService().saveGameState(kArrowPuzzleGameId, diff.subKey, {
+      'level': _level,
+      'taps': _taps,
+      'freedCount': _freedCount,
+      'hintsUsed': _hintsUsed,
+      'freedArrowIds': freedIds,
+    });
+  }
+
   void _backToPicker() {
+    _saveState();
     _flyAnim?.dispose();
     _flyAnim = null;
     _flyingArrowId = null;
@@ -483,6 +537,7 @@ class _ArrowPuzzleScreenState extends State<ArrowPuzzleScreen> with TickerProvid
   }
 
   void _backOrHome() {
+    _saveState();
     final wrapper = GameWrapper.of(context);
     wrapper.handleExit(() {
       if (context.canPop()) {

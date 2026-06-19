@@ -33,6 +33,7 @@ Future<void> initTestDependencies() async {
     'tutorial_seen_minesweeper': true,
     'tutorial_seen_solitaire': true,
     'tutorial_seen_sliding_puzzle': true,
+    'tutorial_seen_queens_puzzle': true,
   });
   await ScoreService().init();
   await LevelProgressService().init();

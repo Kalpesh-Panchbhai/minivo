@@ -54,6 +54,8 @@ import 'arrow_puzzle/arrow_puzzle_logo.dart';
 import 'arrow_puzzle/arrow_puzzle_screen.dart';
 import 'zip/zip_logo.dart';
 import 'zip/zip_screen.dart';
+import 'queens_puzzle/queens_puzzle_logo.dart';
+import 'queens_puzzle/queens_puzzle_screen.dart';
 
 typedef GameWidgetBuilder = Widget Function();
 
@@ -88,6 +90,7 @@ class GameRegistry {
     'water_sort': () => const WaterSortScreen(),
     'arrow_puzzle': () => const ArrowPuzzleScreen(),
     'zip': () => const ZipScreen(),
+    'queens_puzzle': () => const QueensPuzzleScreen(),
   };
 
   static Widget buildGame(String gameId) {
@@ -594,6 +597,25 @@ class GameRegistry {
       bgColor: Color(0xFFFFF8E7),
       playCount: 1000,
       customLogo: buildGoLogo,
+    ),
+    const GameInfo(
+      id: 'queens_puzzle',
+      name: 'Queens',
+      description: 'Place queens on the board — no two may touch!',
+      howToPlay:
+          'Choose your difficulty (Easy = 5×5, Medium = 6×6–7×7, Hard = 7×7–8×8).\n'
+          'Tap a cell to place a queen. Tap a queen to remove it.\n'
+          'Long press a cell to mark it with an X (elimination marker).\n'
+          'Place exactly one queen in each colored region.\n'
+          'Each row and column must have exactly one queen.\n'
+          'Queens cannot touch — horizontally, vertically, or diagonally.\n'
+          'Solve the puzzle when all queens are placed without conflicts!',
+      category: GameCategory.puzzle,
+      icon: Icons.auto_awesome_rounded,
+      color: Color(0xFF9B59B6),
+      bgColor: Color(0xFFF3E8FF),
+      playCount: 4200,
+      customLogo: buildQueensPuzzleLogo,
     ),
 
   ];

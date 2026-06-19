@@ -68,6 +68,12 @@ final _configs = <_MaxConfig>[
     playText: 'Play Arrow Puzzle',
     levelPrefs: {levelCurrentKey('arrow_puzzle', 'hard'): 8365}, // -> full 12x13, 41 arrows
   ),
+  _MaxConfig(
+    gameId: 'queens_puzzle',
+    name: 'Queens Puzzle',
+    playText: 'Play Queens',
+    levelPrefs: {levelCurrentKey('queens_puzzle', 'hard'): 6}, // -> 8x8 (largest board)
+  ),
   // Difficulty-scaled: HARD is the biggest board.
   const _MaxConfig(
     gameId: 'minesweeper',
