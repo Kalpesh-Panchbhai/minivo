@@ -56,6 +56,7 @@ const _games = <List<String>>[
   ['dots_and_boxes', 'Dots and Boxes', 'Play vs. AI'], // 4x4 / 5x5 / 6x6
   ['hangman', 'Hangman', 'Play Hangman'], // word-length tiers
   ['queens_puzzle', 'Queens Puzzle', 'Play Queens'], // 5x5 / 6x6 / 7x7 at level 1
+  ['tango', 'Tango', 'Play Tango'], // 4x4 / 6x6 / 6x6 fewer clues
 ];
 
 const _diffNames = ['EASY', 'MEDIUM', 'HARD'];

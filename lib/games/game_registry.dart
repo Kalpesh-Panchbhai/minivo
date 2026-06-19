@@ -56,6 +56,8 @@ import 'zip/zip_logo.dart';
 import 'zip/zip_screen.dart';
 import 'queens_puzzle/queens_puzzle_logo.dart';
 import 'queens_puzzle/queens_puzzle_screen.dart';
+import 'tango/tango_logo.dart';
+import 'tango/tango_screen.dart';
 
 typedef GameWidgetBuilder = Widget Function();
 
@@ -91,6 +93,7 @@ class GameRegistry {
     'arrow_puzzle': () => const ArrowPuzzleScreen(),
     'zip': () => const ZipScreen(),
     'queens_puzzle': () => const QueensPuzzleScreen(),
+    'tango': () => const TangoScreen(),
   };
 
   static Widget buildGame(String gameId) {
@@ -616,6 +619,25 @@ class GameRegistry {
       bgColor: Color(0xFFF3E8FF),
       playCount: 4200,
       customLogo: buildQueensPuzzleLogo,
+    ),
+    const GameInfo(
+      id: 'tango',
+      name: 'Tango',
+      description: 'Fill the grid with suns and moons — balance rows, columns and clues!',
+      howToPlay:
+          'Choose your difficulty (Easy = 4×4, Medium = 6×6, Hard = 6×6 fewer clues).\n'
+          'Tap a cell to place a Sun. Tap again for Moon. Tap once more to clear.\n'
+          'Every row and column must have an equal number of Suns and Moons.\n'
+          'No three identical symbols may appear consecutively (horizontal or vertical).\n'
+          '"=" clues mean the two cells must match. "×" clues mean they must differ.\n'
+          'Pre-filled cells cannot be changed.\n'
+          'Solve the puzzle when all cells are filled and every rule is satisfied!',
+      category: GameCategory.puzzle,
+      icon: Icons.wb_sunny_rounded,
+      color: Color(0xFFF59E0B),
+      bgColor: Color(0xFFFFF8E1),
+      playCount: 3800,
+      customLogo: buildTangoLogo,
     ),
 
   ];

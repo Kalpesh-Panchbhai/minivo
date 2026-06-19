@@ -74,6 +74,11 @@ final _configs = <_MaxConfig>[
     playText: 'Play Queens',
     levelPrefs: {levelCurrentKey('queens_puzzle', 'hard'): 6}, // -> 8x8 (largest board)
   ),
+  const _MaxConfig(
+    gameId: 'tango',
+    name: 'Tango',
+    playText: 'Play Tango',
+  ), // -> 6x6 hard (densest clue layout)
   // Difficulty-scaled: HARD is the biggest board.
   const _MaxConfig(
     gameId: 'minesweeper',

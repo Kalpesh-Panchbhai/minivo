@@ -26,6 +26,7 @@ import 'water_sort/water_sort_stats.dart';
 import 'arrow_puzzle/arrow_puzzle_stats.dart';
 import 'zip/zip_stats.dart';
 import 'queens_puzzle/queens_puzzle_stats.dart';
+import 'tango/tango_stats.dart';
 
 /// Single entry point for registering all per-game custom stats builders.
 /// Add new games here as they ship.
@@ -61,4 +62,5 @@ void registerAllGameStats() {
   registerArrowPuzzleStats();
   registerZipStats();
   registerQueensPuzzleStats();
+  registerTangoStats();
 }
