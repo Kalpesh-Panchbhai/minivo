@@ -48,22 +48,22 @@ class _LevelParams {
 }
 
 const _waterColors = [
-  Color(0xFFEF4444),
-  Color(0xFF3B82F6),
-  Color(0xFF22C55E),
-  Color(0xFFF59E0B),
-  Color(0xFF8B5CF6),
-  Color(0xFFEC4899),
-  Color(0xFF06B6D4),
-  Color(0xFFF97316),
-  Color(0xFF14B8A6),
-  Color(0xFFE11D48),
-  Color(0xFF84CC16), // lime
-  Color(0xFF6366F1), // indigo
-  Color(0xFFEAB308), // yellow
-  Color(0xFFD946EF), // fuchsia
-  Color(0xFF047857), // dark emerald
-  Color(0xFF92400E), // brown
+  Color(0xFFE53935), // red
+  Color(0xFF1E88E5), // blue
+  Color(0xFF43A047), // green
+  Color(0xFFFDD835), // yellow
+  Color(0xFF7B1FA2), // purple
+  Color(0xFFEF6C00), // orange
+  Color(0xFF00BCD4), // cyan
+  Color(0xFFF06292), // pink
+  Color(0xFF6D4C41), // brown
+  Color(0xFFC0CA33), // lime
+  Color(0xFF00897B), // teal
+  Color(0xFF283593), // navy
+  Color(0xFFAD1457), // maroon
+  Color(0xFFD500F9), // magenta
+  Color(0xFF1B5E20), // forest green
+  Color(0xFFFF6E40), // coral
 ];
 
 class WaterSortScreen extends StatefulWidget {

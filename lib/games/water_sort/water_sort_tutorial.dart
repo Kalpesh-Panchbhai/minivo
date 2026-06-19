@@ -36,8 +36,8 @@ class _PourPainter extends CustomPainter {
   final double t;
   _PourPainter(this.t);
 
-  static const _red = Color(0xFFEF4444);
-  static const _blue = Color(0xFF3B82F6);
+  static const _red = Color(0xFFE53935);
+  static const _blue = Color(0xFF1E88E5);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -97,9 +97,9 @@ class _RulePainter extends CustomPainter {
   final double t;
   _RulePainter(this.t);
 
-  static const _red = Color(0xFFEF4444);
-  static const _blue = Color(0xFF3B82F6);
-  static const _green = Color(0xFF22C55E);
+  static const _red = Color(0xFFE53935);
+  static const _blue = Color(0xFF1E88E5);
+  static const _green = Color(0xFF43A047);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -180,7 +180,7 @@ class _SolvedPainter extends CustomPainter {
   final double t;
   _SolvedPainter(this.t);
 
-  static const _colors = [Color(0xFFEF4444), Color(0xFF3B82F6), Color(0xFF22C55E)];
+  static const _colors = [Color(0xFFE53935), Color(0xFF1E88E5), Color(0xFF43A047)];
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -214,7 +214,7 @@ class _SolvedPainter extends CustomPainter {
 
     final scale = 0.8 + 0.2 * math.sin(t * math.pi * 2);
     final tp = TextPainter(
-      text: const TextSpan(text: '✓ Sorted!', style: TextStyle(color: Color(0xFF22C55E), fontSize: 16, fontWeight: FontWeight.w900)),
+      text: const TextSpan(text: '✓ Sorted!', style: TextStyle(color: Color(0xFF43A047), fontSize: 16, fontWeight: FontWeight.w900)),
       textDirection: TextDirection.ltr,
     )..layout();
     canvas.save();
