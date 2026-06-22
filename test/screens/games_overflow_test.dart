@@ -17,6 +17,7 @@ import '../helpers/overflow_detector.dart';
 const _gameIds = [
   'arrow_puzzle',
   'checkers',
+  'chess',
   'color_tap',
   'connect_four',
   'dino_run',
@@ -45,6 +46,8 @@ const _gameIds = [
   'queens_puzzle',
   'tango',
   'patches',
+  'color_connect',
+  'ludo',
 ];
 
 String _playButtonText(String gameId) => switch (gameId) {
@@ -69,6 +72,9 @@ String _playButtonText(String gameId) => switch (gameId) {
   'queens_puzzle'   => 'Play Queens',
   'tango'           => 'Play Tango',
   'patches'         => 'Play Patches',
+  'chess'             => 'Play vs. AI',
+  'ludo'              => 'Play vs. AI',
+  'color_connect'    => 'Play Color Connect',
   _              => 'Tap to Start',
 };
 

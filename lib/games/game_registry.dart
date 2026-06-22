@@ -60,6 +60,12 @@ import 'tango/tango_logo.dart';
 import 'tango/tango_screen.dart';
 import 'patches/patches_logo.dart';
 import 'patches/patches_screen.dart';
+import 'color_connect/color_connect_logo.dart';
+import 'color_connect/color_connect_screen.dart';
+import 'chess/chess_logo.dart';
+import 'chess/chess_screen.dart';
+import 'ludo/ludo_logo.dart';
+import 'ludo/ludo_screen.dart';
 
 typedef GameWidgetBuilder = Widget Function();
 
@@ -97,6 +103,9 @@ class GameRegistry {
     'queens_puzzle': () => const QueensPuzzleScreen(),
     'tango': () => const TangoScreen(),
     'patches': () => const PatchesScreen(),
+    'color_connect': () => const ColorConnectScreen(),
+    'chess': () => const ChessScreen(),
+    'ludo': () => const LudoScreen(),
   };
 
   static Widget buildGame(String gameId) {
@@ -280,6 +289,24 @@ class GameRegistry {
       bgColor: Color(0xFFEEF2FF),
       playCount: 35000,
       customLogo: buildPatchesLogo,
+    ),
+    const GameInfo(
+      id: 'color_connect',
+      name: 'Color Connect',
+      description: 'Link matching dots with paths — fill every cell without crossing!',
+      howToPlay:
+          'Choose your difficulty (Easy = 5×5, Medium = 7×7, Hard = 9×9).\n'
+          'Drag from a colored dot to connect it to its matching pair.\n'
+          'Paths cannot cross or overlap with each other.\n'
+          'Every cell on the board must be filled by a path.\n'
+          'Complete all connections to solve the puzzle!\n'
+          'Backtrack by dragging back over your path.',
+      category: GameCategory.puzzle,
+      icon: Icons.linear_scale_rounded,
+      color: Color(0xFF6C63FF),
+      bgColor: Color(0xFFE8E5FF),
+      playCount: 34000,
+      customLogo: buildColorConnectLogo,
     ),
     const GameInfo(
       id: 'arrow_puzzle',
@@ -659,6 +686,42 @@ class GameRegistry {
       bgColor: Color(0xFFFFF8E7),
       playCount: 1000,
       customLogo: buildGoLogo,
+    ),
+    const GameInfo(
+      id: 'chess',
+      name: 'Chess',
+      description: 'The ultimate strategy game — checkmate the King to win!',
+      howToPlay:
+          'Choose your difficulty (Easy, Medium, Hard) or play with a friend on the same device.\n'
+          'Tap a piece to select it — green dots show legal moves.\n'
+          'Tap a highlighted square to move. Each piece has unique movement rules.\n'
+          'Put the opponent\'s King in check — they must escape or lose!\n'
+          'Special moves: castling (King + Rook), en passant (pawn capture), and pawn promotion.\n'
+          'Checkmate the King to win! Games can also end in draw (stalemate, repetition, 50-move rule).',
+      category: GameCategory.board,
+      icon: Icons.castle_rounded,
+      color: Color(0xFFD4AF37),
+      bgColor: Color(0xFFFAF8F5),
+      playCount: 30000,
+      customLogo: buildChessLogo,
+    ),
+    const GameInfo(
+      id: 'ludo',
+      name: 'Ludo',
+      description: 'Roll the die, race your tokens around the board, and get all four home first!',
+      howToPlay:
+          'Roll a 6 to release a token from home onto the board.\n'
+          'Roll the die and move a token clockwise by that many spaces.\n'
+          'Rolling a 6 gives you an extra turn.\n'
+          'Land on an opponent to send them back home — you get an extra turn!\n'
+          'Tokens on star squares are safe from capture.\n'
+          'Get all 4 tokens to the center finish area to win!',
+      category: GameCategory.board,
+      icon: Icons.casino_rounded,
+      color: Color(0xFF6C5CE7),
+      bgColor: Color(0xFFF8F6FF),
+      playCount: 35000,
+      customLogo: buildLudoLogo,
     ),
 
   ];

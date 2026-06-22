@@ -28,6 +28,9 @@ import 'zip/zip_stats.dart';
 import 'queens_puzzle/queens_puzzle_stats.dart';
 import 'tango/tango_stats.dart';
 import 'patches/patches_stats.dart';
+import 'color_connect/color_connect_stats.dart';
+import 'chess/chess_stats.dart';
+import 'ludo/ludo_stats.dart';
 
 /// Single entry point for registering all per-game custom stats builders.
 /// Add new games here as they ship.
@@ -65,4 +68,7 @@ void registerAllGameStats() {
   registerQueensPuzzleStats();
   registerTangoStats();
   registerPatchesStats();
+  registerColorConnectStats();
+  registerChessStats();
+  registerLudoStats();
 }

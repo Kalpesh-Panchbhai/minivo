@@ -514,8 +514,12 @@ Uint8List patchesEncodeLevel(PatchesLevelResult r) {
       bit++;
     }
   }
-  for (int i = 0; i < n; i++) putBits(r.clues[i], 5);
-  for (int i = 0; i < n; i++) putBits(r.solution[i], 8);
+  for (int i = 0; i < n; i++) {
+    putBits(r.clues[i], 5);
+  }
+  for (int i = 0; i < n; i++) {
+    putBits(r.solution[i], 8);
+  }
   return out;
 }
 

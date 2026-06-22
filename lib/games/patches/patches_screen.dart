@@ -450,7 +450,13 @@ class _PatchesScreenState extends State<PatchesScreen> with SingleTickerProvider
 
   void _backOrHome() {
     _saveState();
-    GameWrapper.of(context).handleExit(() { if (context.canPop()) context.pop(); else context.go('/home'); });
+    GameWrapper.of(context).handleExit(() {
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/home');
+      }
+    });
   }
 
   @override

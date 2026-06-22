@@ -24,6 +24,8 @@ import '../../lib/games/shared/spinning_slider.dart';
 const allGameIds = <String>[
   'arrow_puzzle',
   'checkers',
+  'chess',
+  'color_connect',
   'color_tap',
   'connect_four',
   'dino_run',
@@ -34,6 +36,7 @@ const allGameIds = <String>[
   'go',
   'gomoku',
   'hangman',
+  'ludo',
   'mancala',
   'memory_match',
   'minesweeper',
@@ -60,6 +63,8 @@ const allGameIds = <String>[
 const gamePlayButton = <String, String>{
   'arrow_puzzle': 'Play Arrow Puzzle',
   'checkers': 'Play vs. AI',
+  'chess': 'Play vs. AI',
+  'color_connect': 'Play Color Connect',
   'color_tap': 'Play Color Tap',
   'connect_four': 'Play vs. AI',
   'dino_run': 'Play Dino Run',
@@ -70,6 +75,7 @@ const gamePlayButton = <String, String>{
   'go': 'Play vs. AI',
   'gomoku': 'Play vs. AI',
   'hangman': 'Play Hangman',
+  'ludo': 'Play vs. AI',
   'mancala': 'Play vs. AI',
   'memory_match': 'Play vs. AI',
   'minesweeper': 'Play Minesweeper',
