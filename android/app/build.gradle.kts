@@ -69,6 +69,12 @@ android {
         }
     }
 
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
+
     // ── Flavors: `dev` for local runs, `prod` for store uploads ─────────────
     // Same applicationId for both — Firebase credentials and AdMob unit IDs
     // are selected at the Dart level via main_dev.dart / main_prod.dart.
