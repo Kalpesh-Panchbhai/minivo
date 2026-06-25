@@ -110,6 +110,12 @@ final _configs = <_MaxConfig>[
     name: 'Hangman',
     playText: 'Play Hangman',
   ), // -> longest words / 26-key keyboard
+  _MaxConfig(
+    gameId: 'block_escape',
+    name: 'Block Escape',
+    playText: 'Play Block Escape',
+    levelPrefs: {levelCurrentKey('block_escape', 'hard'): 500}, // -> max blocks
+  ),
 ];
 
 void main() {

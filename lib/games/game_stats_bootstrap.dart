@@ -31,6 +31,8 @@ import 'patches/patches_stats.dart';
 import 'color_connect/color_connect_stats.dart';
 import 'chess/chess_stats.dart';
 import 'ludo/ludo_stats.dart';
+import 'maze_paint/maze_paint_stats.dart';
+import 'block_escape/block_escape_stats.dart';
 
 /// Single entry point for registering all per-game custom stats builders.
 /// Add new games here as they ship.
@@ -71,4 +73,6 @@ void registerAllGameStats() {
   registerColorConnectStats();
   registerChessStats();
   registerLudoStats();
+  registerMazePaintStats();
+  registerBlockEscapeStats();
 }

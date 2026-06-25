@@ -57,6 +57,7 @@ const _games = <List<String>>[
   ['hangman', 'Hangman', 'Play Hangman'], // word-length tiers
   ['queens_puzzle', 'Queens Puzzle', 'Play Queens'], // 5x5 / 6x6 / 7x7 at level 1
   ['tango', 'Tango', 'Play Tango'], // 4x4 / 6x6 / 6x6 fewer clues
+  ['block_escape', 'Block Escape', 'Play Block Escape'], // 6x6 all, block count varies
 ];
 
 const _diffNames = ['EASY', 'MEDIUM', 'HARD'];

@@ -66,6 +66,10 @@ import 'chess/chess_logo.dart';
 import 'chess/chess_screen.dart';
 import 'ludo/ludo_logo.dart';
 import 'ludo/ludo_screen.dart';
+import 'maze_paint/maze_paint_logo.dart';
+import 'maze_paint/maze_paint_screen.dart';
+import 'block_escape/block_escape_logo.dart';
+import 'block_escape/block_escape_screen.dart';
 
 typedef GameWidgetBuilder = Widget Function();
 
@@ -106,6 +110,8 @@ class GameRegistry {
     'color_connect': () => const ColorConnectScreen(),
     'chess': () => const ChessScreen(),
     'ludo': () => const LudoScreen(),
+    'maze_paint': () => const MazePaintScreen(),
+    'block_escape': () => const BlockEscapeScreen(),
   };
 
   static Widget buildGame(String gameId) {
@@ -137,6 +143,43 @@ class GameRegistry {
       playCount: 52000,
       isFeatured: true,
       customLogo: buildSolitaireLogo,
+    ),
+    const GameInfo(
+      id: 'maze_paint',
+      name: 'Maze Paint',
+      description: 'Swipe a paint roller through the maze and cover every reachable tile!',
+      howToPlay:
+          'Choose your difficulty and level.\n'
+          'Swipe up, down, left, or right — the roller keeps moving until a wall, obstacle, or edge stops it.\n'
+          'Every tile the roller passes over becomes painted, and repainting is allowed.\n'
+          'Tap Restart to begin the level again, or Hint to reveal the next smart direction.\n'
+          'Paint every reachable non-wall tile to complete the level!',
+      category: GameCategory.puzzle,
+      icon: Icons.format_paint_rounded,
+      color: Color(0xFFFF1493),
+      bgColor: Color(0xFFFFF0F5),
+      playCount: 50000,
+      isFeatured: true,
+      customLogo: buildMazePaintLogo,
+    ),
+    const GameInfo(
+      id: 'block_escape',
+      name: 'Block Escape',
+      description: 'Slide blocks to free the red piece — a Rush Hour puzzle!',
+      howToPlay:
+          'Slide blocks horizontally or vertically to clear a path.\n'
+          'The red block can only move left and right.\n'
+          'Guide the red block to the exit gate on the right edge.\n'
+          'Each block slides along its axis until another block or wall stops it.\n'
+          'Solve each level in as few moves as possible.\n'
+          '10,000 unique, always-solvable levels per difficulty!',
+      category: GameCategory.puzzle,
+      icon: Icons.lock_open_rounded,
+      color: Color(0xFFE74C3C),
+      bgColor: Color(0xFFFFF0EE),
+      playCount: 48000,
+      isFeatured: true,
+      customLogo: buildBlockEscapeLogo,
     ),
     const GameInfo(
       id: 'sudoku',

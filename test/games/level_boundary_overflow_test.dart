@@ -60,6 +60,12 @@ const _games = <_LevelGame>[
   // Hard box grows to 12x13 (eff>=7); densest rectangle at 19 / 8365; +wrapped.
   _LevelGame('arrow_puzzle', 'Arrow Puzzle', 'Play Arrow Puzzle',
       [1, 3, 7, 19, 100, 8365, 9999, 18365]),
+  // Fixed 7x7 box, but every level is a different irregular shape; spread +
+  // a wrapped level so no shape on the progression overflows.
+  _LevelGame('maze_paint', 'Maze Paint', 'Play Maze Paint',
+      [1, 100, 5000, 9999, 10001]),
+  _LevelGame('block_escape', 'Block Escape', 'Play Block Escape',
+      [1, 50, 500, 5000, 9999, 10001]),
 ];
 
 void main() {

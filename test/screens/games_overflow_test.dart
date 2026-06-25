@@ -16,6 +16,7 @@ import '../helpers/overflow_detector.dart';
 // to wire it here means we lose responsive coverage — keep this in sync.
 const _gameIds = [
   'arrow_puzzle',
+  'block_escape',
   'checkers',
   'chess',
   'color_tap',
@@ -29,6 +30,7 @@ const _gameIds = [
   'gomoku',
   'hangman',
   'mancala',
+  'maze_paint',
   'memory_match',
   'number_merge',
   'reversi',
@@ -74,6 +76,8 @@ String _playButtonText(String gameId) => switch (gameId) {
   'patches'         => 'Play Patches',
   'chess'             => 'Play vs. AI',
   'ludo'              => 'Play vs. AI',
+  'maze_paint'        => 'Play Maze Paint',
+  'block_escape'      => 'Play Block Escape',
   'color_connect'    => 'Play Color Connect',
   _              => 'Tap to Start',
 };

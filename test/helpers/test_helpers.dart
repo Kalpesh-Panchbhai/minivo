@@ -10,6 +10,7 @@ import 'overflow_detector.dart';
 
 Future<void> initTestDependencies() async {
   SharedPreferences.setMockInitialValues({
+    'tutorial_seen_block_escape': true,
     'tutorial_seen_color_tap': true,
     'tutorial_seen_dino_run': true,
     'tutorial_seen_dodge_ball': true,
@@ -34,6 +35,7 @@ Future<void> initTestDependencies() async {
     'tutorial_seen_solitaire': true,
     'tutorial_seen_sliding_puzzle': true,
     'tutorial_seen_queens_puzzle': true,
+    'tutorial_seen_maze_paint': true,
   });
   await ScoreService().init();
   await LevelProgressService().init();

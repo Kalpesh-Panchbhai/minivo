@@ -23,6 +23,7 @@ import '../../lib/games/shared/spinning_slider.dart';
 /// first interactive surface in every test.
 const allGameIds = <String>[
   'arrow_puzzle',
+  'block_escape',
   'checkers',
   'chess',
   'color_connect',
@@ -38,6 +39,7 @@ const allGameIds = <String>[
   'hangman',
   'ludo',
   'mancala',
+  'maze_paint',
   'memory_match',
   'minesweeper',
   'number_merge',
@@ -62,6 +64,7 @@ const allGameIds = <String>[
 /// "Play vs. AI"; single-player games use their named play button.
 const gamePlayButton = <String, String>{
   'arrow_puzzle': 'Play Arrow Puzzle',
+  'block_escape': 'Play Block Escape',
   'checkers': 'Play vs. AI',
   'chess': 'Play vs. AI',
   'color_connect': 'Play Color Connect',
@@ -77,6 +80,7 @@ const gamePlayButton = <String, String>{
   'hangman': 'Play Hangman',
   'ludo': 'Play vs. AI',
   'mancala': 'Play vs. AI',
+  'maze_paint': 'Play Maze Paint',
   'memory_match': 'Play vs. AI',
   'minesweeper': 'Play Minesweeper',
   'number_merge': 'Play Classic',
