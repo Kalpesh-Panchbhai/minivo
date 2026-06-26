@@ -129,6 +129,7 @@ class _MazePaintScreenState extends State<MazePaintScreen> with SingleTickerProv
     _appreciationOverlay?.remove();
     _idleTimer?.cancel();
     _hintAnim.dispose();
+    _hintNotifier.dispose();
     super.dispose();
   }
 
@@ -232,6 +233,7 @@ class _MazePaintScreenState extends State<MazePaintScreen> with SingleTickerProv
       }
     }
     _animating = false;
+    setState(() {});
     _resetIdleTimer();
     _saveState();
     _checkWin();
@@ -622,6 +624,12 @@ class _MazePaintBoardPainter extends CustomPainter {
   static const _floorDark = Color(0xFF3E4A5A);
   static const _startTint = Color(0xFF22D3EE);
 
+  static Path? _sFloorPath;
+  static int _sFloorKey = -1;
+  static Path? _sPaintPath;
+  static int _sPaintLen = -1;
+  static int _sPaintFK = -1;
+
   Offset _center(int i) => Offset((i % cols) * cell + cell / 2, (i ~/ cols) * cell + cell / 2);
 
   bool _isFilled(int r, int c, bool Function(int) test) {
@@ -635,61 +643,73 @@ class _MazePaintBoardPainter extends CustomPainter {
   /// boundary edge between a filled cell and a non-filled neighbor, then
   /// tracing closed loops from those edges and rounding the convex turns.
   Path _buildContour(bool Function(int) test, double inset) {
-    // Boundary edges stored as (startVertex, endVertex) in clockwise order.
-    // Vertices are grid-corner indices: vertex(r,c) = r*(cols+1)+c, range
-    // 0..(rows)*(cols+1)-1+(cols).  r in [0..rows], c in [0..cols].
     final vCols = cols + 1;
     int vid(int r, int c) => r * vCols + c;
 
-    // Collect directed boundary edges (clockwise around filled region).
-    final edges = <int, int>{}; // startVertex -> endVertex
+    final edges = <int, List<int>>{};
+    int totalEdges = 0;
     for (int r = 0; r < rows; r++) {
       for (int c = 0; c < cols; c++) {
         if (!_isFilled(r, c, test)) continue;
-        // top edge: if cell above is not filled
-        if (!_isFilled(r - 1, c, test)) {
-          edges[vid(r, c)] = vid(r, c + 1); // left→right
+        void add(int from, int to) {
+          (edges[from] ??= []).add(to);
+          totalEdges++;
         }
-        // right edge
-        if (!_isFilled(r, c + 1, test)) {
-          edges[vid(r, c + 1)] = vid(r + 1, c + 1); // top→bottom
-        }
-        // bottom edge
-        if (!_isFilled(r + 1, c, test)) {
-          edges[vid(r + 1, c + 1)] = vid(r + 1, c); // right→left
-        }
-        // left edge
-        if (!_isFilled(r, c - 1, test)) {
-          edges[vid(r + 1, c)] = vid(r, c); // bottom→top
-        }
+        if (!_isFilled(r - 1, c, test)) add(vid(r, c), vid(r, c + 1));
+        if (!_isFilled(r, c + 1, test)) add(vid(r, c + 1), vid(r + 1, c + 1));
+        if (!_isFilled(r + 1, c, test)) add(vid(r + 1, c + 1), vid(r + 1, c));
+        if (!_isFilled(r, c - 1, test)) add(vid(r + 1, c), vid(r, c));
       }
     }
 
-    Offset vtx(int v) {
-      final vr = v ~/ vCols, vc = v % vCols;
-      return Offset(vc * cell, vr * cell);
+    int edgeDir(int from, int to) {
+      final d = to - from;
+      if (d == 1) return 0;
+      if (d == vCols) return 1;
+      if (d == -1) return 2;
+      return 3;
+    }
+
+    int pickNext(List<int> outs, int v, int inDir) {
+      if (outs.length == 1) return 0;
+      final prio = [(inDir + 1) % 4, inDir, (inDir + 3) % 4, (inDir + 2) % 4];
+      for (final p in prio) {
+        for (int i = 0; i < outs.length; i++) {
+          if (edgeDir(v, outs[i]) == p) return i;
+        }
+      }
+      return 0;
     }
 
     final rad = cell * 0.22;
     final path = Path();
-    final visited = <int>{};
+    int consumed = 0;
 
-    while (visited.length < edges.length) {
-      // Find an unvisited start edge.
+    while (consumed < totalEdges) {
       int? startV;
       for (final k in edges.keys) {
-        if (!visited.contains(k)) { startV = k; break; }
+        if (edges[k]!.isNotEmpty) { startV = k; break; }
       }
       if (startV == null) break;
 
-      // Trace the loop and collect vertices.
-      final loop = <int>[];
-      int cur = startV;
-      do {
+      final startOuts = edges[startV]!;
+      final firstEnd = startOuts.removeLast();
+      consumed++;
+      final loop = <int>[startV];
+      int cur = firstEnd;
+      int inDir = edgeDir(startV, firstEnd);
+
+      while (cur != startV) {
         loop.add(cur);
-        visited.add(cur);
-        cur = edges[cur]!;
-      } while (cur != startV);
+        final outs = edges[cur];
+        if (outs == null || outs.isEmpty) break;
+        final idx = pickNext(outs, cur, inDir);
+        final next = outs.removeAt(idx);
+        consumed++;
+        inDir = edgeDir(cur, next);
+        cur = next;
+        if (consumed > totalEdges) break;
+      }
 
       if (loop.length < 3) continue;
 
@@ -751,7 +771,13 @@ class _MazePaintBoardPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final inset = cell * 0.08;
 
-    final floorPath = _buildContour((_) => true, inset);
+    final cacheKey = Object.hash(rows, cols, cell, walls.hashCode);
+    if (cacheKey != _sFloorKey) {
+      _sFloorPath = _buildContour((_) => true, inset);
+      _sFloorKey = cacheKey;
+      _sPaintLen = -1;
+    }
+    final floorPath = _sFloorPath!;
     final bounds = floorPath.getBounds();
 
     canvas.drawPath(
@@ -787,7 +813,13 @@ class _MazePaintBoardPainter extends CustomPainter {
     canvas.restore();
 
     if (painted.isNotEmpty) {
-      final paintPath = _buildContour(painted.contains, inset);
+      final pl = painted.length;
+      if (pl != _sPaintLen || cacheKey != _sPaintFK) {
+        _sPaintPath = _buildContour(painted.contains, inset);
+        _sPaintLen = pl;
+        _sPaintFK = cacheKey;
+      }
+      final paintPath = _sPaintPath!;
       final paintBounds = paintPath.getBounds();
       final paintLight = Color.lerp(paintColor, Colors.white, 0.15)!;
       final paintDark = Color.lerp(paintColor, Colors.black, 0.12)!;
