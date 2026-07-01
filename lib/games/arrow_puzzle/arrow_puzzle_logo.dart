@@ -1,4 +1,4 @@
-import 'dart:ui' as ui;
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
@@ -8,47 +8,114 @@ Widget buildArrowPuzzleLogo(double size) => buildGlassSpotlightLogo(
       size: size,
       title: 'Arrow Puzzle',
       bg: const [Color(0xFF4C1D95), Color(0xFF2E1065)],
-      accent: const Color(0xFFA855F7),
+      accent: const Color(0xFFA78BFA),
       art: _arrowArt,
     );
 
-const _kBlue = Color(0xFF3B82F6);
-const _kCoral = Color(0xFFF97316);
-const _kTeal = Color(0xFF2DD4BF);
-const _kPink = Color(0xFFEC4899);
-
 void _arrowArt(Canvas canvas, Rect zone) {
-  final sw = zone.width * 0.11;
-  Offset at(double fx, double fy) => Offset(zone.left + zone.width * fx, zone.top + zone.height * fy);
+  final cx = zone.center.dx;
+  final cy = zone.center.dy;
+  final unit = zone.width * 0.16;
+  final sw = unit * 0.30;
 
-  // four straight bars in four directions (the real game: straight arrows)
-  _bar(canvas, at(0.10, 0.24), at(0.58, 0.24), const Offset(1, 0), _kBlue, sw);
-  _bar(canvas, at(0.78, 0.10), at(0.78, 0.52), const Offset(0, 1), _kCoral, sw);
-  _bar(canvas, at(0.92, 0.74), at(0.40, 0.74), const Offset(-1, 0), _kTeal, sw);
-  _bar(canvas, at(0.26, 0.92), at(0.26, 0.52), const Offset(0, -1), _kPink, sw);
-}
+  void drawArrow(Offset from, Offset to, Color color, {bool glow = false}) {
+    final dx = to.dx - from.dx;
+    final dy = to.dy - from.dy;
+    final len = math.sqrt(dx * dx + dy * dy);
+    if (len == 0) return;
+    final ux = dx / len;
+    final uy = dy / len;
 
-void _bar(Canvas canvas, Offset from, Offset to, Offset dir, Color color, double sw) {
-  canvas.drawLine(
-    from,
-    to,
-    Paint()
-      ..color = color
-      ..strokeWidth = sw
-      ..strokeCap = StrokeCap.round,
+    final headLen = unit * 0.36;
+    final headW = unit * 0.24;
+    final shaftEnd = Offset(to.dx - ux * headLen * 0.4, to.dy - uy * headLen * 0.4);
+
+    if (glow) {
+      canvas.drawCircle(
+        Offset((from.dx + to.dx) / 2, (from.dy + to.dy) / 2),
+        unit * 0.7,
+        Paint()
+          ..color = const Color(0xFF22C55E).withValues(alpha: 0.35)
+          ..maskFilter = MaskFilter.blur(BlurStyle.normal, unit * 0.5),
+      );
+    }
+
+    canvas.drawLine(
+      from,
+      shaftEnd,
+      Paint()
+        ..color = color
+        ..strokeWidth = sw
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
+
+    final px = -uy;
+    final py = ux;
+    final bx = to.dx - ux * headLen;
+    final by = to.dy - uy * headLen;
+    final cp1x = bx + px * headW + ux * headLen * 0.3;
+    final cp1y = by + py * headW + uy * headLen * 0.3;
+    final cp2x = bx - px * headW + ux * headLen * 0.3;
+    final cp2y = by - py * headW + uy * headLen * 0.3;
+
+    canvas.drawPath(
+      Path()
+        ..moveTo(to.dx, to.dy)
+        ..quadraticBezierTo(cp1x, cp1y, bx + px * headW, by + py * headW)
+        ..lineTo(bx - px * headW, by - py * headW)
+        ..quadraticBezierTo(cp2x, cp2y, to.dx, to.dy)
+        ..close(),
+      Paint()..color = color,
+    );
+  }
+
+  const blue = Color(0xFF3B82F6);
+  const orange = Color(0xFFF97316);
+  const teal = Color(0xFF0D9488);
+  const purple = Color(0xFF7C3AED);
+
+  final al = unit * 1.6;
+
+  // Row 1: two arrows
+  drawArrow(
+    Offset(cx - unit * 1.3, cy - unit * 1.2),
+    Offset(cx + unit * 0.5, cy - unit * 1.2),
+    purple,
+  );
+  drawArrow(
+    Offset(cx + unit * 1.1, cy - unit * 0.6),
+    Offset(cx + unit * 1.1, cy - unit * 0.6 - al * 0.75),
+    blue,
   );
 
-  final headLen = sw * 1.5;
-  final headW = sw * 1.0;
-  final perpX = -dir.dy, perpY = dir.dx;
-  final tipX = to.dx + dir.dx * sw * 0.5;
-  final tipY = to.dy + dir.dy * sw * 0.5;
-  final baseX = tipX - dir.dx * headLen;
-  final baseY = tipY - dir.dy * headLen;
-  final head = ui.Path()
-    ..moveTo(tipX, tipY)
-    ..lineTo(baseX + perpX * headW, baseY + perpY * headW)
-    ..lineTo(baseX - perpX * headW, baseY - perpY * headW)
-    ..close();
-  canvas.drawPath(head, Paint()..color = color);
+  // Row 2: two arrows crossing
+  drawArrow(
+    Offset(cx + unit * 0.8, cy - unit * 0.15),
+    Offset(cx - unit * 1.0, cy - unit * 0.15),
+    teal,
+    glow: true,
+  );
+  drawArrow(
+    Offset(cx - unit * 0.5, cy - unit * 0.5),
+    Offset(cx - unit * 0.5, cy + unit * 0.6),
+    orange,
+  );
+
+  // Row 3: three arrows
+  drawArrow(
+    Offset(cx - unit * 1.2, cy + unit * 0.55),
+    Offset(cx + unit * 0.6, cy + unit * 0.55),
+    purple,
+  );
+  drawArrow(
+    Offset(cx + unit * 1.2, cy + unit * 0.3),
+    Offset(cx + unit * 1.2, cy + unit * 1.4),
+    orange,
+  );
+  drawArrow(
+    Offset(cx + unit * 0.4, cy + unit * 1.2),
+    Offset(cx - unit * 1.3, cy + unit * 1.2),
+    blue,
+  );
 }

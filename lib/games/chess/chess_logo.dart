@@ -11,48 +11,83 @@ Widget buildChessLogo(double size) => buildGlassSpotlightLogo(
     );
 
 void _chessArt(Canvas canvas, Rect zone) {
-  const n = 4;
-  final cell = zone.width / n;
+  final s = zone.width;
+  final cx = zone.center.dx;
+  final cy = zone.center.dy;
 
-  final light = Paint()..color = const Color(0xFFF0D9B5);
-  final dark = Paint()..color = const Color(0xFFB58863);
-  for (int r = 0; r < n; r++) {
-    for (int c = 0; c < n; c++) {
-      final isDark = (r + c) % 2 == 1;
-      final rect = Rect.fromLTWH(
-          zone.left + c * cell, zone.top + r * cell, cell, cell);
-      canvas.drawRect(rect, isDark ? dark : light);
+  final cellSize = s * 0.22;
+  final boardLeft = cx - cellSize;
+  final boardTop = cy + s * 0.08;
+  final light = Paint()..color = const Color(0xFFF0D9B5).withValues(alpha: 0.5);
+  final dark = Paint()..color = const Color(0xFFB58863).withValues(alpha: 0.5);
+  for (int r = 0; r < 2; r++) {
+    for (int c = 0; c < 2; c++) {
+      final isDark = (r + c) % 2 == 0;
+      canvas.drawRect(
+        Rect.fromLTWH(boardLeft + c * cellSize, boardTop + r * cellSize,
+            cellSize, cellSize),
+        isDark ? dark : light,
+      );
     }
   }
-  canvas.drawRect(
-    zone,
-    Paint()
-      ..color = const Color(0xFF1A1A2E)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = cell * 0.08,
+
+  final knightPath = Path();
+  final kx = cx;
+  final ky = cy - s * 0.04;
+  final ks = s * 0.38;
+
+  knightPath.moveTo(kx - ks * 0.30, ky + ks * 0.50);
+  knightPath.lineTo(kx + ks * 0.30, ky + ks * 0.50);
+  knightPath.lineTo(kx + ks * 0.30, ky + ks * 0.38);
+  knightPath.quadraticBezierTo(
+      kx + ks * 0.32, ky + ks * 0.10, kx + ks * 0.22, ky - ks * 0.10);
+  knightPath.quadraticBezierTo(
+      kx + ks * 0.18, ky - ks * 0.22, kx + ks * 0.10, ky - ks * 0.30);
+  knightPath.quadraticBezierTo(
+      kx + ks * 0.05, ky - ks * 0.38, kx - ks * 0.05, ky - ks * 0.50);
+  knightPath.quadraticBezierTo(
+      kx - ks * 0.12, ky - ks * 0.48, kx - ks * 0.18, ky - ks * 0.38);
+  knightPath.lineTo(kx - ks * 0.35, ky - ks * 0.18);
+  knightPath.quadraticBezierTo(
+      kx - ks * 0.42, ky - ks * 0.08, kx - ks * 0.38, ky + ks * 0.05);
+  knightPath.lineTo(kx - ks * 0.22, ky - ks * 0.05);
+  knightPath.quadraticBezierTo(
+      kx - ks * 0.32, ky + ks * 0.12, kx - ks * 0.30, ky + ks * 0.25);
+  knightPath.quadraticBezierTo(
+      kx - ks * 0.30, ky + ks * 0.38, kx - ks * 0.30, ky + ks * 0.50);
+  knightPath.close();
+
+  canvas.drawPath(
+    knightPath.shift(const Offset(1.5, 2)),
+    Paint()..color = Colors.black.withValues(alpha: 0.30),
   );
 
-  void piece(int r, int c, String ch, Color fill) {
-    final ctr = Offset(zone.left + (c + 0.5) * cell, zone.top + (r + 0.5) * cell);
-    canvas.drawCircle(ctr.translate(0, cell * 0.05), cell * 0.34,
-        Paint()..color = Colors.black.withValues(alpha: 0.25));
-    canvas.drawCircle(ctr, cell * 0.34, Paint()..color = fill);
-    final tp = TextPainter(
-      text: TextSpan(
-        text: ch,
-        style: TextStyle(
-          fontSize: cell * 0.42,
-          color: fill == Colors.white ? const Color(0xFF1A1A2E) : Colors.white,
-          fontWeight: FontWeight.w900,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    tp.paint(canvas, Offset(ctr.dx - tp.width / 2, ctr.dy - tp.height / 2));
-  }
+  canvas.drawPath(knightPath, Paint()..color = Colors.white);
 
-  piece(0, 1, '♚', const Color(0xFF1A1A2E));
-  piece(1, 2, '♛', const Color(0xFF1A1A2E));
-  piece(2, 1, '♕', Colors.white);
-  piece(3, 2, '♔', Colors.white);
+  canvas.drawPath(
+    knightPath,
+    Paint()
+      ..color = const Color(0xFFD4AF37).withValues(alpha: 0.7)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = s * 0.025
+      ..strokeJoin = StrokeJoin.round,
+  );
+
+  final eyeCenter = Offset(kx + ks * 0.05, ky - ks * 0.20);
+  canvas.drawCircle(eyeCenter, ks * 0.04, Paint()..color = const Color(0xFF1A1A2E));
+
+  final basePath = Path();
+  basePath.moveTo(kx - ks * 0.38, ky + ks * 0.50);
+  basePath.lineTo(kx + ks * 0.38, ky + ks * 0.50);
+  basePath.lineTo(kx + ks * 0.38, ky + ks * 0.58);
+  basePath.lineTo(kx - ks * 0.38, ky + ks * 0.58);
+  basePath.close();
+  canvas.drawPath(basePath, Paint()..color = Colors.white);
+  canvas.drawPath(
+    basePath,
+    Paint()
+      ..color = const Color(0xFFD4AF37).withValues(alpha: 0.7)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = s * 0.02,
+  );
 }

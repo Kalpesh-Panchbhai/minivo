@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../shared/game_logo_scaffold.dart';
@@ -11,12 +13,15 @@ Widget buildReversiLogo(double size) => buildGlassSpotlightLogo(
     );
 
 void _reversiArt(Canvas canvas, Rect zone) {
-  final boardSize = zone.width;
-  final boardRect = Rect.fromLTWH(zone.left, zone.top, boardSize, boardSize);
+  final w = zone.width;
+  final boardRect = Rect.fromCenter(
+    center: zone.center,
+    width: w * 0.92,
+    height: w * 0.92,
+  );
 
-  // Green board.
   canvas.drawRRect(
-    RRect.fromRectAndRadius(boardRect, Radius.circular(boardSize * 0.06)),
+    RRect.fromRectAndRadius(boardRect, Radius.circular(w * 0.05)),
     Paint()
       ..shader = const LinearGradient(
         begin: Alignment.topLeft,
@@ -25,56 +30,39 @@ void _reversiArt(Canvas canvas, Rect zone) {
       ).createShader(boardRect),
   );
 
-  const n = 4;
-  final cell = boardSize / n;
+  const n = 3;
+  final cell = boardRect.width / n;
 
-  // Grid lines.
   final gridPaint = Paint()
     ..color = Colors.black.withValues(alpha: 0.30)
-    ..strokeWidth = boardSize * 0.012;
+    ..strokeWidth = w * 0.014;
   for (int i = 1; i < n; i++) {
-    canvas.drawLine(
-      Offset(zone.left + i * cell, zone.top),
-      Offset(zone.left + i * cell, zone.top + boardSize),
-      gridPaint,
-    );
-    canvas.drawLine(
-      Offset(zone.left, zone.top + i * cell),
-      Offset(zone.left + boardSize, zone.top + i * cell),
-      gridPaint,
-    );
+    final x = boardRect.left + i * cell;
+    final y = boardRect.top + i * cell;
+    canvas.drawLine(Offset(x, boardRect.top), Offset(x, boardRect.bottom), gridPaint);
+    canvas.drawLine(Offset(boardRect.left, y), Offset(boardRect.right, y), gridPaint);
   }
-  // Board border.
+
   canvas.drawRRect(
-    RRect.fromRectAndRadius(boardRect, Radius.circular(boardSize * 0.06)),
+    RRect.fromRectAndRadius(boardRect, Radius.circular(w * 0.05)),
     Paint()
-      ..color = Colors.black.withValues(alpha: 0.30)
+      ..color = Colors.black.withValues(alpha: 0.35)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = boardSize * 0.02,
+      ..strokeWidth = w * 0.022,
   );
 
-  // Discs: (col, row, isBlack) — Othello-style mix of black and white.
-  const pieces = [
-    (1, 1, true),
-    (2, 2, true),
-    (1, 2, false),
-    (2, 1, false),
-    (0, 2, true),
-    (3, 1, false),
-    (0, 1, false),
-    (3, 2, true),
-  ];
+  final r = cell * 0.34;
 
-  const black = Color(0xFF1A1A1A);
-  final r = cell * 0.36;
-
-  for (final (col, row, isBlack) in pieces) {
+  void disc(int col, int row, bool isBlack) {
     final c = Offset(
-      zone.left + col * cell + cell / 2,
-      zone.top + row * cell + cell / 2,
+      boardRect.left + col * cell + cell / 2,
+      boardRect.top + row * cell + cell / 2,
     );
-    // Drop shadow.
-    canvas.drawCircle(c.translate(0, r * 0.12), r, Paint()..color = Colors.black.withValues(alpha: 0.28));
+    canvas.drawCircle(
+      c.translate(0, r * 0.12),
+      r,
+      Paint()..color = Colors.black.withValues(alpha: 0.25),
+    );
     canvas.drawCircle(
       c,
       r,
@@ -82,15 +70,112 @@ void _reversiArt(Canvas canvas, Rect zone) {
         ..shader = RadialGradient(
           center: const Alignment(-0.3, -0.4),
           colors: isBlack
-              ? const [Color(0xFF4B5563), black]
+              ? const [Color(0xFF4B5563), Color(0xFF1A1A1A)]
               : const [Colors.white, Color(0xFFD1D5DB)],
         ).createShader(Rect.fromCircle(center: c, radius: r)),
     );
-    // Highlight.
     canvas.drawCircle(
       c.translate(-r * 0.28, -r * 0.28),
-      r * 0.16,
-      Paint()..color = Colors.white.withValues(alpha: isBlack ? 0.30 : 0.6),
+      r * 0.15,
+      Paint()..color = Colors.white.withValues(alpha: isBlack ? 0.28 : 0.55),
     );
   }
+
+  disc(0, 0, true);
+  disc(2, 0, false);
+  disc(0, 2, false);
+  disc(2, 2, true);
+  disc(0, 1, false);
+  disc(2, 1, true);
+
+  final flipC = Offset(
+    boardRect.left + 1 * cell + cell / 2,
+    boardRect.top + 1 * cell + cell / 2,
+  );
+  canvas.drawCircle(
+    flipC.translate(0, r * 0.12),
+    r,
+    Paint()..color = Colors.black.withValues(alpha: 0.25),
+  );
+
+  canvas.save();
+  canvas.translate(flipC.dx, flipC.dy);
+  canvas.transform(Matrix4.identity().storage
+    ..[0] = 0.55
+    ..[5] = 1.0
+    ..[10] = 1.0
+    ..[15] = 1.0);
+
+  canvas.drawArc(
+    Rect.fromCircle(center: Offset.zero, radius: r),
+    -math.pi / 2,
+    math.pi,
+    true,
+    Paint()..color = const Color(0xFF1A1A1A),
+  );
+  canvas.drawArc(
+    Rect.fromCircle(center: Offset.zero, radius: r),
+    math.pi / 2,
+    math.pi,
+    true,
+    Paint()..color = const Color(0xFFE5E7EB),
+  );
+
+  canvas.drawCircle(
+    Offset.zero,
+    r,
+    Paint()
+      ..color = const Color(0xFF6B7280)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = w * 0.012,
+  );
+  canvas.restore();
+
+  final flipTop = Offset(
+    boardRect.left + 1 * cell + cell / 2,
+    boardRect.top + 0 * cell + cell / 2,
+  );
+  canvas.drawCircle(
+    flipTop.translate(0, r * 0.12),
+    r,
+    Paint()..color = Colors.black.withValues(alpha: 0.25),
+  );
+  canvas.drawCircle(
+    flipTop,
+    r,
+    Paint()
+      ..shader = RadialGradient(
+        center: const Alignment(-0.3, -0.4),
+        colors: const [Color(0xFF4B5563), Color(0xFF1A1A1A)],
+      ).createShader(Rect.fromCircle(center: flipTop, radius: r)),
+  );
+  canvas.drawCircle(
+    flipTop.translate(-r * 0.28, -r * 0.28),
+    r * 0.15,
+    Paint()..color = Colors.white.withValues(alpha: 0.28),
+  );
+
+  final flipBot = Offset(
+    boardRect.left + 1 * cell + cell / 2,
+    boardRect.top + 2 * cell + cell / 2,
+  );
+  canvas.drawCircle(
+    flipBot.translate(0, r * 0.12),
+    r,
+    Paint()..color = Colors.black.withValues(alpha: 0.25),
+  );
+  canvas.drawCircle(
+    flipBot,
+    r,
+    Paint()
+      ..shader = RadialGradient(
+        center: const Alignment(-0.3, -0.4),
+        colors: const [Colors.white, Color(0xFFD1D5DB)],
+      ).createShader(Rect.fromCircle(center: flipBot, radius: r)),
+  );
+  canvas.drawCircle(
+    flipBot.translate(-r * 0.28, -r * 0.28),
+    r * 0.15,
+    Paint()..color = Colors.white.withValues(alpha: 0.55),
+  );
 }

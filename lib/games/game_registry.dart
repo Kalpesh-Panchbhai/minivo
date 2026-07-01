@@ -71,6 +71,7 @@ import 'maze_paint/maze_paint_screen.dart';
 import 'block_escape/block_escape_logo.dart';
 import 'block_escape/block_escape_screen.dart';
 
+
 typedef GameWidgetBuilder = Widget Function();
 
 class GameRegistry {
@@ -112,6 +113,7 @@ class GameRegistry {
     'ludo': () => const LudoScreen(),
     'maze_paint': () => const MazePaintScreen(),
     'block_escape': () => const BlockEscapeScreen(),
+
   };
 
   static Widget buildGame(String gameId) {
@@ -748,6 +750,7 @@ class GameRegistry {
       playCount: 1800,
       customLogo: buildNumberSequenceLogo,
     ),
+
     const GameInfo(
       id: 'go',
       name: 'Go',

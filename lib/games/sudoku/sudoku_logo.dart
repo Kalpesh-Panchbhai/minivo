@@ -12,61 +12,58 @@ Widget buildSudokuLogo(double size) => buildGlassSpotlightLogo(
 
 void _sudokuArt(Canvas canvas, Rect zone) {
   const n = 3;
-  // Inset slightly so the thick outer border stays inside zone.
-  final inset = zone.width * 0.04;
+  final inset = zone.width * 0.06;
   final boardSize = zone.width - inset * 2;
   final left = zone.left + inset;
   final top = zone.top + (zone.height - boardSize) / 2;
   final cell = boardSize / n;
+  final lineW = boardSize * 0.025;
 
-  // faint cell fills
-  final fill = Paint()..color = Colors.white.withValues(alpha: 0.08);
+  final checkerFill = Paint()..color = Colors.white.withValues(alpha: 0.07);
   for (int r = 0; r < n; r++) {
     for (int c = 0; c < n; c++) {
       if ((r + c).isEven) {
         canvas.drawRect(
           Rect.fromLTWH(left + c * cell, top + r * cell, cell, cell),
-          fill,
+          checkerFill,
         );
       }
     }
   }
 
-  // thin inner lines
-  final thin = Paint()
-    ..color = Colors.white.withValues(alpha: 0.45)
-    ..strokeWidth = boardSize * 0.012;
+  final gridPaint = Paint()
+    ..color = Colors.white.withValues(alpha: 0.55)
+    ..strokeWidth = lineW
+    ..strokeCap = StrokeCap.round;
   for (int i = 1; i < n; i++) {
     final x = left + i * cell;
     final y = top + i * cell;
-    canvas.drawLine(Offset(x, top), Offset(x, top + boardSize), thin);
-    canvas.drawLine(Offset(left, y), Offset(left + boardSize, y), thin);
+    canvas.drawLine(Offset(x, top), Offset(x, top + boardSize), gridPaint);
+    canvas.drawLine(Offset(left, y), Offset(left + boardSize, y), gridPaint);
   }
 
-  // thick outer border
-  final outer = Paint()
+  final outerBorder = Paint()
     ..color = Colors.white
     ..style = PaintingStyle.stroke
-    ..strokeWidth = boardSize * 0.035;
+    ..strokeWidth = boardSize * 0.045;
   canvas.drawRRect(
     RRect.fromRectAndRadius(
       Rect.fromLTWH(left, top, boardSize, boardSize),
-      Radius.circular(boardSize * 0.04),
+      Radius.circular(boardSize * 0.06),
     ),
-    outer,
+    outerBorder,
   );
 
-  // a few filled digits
-  void digit(int r, int c, String d) {
+  void digit(int r, int c, String d, {double opacity = 1.0}) {
     final cx = left + c * cell + cell / 2;
     final cy = top + r * cell + cell / 2;
     final tp = TextPainter(
       text: TextSpan(
         text: d,
         style: TextStyle(
-          color: Colors.white,
+          color: Colors.white.withValues(alpha: opacity),
           fontWeight: FontWeight.w900,
-          fontSize: cell * 0.6,
+          fontSize: cell * 0.58,
           height: 1,
         ),
       ),
@@ -78,6 +75,5 @@ void _sudokuArt(Canvas canvas, Rect zone) {
   digit(0, 0, '5');
   digit(0, 2, '3');
   digit(1, 1, '7');
-  digit(2, 0, '1');
-  digit(2, 2, '9');
+  digit(2, 2, '9', opacity: 0.45);
 }

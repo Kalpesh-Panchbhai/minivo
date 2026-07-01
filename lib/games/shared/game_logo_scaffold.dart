@@ -59,31 +59,31 @@ class _GlassSpotlightPainter extends CustomPainter {
     );
 
     // 2. accent spotlight glow behind the art
-    final glowC = Offset(w * 0.5, h * 0.40);
+    final glowC = Offset(w * 0.5, h * 0.36);
     canvas.drawCircle(
       glowC,
-      w * 0.46,
+      w * 0.48,
       Paint()
         ..shader = RadialGradient(
-          colors: [accent.withValues(alpha: 0.50), accent.withValues(alpha: 0.0)],
-        ).createShader(Rect.fromCircle(center: glowC, radius: w * 0.46)),
+          colors: [accent.withValues(alpha: 0.45), accent.withValues(alpha: 0.0)],
+        ).createShader(Rect.fromCircle(center: glowC, radius: w * 0.48)),
     );
 
     // 3. top sheen
     canvas.drawRect(
-      Rect.fromLTWH(0, 0, w, h * 0.55),
+      Rect.fromLTWH(0, 0, w, h * 0.50),
       Paint()
         ..shader = LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Colors.white.withValues(alpha: 0.07), Colors.transparent],
-        ).createShader(Rect.fromLTWH(0, 0, w, h * 0.55)),
+          colors: [Colors.white.withValues(alpha: 0.09), Colors.transparent],
+        ).createShader(Rect.fromLTWH(0, 0, w, h * 0.50)),
     );
 
     // 4. hero art (centered, upper-middle) over a soft contact shadow
-    final artSize = w * 0.54;
+    final artSize = w * 0.60;
     final zone = Rect.fromCenter(
-        center: Offset(w * 0.5, h * 0.39), width: artSize, height: artSize);
+        center: Offset(w * 0.5, h * 0.36), width: artSize, height: artSize);
     canvas.drawOval(
       Rect.fromCenter(
           center: Offset(w * 0.5, zone.bottom - artSize * 0.04),
@@ -95,45 +95,44 @@ class _GlassSpotlightPainter extends CustomPainter {
     );
     art(canvas, zone);
 
-    // 5. frosted glass bar with the name
-    final barH = h * 0.185;
-    final barTop = h - barH - h * 0.055;
+    // 5. frosted glass bar with the name (centered text, no dot)
+    final barH = h * 0.20;
+    final barTop = h - barH - h * 0.045;
     final barRect = RRect.fromRectAndRadius(
-        Rect.fromLTWH(w * 0.06, barTop, w * 0.88, barH), Radius.circular(h * 0.045));
-    canvas.drawRRect(barRect, Paint()..color = Colors.white.withValues(alpha: 0.16));
+        Rect.fromLTWH(w * 0.06, barTop, w * 0.88, barH),
+        Radius.circular(h * 0.05));
+    canvas.drawRRect(
+        barRect, Paint()..color = Colors.white.withValues(alpha: 0.16));
     canvas.drawRRect(
         RRect.fromRectAndRadius(
             Rect.fromLTWH(barRect.left, barTop, barRect.width, barH * 0.5),
-            Radius.circular(h * 0.045)),
+            Radius.circular(h * 0.05)),
         Paint()..color = Colors.white.withValues(alpha: 0.10));
     canvas.drawRRect(
         barRect,
         Paint()
-          ..color = Colors.white.withValues(alpha: 0.30)
+          ..color = Colors.white.withValues(alpha: 0.25)
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1);
 
-    // accent dot
-    final dotR = barH * 0.15;
-    final dotC = Offset(barRect.left + barH * 0.34, barTop + barH / 2);
-    canvas.drawCircle(dotC, dotR, Paint()..color = accent);
-
-    // name (auto-fit single line)
-    final textLeft = dotC.dx + dotR + w * 0.035;
-    final maxTextW = barRect.right - textLeft - w * 0.04;
-    double fs = h * 0.082;
+    // name (auto-fit single line, centered)
+    final maxTextW = barRect.width - w * 0.10;
+    double fs = h * 0.088;
     late TextPainter tp;
     while (true) {
       tp = TextPainter(
         text: TextSpan(
-          text: title.toUpperCase(),
+          text: title,
           style: TextStyle(
             color: Colors.white,
-            fontWeight: FontWeight.w900,
+            fontWeight: FontWeight.w800,
             fontSize: fs,
-            letterSpacing: 0.3,
+            letterSpacing: 0.5,
             shadows: [
-              Shadow(color: Colors.black.withValues(alpha: 0.35), blurRadius: 2, offset: const Offset(0, 1))
+              Shadow(
+                  color: Colors.black.withValues(alpha: 0.40),
+                  blurRadius: 3,
+                  offset: const Offset(0, 1)),
             ],
           ),
         ),
@@ -148,7 +147,8 @@ class _GlassSpotlightPainter extends CustomPainter {
         break;
       }
     }
-    tp.paint(canvas, Offset(textLeft, barTop + barH / 2 - tp.height / 2));
+    final textX = barRect.left + (barRect.width - tp.width) / 2;
+    tp.paint(canvas, Offset(textX, barTop + barH / 2 - tp.height / 2));
   }
 
   @override

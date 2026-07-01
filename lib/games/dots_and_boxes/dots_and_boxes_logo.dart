@@ -5,21 +5,16 @@ import 'package:flutter/material.dart';
 import '../shared/animated_background.dart';
 import '../shared/game_logo_scaffold.dart';
 
-const Color _kP1Color = Color(0xFF4DABF7);
-const Color _kP2Color = Color(0xFFFF6B6B);
-
 Widget buildDotsAndBoxesLogo(double size) => buildGlassSpotlightLogo(
       size: size,
       title: 'Dots & Boxes',
-      bg: const [Color(0xFF1E40AF), Color(0xFF0B1E4D)],
+      bg: const [Color(0xFF1E3A5F), Color(0xFF0C1F3A)],
       accent: const Color(0xFF60A5FA),
       art: _dotsAndBoxesArt,
     );
 
 void _dotsAndBoxesArt(Canvas canvas, Rect zone) {
-  // A 3x3 grid of dots, some connected by colored edges, with one completed
-  // square filled with a translucent color.
-  const n = 3; // dots per side
+  const n = 3;
   final pad = zone.width * 0.10;
   final inner = zone.width - pad * 2;
   final step = inner / (n - 1);
@@ -28,16 +23,21 @@ void _dotsAndBoxesArt(Canvas canvas, Rect zone) {
 
   Offset dot(int r, int c) => Offset(ox + c * step, oy + r * step);
 
-  // completed (top-left) square fill
-  final fillRect = Rect.fromPoints(dot(0, 0), dot(1, 1));
+  final box1 = Rect.fromPoints(dot(0, 0), dot(1, 1));
   canvas.drawRRect(
-    RRect.fromRectAndRadius(fillRect, Radius.circular(step * 0.12)),
-    Paint()..color = const Color(0xFF60A5FA).withValues(alpha: 0.30),
+    RRect.fromRectAndRadius(box1, Radius.circular(step * 0.08)),
+    Paint()..color = const Color(0xFF60A5FA).withValues(alpha: 0.25),
+  );
+
+  final box2 = Rect.fromPoints(dot(1, 1), dot(2, 2));
+  canvas.drawRRect(
+    RRect.fromRectAndRadius(box2, Radius.circular(step * 0.08)),
+    Paint()..color = const Color(0xFF34D399).withValues(alpha: 0.20),
   );
 
   final edge = Paint()
     ..style = PaintingStyle.stroke
-    ..strokeWidth = step * 0.13
+    ..strokeWidth = step * 0.12
     ..strokeCap = StrokeCap.round;
 
   void line(int r1, int c1, int r2, int c2, Color color) {
@@ -45,21 +45,22 @@ void _dotsAndBoxesArt(Canvas canvas, Rect zone) {
     canvas.drawLine(dot(r1, c1), dot(r2, c2), edge);
   }
 
-  // four edges of the completed square (bright)
   const bright = Color(0xFFBFDBFE);
   line(0, 0, 0, 1, bright);
   line(0, 1, 1, 1, bright);
-  line(1, 1, 1, 0, bright);
-  line(1, 0, 0, 0, bright);
+  line(1, 0, 1, 1, bright);
+  line(0, 0, 1, 0, bright);
 
-  // a few extra colored segments elsewhere on the grid
+  const green = Color(0xFF34D399);
+  line(1, 1, 1, 2, green);
+  line(1, 2, 2, 2, green);
+  line(2, 1, 2, 2, green);
+  line(1, 1, 2, 1, green);
+
   line(0, 1, 0, 2, const Color(0xFFFBBF24));
-  line(0, 2, 1, 2, const Color(0xFFFBBF24));
-  line(1, 0, 2, 0, const Color(0xFF34D399));
-  line(2, 1, 2, 2, const Color(0xFFF472B6));
+  line(2, 0, 2, 1, const Color(0xFFF472B6));
 
-  // dots on top
-  final dotR = step * 0.14;
+  final dotR = step * 0.13;
   final dotPaint = Paint()..color = Colors.white;
   final dotShadow = Paint()..color = Colors.black.withValues(alpha: 0.25);
   for (int r = 0; r < n; r++) {
@@ -67,17 +68,19 @@ void _dotsAndBoxesArt(Canvas canvas, Rect zone) {
       final p = dot(r, c);
       canvas.drawCircle(p.translate(0, dotR * 0.5), dotR, dotShadow);
       canvas.drawCircle(p, dotR, dotPaint);
-      // specular highlight
       canvas.drawCircle(
         p.translate(-dotR * 0.28, -dotR * 0.30),
-        dotR * 0.32,
-        Paint()..color = Colors.white.withValues(alpha: 0.55),
+        dotR * 0.30,
+        Paint()..color = Colors.white.withValues(alpha: 0.50),
       );
     }
   }
 }
 
 // ── Animated background painter for the picker screen ─────────────────────
+
+const Color _kP1Color = Color(0xFF4DABF7);
+const Color _kP2Color = Color(0xFFFF6B6B);
 
 class DotsAndBoxesBgPainter extends AnimatedBgPainter {
   const DotsAndBoxesBgPainter(super.t);

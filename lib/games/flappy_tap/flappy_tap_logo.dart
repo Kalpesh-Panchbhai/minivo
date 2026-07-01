@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../shared/game_logo_scaffold.dart';
@@ -5,94 +7,160 @@ import '../shared/game_logo_scaffold.dart';
 Widget buildFlappyTapLogo(double size) => buildGlassSpotlightLogo(
       size: size,
       title: 'Flappy Tap',
-      bg: const [Color(0xFF0E7490), Color(0xFF083344)],
-      accent: const Color(0xFF22D3EE),
+      bg: const [Color(0xFF4A9FD4), Color(0xFF71B9E8)],
+      accent: const Color(0xFF4ECDC4),
       art: _flappyTapArt,
     );
 
 void _flappyTapArt(Canvas canvas, Rect zone) {
   final w = zone.width;
-  final pipeW = w * 0.2;
-  const pipeColor = Color(0xFF34D399);
-  const pipeDark = Color(0xFF059669);
-  const pipeLight = Color(0xFF6EE7B7);
+  final h = zone.height;
+  final cx = zone.center.dx;
+  final cy = zone.center.dy;
 
-  void pipe(double left, double top, double height, {required bool capAtTop}) {
-    final body = Rect.fromLTWH(left, top, pipeW, height);
-    canvas.drawRect(body, Paint()..color = pipeColor);
-    // Vertical light edge.
+  // Pipes
+  final pipeW = w * 0.13;
+  final capW = pipeW + w * 0.04;
+  final capH = w * 0.05;
+  final gapHalf = h * 0.20;
+
+  void drawPipe(double x, double topY, double botY, bool isTop) {
+    final pipeRect = Rect.fromLTWH(x - pipeW / 2, topY, pipeW, botY - topY);
     canvas.drawRect(
-      Rect.fromLTWH(left + pipeW * 0.12, top, pipeW * 0.18, height),
-      Paint()..color = pipeLight,
+      pipeRect,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: const [Color(0xFF66BB6A), Color(0xFF4CAF50), Color(0xFF2E7D32)],
+        ).createShader(pipeRect),
     );
-    // Cap on the gap-facing end.
-    final capH = pipeW * 0.5;
-    final capRect = capAtTop
-        ? Rect.fromLTWH(left - pipeW * 0.12, top, pipeW * 1.24, capH)
-        : Rect.fromLTWH(left - pipeW * 0.12, top + height - capH, pipeW * 1.24, capH);
-    canvas.drawRect(capRect, Paint()..color = pipeDark);
     canvas.drawRect(
-      Rect.fromLTWH(capRect.left + pipeW * 0.1, capRect.top, pipeW * 0.18, capH),
-      Paint()..color = pipeLight,
+      Rect.fromLTWH(x - pipeW / 2, topY, pipeW * 0.16, botY - topY),
+      Paint()..color = Colors.white.withValues(alpha: 0.18),
+    );
+    final capY = isTop ? botY - capH : topY;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(x - capW / 2, capY, capW, capH),
+        Radius.circular(w * 0.012),
+      ),
+      Paint()..color = const Color(0xFF388E3C),
     );
   }
 
-  // Top pipe hangs from zone top; bottom pipe rises from zone bottom; gap in middle.
-  final topPipeH = zone.height * 0.38;
-  final bottomPipeTop = zone.top + zone.height * 0.62;
-  final bottomPipeH = zone.bottom - bottomPipeTop;
+  final leftPipeX = zone.left + w * 0.10;
+  drawPipe(leftPipeX, zone.top - h * 0.05, cy - gapHalf, true);
+  drawPipe(leftPipeX, cy + gapHalf, zone.bottom + h * 0.05, false);
+  final rightPipeX = zone.right - w * 0.10;
+  drawPipe(rightPipeX, zone.top - h * 0.05, cy - gapHalf * 0.75, true);
+  drawPipe(rightPipeX, cy + gapHalf * 1.25, zone.bottom + h * 0.05, false);
 
-  // Left pipe pair (cap faces the gap).
-  final leftPipeX = zone.left + w * 0.08;
-  pipe(leftPipeX, zone.top, topPipeH, capAtTop: false);
-  pipe(leftPipeX, bottomPipeTop, bottomPipeH, capAtTop: true);
-
-  // Right pipe pair.
-  final rightPipeX = zone.right - w * 0.08 - pipeW;
-  pipe(rightPipeX, zone.top, topPipeH * 0.85, capAtTop: false);
-  pipe(rightPipeX, bottomPipeTop + zone.height * 0.05,
-      bottomPipeH - zone.height * 0.05,
-      capAtTop: true);
-
-  // Round yellow bird, centred in the gap.
-  final birdC = zone.center;
-  final birdR = w * 0.16;
-  // Body.
-  canvas.drawCircle(birdC, birdR, Paint()..color = const Color(0xFFFBBF24));
-  // Belly highlight.
-  canvas.drawCircle(
-    birdC.translate(birdR * 0.18, birdR * 0.18),
-    birdR * 0.6,
-    Paint()..color = const Color(0xFFFDE68A),
+  // Bird — proper proportions matching game (width:height ~ 2.2:2.0)
+  final birdR = w * 0.14;
+  final birdW = birdR * 2.2;
+  final birdH = birdR * 2.0;
+  final birdCx = cx;
+  final birdCy = cy;
+  final birdRect = Rect.fromCenter(
+    center: Offset(birdCx, birdCy),
+    width: birdW,
+    height: birdH,
   );
-  // Body outline.
-  canvas.drawCircle(
-    birdC,
-    birdR,
+
+  // Shadow
+  canvas.drawOval(
+    birdRect.translate(0, birdH * 0.08),
     Paint()
-      ..color = const Color(0xFFD97706)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = w * 0.012,
+      ..color = Colors.black.withValues(alpha: 0.15)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
   );
-  // Wing.
+
+  // Body
+  canvas.drawOval(
+    birdRect,
+    Paint()
+      ..shader = RadialGradient(
+        center: const Alignment(-0.2, -0.3),
+        colors: const [Color(0xFFFFE44A), Color(0xFFFFD700)],
+      ).createShader(birdRect),
+  );
+
+  // Belly
+  canvas.drawOval(
+    Rect.fromCenter(
+      center: Offset(birdCx + birdW * 0.04, birdCy + birdH * 0.10),
+      width: birdW * 0.55,
+      height: birdH * 0.48,
+    ),
+    Paint()..color = const Color(0xFFFFF0A0),
+  );
+
+  // Tail feathers
+  final tailX = birdCx - birdW * 0.42;
+  final tailY = birdCy;
+  for (int i = 0; i < 3; i++) {
+    final angle = -0.30 + i * 0.18;
+    final tipX = tailX - birdW * 0.18;
+    final tipY = tailY + birdH * angle;
+    final f = Path()
+      ..moveTo(tailX, tailY)
+      ..quadraticBezierTo(tailX - birdW * 0.10, tipY, tipX, tipY)
+      ..quadraticBezierTo(tailX - birdW * 0.06, tailY + birdH * angle * 0.3, tailX, tailY)
+      ..close();
+    canvas.drawPath(
+      f,
+      Paint()..color = Color.lerp(const Color(0xFFE6B800), const Color(0xFFD4A000), i / 2)!,
+    );
+  }
+
+  // Wing
+  final wingX = birdCx - birdW * 0.18;
+  final wingY = birdCy + birdH * 0.02;
   final wing = Path()
-    ..moveTo(birdC.dx - birdR * 0.1, birdC.dy)
-    ..quadraticBezierTo(birdC.dx - birdR * 0.9, birdC.dy - birdR * 0.3,
-        birdC.dx - birdR * 0.7, birdC.dy + birdR * 0.5)
-    ..quadraticBezierTo(birdC.dx - birdR * 0.3, birdC.dy + birdR * 0.3,
-        birdC.dx - birdR * 0.1, birdC.dy)
+    ..moveTo(wingX + birdW * 0.10, wingY)
+    ..quadraticBezierTo(wingX - birdW * 0.18, wingY - birdH * 0.45,
+        wingX - birdW * 0.25, wingY - birdH * 0.02)
+    ..quadraticBezierTo(wingX - birdW * 0.12, wingY + birdH * 0.12,
+        wingX + birdW * 0.10, wingY)
     ..close();
-  canvas.drawPath(wing, Paint()..color = const Color(0xFFF59E0B));
-  // Beak (small, pointing right).
-  final beak = Path()
-    ..moveTo(birdC.dx + birdR * 0.8, birdC.dy - birdR * 0.12)
-    ..lineTo(birdC.dx + birdR * 1.35, birdC.dy)
-    ..lineTo(birdC.dx + birdR * 0.8, birdC.dy + birdR * 0.18)
-    ..close();
-  canvas.drawPath(beak, Paint()..color = const Color(0xFFF97316));
-  // Eye.
-  final eyeC = birdC.translate(birdR * 0.35, -birdR * 0.3);
-  canvas.drawCircle(eyeC, birdR * 0.28, Paint()..color = Colors.white);
-  canvas.drawCircle(eyeC.translate(birdR * 0.06, 0), birdR * 0.14,
-      Paint()..color = const Color(0xFF111827));
+  canvas.drawPath(wing, Paint()..color = const Color(0xFFE6B800));
+
+  // Beak
+  final beakTip = Offset(birdCx + birdW * 0.52, birdCy + birdH * 0.02);
+  final beakTop = Offset(birdCx + birdW * 0.28, birdCy - birdH * 0.08);
+  final beakBot = Offset(birdCx + birdW * 0.28, birdCy + birdH * 0.14);
+  canvas.drawPath(
+    Path()..moveTo(beakTop.dx, beakTop.dy)..lineTo(beakTip.dx, beakTip.dy)
+      ..lineTo(beakBot.dx, beakBot.dy)..close(),
+    Paint()..color = const Color(0xFFFF8C00),
+  );
+
+  // Eye
+  final eyeC = Offset(birdCx + birdW * 0.12, birdCy - birdH * 0.16);
+  final eyeR = birdW * 0.10;
+  canvas.drawCircle(eyeC, eyeR, Paint()..color = Colors.white);
+  final pupilC = eyeC.translate(eyeR * 0.18, 0);
+  canvas.drawCircle(pupilC, eyeR * 0.52, Paint()..color = const Color(0xFF1A1A2E));
+  canvas.drawCircle(
+    pupilC.translate(-eyeR * 0.12, -eyeR * 0.12),
+    eyeR * 0.16,
+    Paint()..color = Colors.white.withValues(alpha: 0.85),
+  );
+
+  // Smiley mouth
+  final smileC = Offset(birdCx + birdW * 0.24, birdCy + birdH * 0.06);
+  final smileR = birdW * 0.07;
+  canvas.drawPath(
+    Path()..addArc(
+      Rect.fromCenter(center: smileC, width: smileR * 2, height: smileR * 1.4),
+      math.pi * 0.15,
+      math.pi * 0.70,
+    ),
+    Paint()
+      ..color = const Color(0xFF1A1A2E)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = w * 0.012
+      ..strokeCap = StrokeCap.round,
+  );
 }

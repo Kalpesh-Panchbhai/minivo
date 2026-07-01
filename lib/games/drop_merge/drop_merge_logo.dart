@@ -8,102 +8,175 @@ import '../shared/game_logo_scaffold.dart';
 Widget buildDropMergeLogo(double size) => buildGlassSpotlightLogo(
       size: size,
       title: 'Drop Merge',
-      bg: const [Color(0xFF7C2D12), Color(0xFF2A0E04)],
-      accent: const Color(0xFFFBBF24),
+      bg: const [Color(0xFF7C2D12), Color(0xFF431407)],
+      accent: const Color(0xFFFB923C),
       art: _dropMergeArt,
     );
 
 void _dropMergeArt(Canvas canvas, Rect zone) {
-  // A vertical lane with stacked rounded number blocks at the bottom and one
-  // block falling from above (with motion lines).
-  final laneW = zone.width * 0.46;
-  final laneRect = Rect.fromCenter(
-    center: zone.center,
-    width: laneW,
-    height: zone.height,
+  final w = zone.width;
+  final h = zone.height;
+
+  const cols = 3;
+  const rows = 3;
+
+  final boardW = w * 0.92;
+  final boardH = h * 0.82;
+  final boardRect = Rect.fromCenter(
+    center: Offset(zone.center.dx, zone.center.dy + h * 0.04),
+    width: boardW,
+    height: boardH,
   );
-  final laneRRect =
-      RRect.fromRectAndRadius(laneRect, Radius.circular(laneW * 0.16));
 
-  // lane track
+  final boardRR =
+      RRect.fromRectAndRadius(boardRect, Radius.circular(w * 0.08));
   canvas.drawRRect(
-      laneRRect, Paint()..color = Colors.white.withValues(alpha: 0.06));
+    boardRR.shift(const Offset(0, 2)),
+    Paint()..color = Colors.black.withValues(alpha: 0.18),
+  );
+  canvas.drawRRect(boardRR, Paint()..color = const Color(0xFFFFFBF5));
   canvas.drawRRect(
-      laneRRect,
-      Paint()
-        ..color = Colors.white.withValues(alpha: 0.22)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = laneW * 0.05);
+    boardRR,
+    Paint()
+      ..color = const Color(0xFFFB923C).withValues(alpha: 0.25)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = w * 0.012,
+  );
 
-  final block = laneW * 0.78;
-  final blockGap = block * 0.12;
-  final cx = zone.center.dx;
+  final cellPadX = boardW * 0.08;
+  final cellPadY = boardH * 0.08;
+  final innerW = boardW - cellPadX * 2;
+  final innerH = boardH - cellPadY * 2;
+  final cellW = innerW / cols;
+  final cellH = innerH / rows;
+  final gap = w * 0.02;
 
-  void drawBlock(double centerY, String value, List<Color> grad) {
-    final r = Rect.fromCenter(
-        center: Offset(cx, centerY), width: block, height: block);
-    final rr = RRect.fromRectAndRadius(r, Radius.circular(block * 0.24));
-    // contact shadow
-    canvas.drawRRect(
-        RRect.fromRectAndRadius(
-            r.translate(0, block * 0.05), Radius.circular(block * 0.24)),
-        Paint()..color = Colors.black.withValues(alpha: 0.20));
-    canvas.drawRRect(
-        rr,
+  // (value, isDropping) — 0 means empty cell
+  const grid = [
+    [(4, false), (0, false), (8, false)],
+    [(2, false), (16, false), (4, false)],
+    [(8, false), (2, false), (32, false)],
+  ];
+
+  const tileColors = <int, (Color, Color)>{
+    2: (Color(0xFFFFF3BF), Color(0xFF1A1A1A)),
+    4: (Color(0xFFFFE066), Color(0xFF1A1A1A)),
+    8: (Color(0xFFFFA94D), Color(0xFFFFFFFF)),
+    16: (Color(0xFFFF6B6B), Color(0xFFFFFFFF)),
+    32: (Color(0xFFE64980), Color(0xFFFFFFFF)),
+  };
+
+  for (int r = 0; r < rows; r++) {
+    for (int c = 0; c < cols; c++) {
+      final cellLeft = boardRect.left + cellPadX + cellW * c + gap / 2;
+      final cellTop = boardRect.top + cellPadY + cellH * r + gap / 2;
+      final tileW = cellW - gap;
+      final tileH = cellH - gap;
+      final tileRect = Rect.fromLTWH(cellLeft, cellTop, tileW, tileH);
+      final tileRR = RRect.fromRectAndRadius(
+          tileRect, Radius.circular(tileW * 0.18));
+
+      final (value, _) = grid[r][c];
+
+      if (value == 0) {
+        canvas.drawRRect(
+            tileRR, Paint()..color = const Color(0xFFEEEEEE));
+        continue;
+      }
+
+      final (bg, fg) = tileColors[value]!;
+
+      canvas.drawRRect(
+        tileRR.shift(const Offset(0, 1.5)),
         Paint()
-          ..shader = LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: grad,
-          ).createShader(r));
-    // glossy top highlight
-    canvas.drawRRect(
-        RRect.fromRectAndRadius(
-            Rect.fromLTWH(r.left, r.top, r.width, r.height * 0.42),
-            Radius.circular(block * 0.24)),
-        Paint()..color = Colors.white.withValues(alpha: 0.18));
+          ..color = bg.withValues(alpha: 0.35)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
+      );
 
-    final tp = TextPainter(
-      text: TextSpan(
-        text: value,
-        style: TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w900,
-          fontSize: block * 0.5,
-          height: 1,
+      canvas.drawRRect(tileRR, Paint()..color = bg);
+
+      final fontSize = tileW * (value >= 10 ? 0.34 : 0.42);
+      final tp = TextPainter(
+        text: TextSpan(
+          text: '$value',
+          style: TextStyle(
+            color: fg,
+            fontWeight: FontWeight.w800,
+            fontSize: fontSize,
+          ),
         ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      tp.paint(
+        canvas,
+        Offset(
+          tileRect.center.dx - tp.width / 2,
+          tileRect.center.dy - tp.height / 2,
+        ),
+      );
+    }
+  }
+
+  final dropCol = 1;
+  final dropCellLeft =
+      boardRect.left + cellPadX + cellW * dropCol + gap / 2;
+  final dropTileW = cellW - gap;
+  final dropTileH = cellH - gap;
+  final dropTileRect = Rect.fromLTWH(
+    dropCellLeft,
+    boardRect.top - dropTileH * 0.55,
+    dropTileW,
+    dropTileH,
+  );
+  final dropRR = RRect.fromRectAndRadius(
+      dropTileRect, Radius.circular(dropTileW * 0.18));
+
+  canvas.drawRRect(
+    dropRR.shift(const Offset(0, 1.5)),
+    Paint()
+      ..color = const Color(0xFFFFA94D).withValues(alpha: 0.35)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
+  );
+  canvas.drawRRect(dropRR, Paint()..color = const Color(0xFFFFA94D));
+
+  final dropFontSize = dropTileW * 0.42;
+  final dropTp = TextPainter(
+    text: TextSpan(
+      text: '8',
+      style: TextStyle(
+        color: Colors.white,
+        fontWeight: FontWeight.w800,
+        fontSize: dropFontSize,
       ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    tp.paint(canvas, Offset(cx - tp.width / 2, centerY - tp.height / 2));
-  }
+    ),
+    textDirection: TextDirection.ltr,
+  )..layout();
+  dropTp.paint(
+    canvas,
+    Offset(
+      dropTileRect.center.dx - dropTp.width / 2,
+      dropTileRect.center.dy - dropTp.height / 2,
+    ),
+  );
 
-  // stacked blocks at the bottom
-  final bottomY = laneRect.bottom - block * 0.5 - laneW * 0.06;
-  drawBlock(bottomY, '8', const [Color(0xFFF59E0B), Color(0xFFB45309)]);
-  drawBlock(bottomY - (block + blockGap), '4',
-      const [Color(0xFFFBBF24), Color(0xFFD97706)]);
-  drawBlock(bottomY - (block + blockGap) * 2, '2',
-      const [Color(0xFFFDE68A), Color(0xFFF59E0B)]);
-
-  // falling block near the top, with motion lines above it
-  final fallY = laneRect.top + block * 0.62;
-  final motionPaint = Paint()
-    ..color = const Color(0xFFFDE68A).withValues(alpha: 0.55)
-    ..strokeCap = StrokeCap.round
-    ..strokeWidth = block * 0.06;
-  for (final dx in [-block * 0.22, 0.0, block * 0.22]) {
-    final len = dx == 0 ? block * 0.40 : block * 0.26;
-    canvas.drawLine(
-      Offset(cx + dx, fallY - block * 0.62),
-      Offset(cx + dx, fallY - block * 0.62 - len),
-      motionPaint,
-    );
-  }
-  drawBlock(fallY, '2', const [Color(0xFFFDE68A), Color(0xFFF59E0B)]);
+  final arrowCx = dropTileRect.center.dx;
+  final arrowTopY = dropTileRect.top - dropTileH * 0.40;
+  final arrowBotY = dropTileRect.top - dropTileH * 0.08;
+  final arrowPaint = Paint()
+    ..color = Colors.white.withValues(alpha: 0.85)
+    ..strokeWidth = w * 0.035
+    ..strokeCap = StrokeCap.round;
+  canvas.drawLine(
+      Offset(arrowCx, arrowTopY), Offset(arrowCx, arrowBotY), arrowPaint);
+  final ah = w * 0.05;
+  final arrowHead = Path()
+    ..moveTo(arrowCx, arrowBotY + ah * 0.5)
+    ..lineTo(arrowCx - ah, arrowBotY - ah * 0.3)
+    ..lineTo(arrowCx + ah, arrowBotY - ah * 0.3)
+    ..close();
+  canvas.drawPath(
+      arrowHead, Paint()..color = Colors.white.withValues(alpha: 0.85));
 }
-
-// ── Animated background painter ──────────────────────────────────────────────
 
 class DropMergeBgPainter extends AnimatedBgPainter {
   const DropMergeBgPainter(super.t);

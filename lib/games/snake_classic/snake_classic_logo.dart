@@ -11,94 +11,150 @@ Widget buildSnakeLogo(double size) => buildGlassSpotlightLogo(
     );
 
 void _snakeArt(Canvas canvas, Rect zone) {
-  const n = 5;
-  final cs = zone.width / n;
-  Offset gridCenter(int x, int y) =>
-      Offset(zone.left + (x + 0.5) * cs, zone.top + (y + 0.5) * cs);
+  final w = zone.width;
+  final h = zone.height;
+  final cx = zone.center.dx;
+  final cy = zone.center.dy;
 
-  // faint background grid
-  final grid = Paint()
-    ..color = Colors.white.withValues(alpha: 0.08)
-    ..strokeWidth = 1;
-  for (int i = 1; i < n; i++) {
-    final x = zone.left + i * cs;
-    final y = zone.top + i * cs;
-    canvas.drawLine(Offset(x, zone.top), Offset(x, zone.bottom), grid);
-    canvas.drawLine(Offset(zone.left, y), Offset(zone.right, y), grid);
-  }
+  final bodyW = w * 0.13;
 
-  // snake body cells, head first → tail last (an S-curve)
-  const cells = <(int, int)>[
-    (3, 3), // head
-    (2, 3),
-    (1, 3),
-    (1, 2),
-    (1, 1),
-    (2, 1),
-    (3, 1), // tail
-  ];
-  final centers = [for (final (x, y) in cells) gridCenter(x, y)];
+  final path = Path()
+    ..moveTo(cx + w * 0.28, cy - h * 0.32)
+    ..cubicTo(
+      cx + w * 0.42, cy - h * 0.18,
+      cx + w * 0.38, cy + h * 0.05,
+      cx + w * 0.08, cy + h * 0.08,
+    )
+    ..cubicTo(
+      cx - w * 0.22, cy + h * 0.11,
+      cx - w * 0.38, cy + h * 0.02,
+      cx - w * 0.30, cy + h * 0.30,
+    );
 
-  // body as a single rounded tapered stroke
-  final body = Paint()
-    ..color = const Color(0xFF4ADE80)
-    ..style = PaintingStyle.stroke
-    ..strokeCap = StrokeCap.round
-    ..strokeJoin = StrokeJoin.round
-    ..strokeWidth = cs * 0.62;
-  final path = Path()..moveTo(centers.first.dx, centers.first.dy);
-  for (int i = 1; i < centers.length; i++) {
-    path.lineTo(centers[i].dx, centers[i].dy);
-  }
-  canvas.drawPath(path, body);
-  // brighter highlight along the body
   canvas.drawPath(
     path,
     Paint()
-      ..color = const Color(0xFFBBF7D0).withValues(alpha: 0.45)
+      ..color = const Color(0xFF4ADE80).withValues(alpha: 0.25)
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
-      ..strokeWidth = cs * 0.22,
+      ..strokeWidth = bodyW * 1.6
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
   );
 
-  // head
-  final head = centers.first;
-  canvas.drawCircle(head, cs * 0.36, Paint()..color = const Color(0xFF22C55E));
-  // eye facing right (toward apple)
-  canvas.drawCircle(
-    Offset(head.dx + cs * 0.14, head.dy - cs * 0.10),
-    cs * 0.09,
-    Paint()..color = Colors.white,
+  canvas.drawPath(
+    path,
+    Paint()
+      ..color = const Color(0xFF22C55E)
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..strokeWidth = bodyW,
   );
+
+  canvas.drawPath(
+    path,
+    Paint()
+      ..color = const Color(0xFFBBF7D0).withValues(alpha: 0.40)
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..strokeWidth = bodyW * 0.35,
+  );
+
+  final headC = Offset(cx + w * 0.28, cy - h * 0.32);
+  final headR = bodyW * 0.72;
+  canvas.drawCircle(headC, headR, Paint()..color = const Color(0xFF16A34A));
   canvas.drawCircle(
-    Offset(head.dx + cs * 0.17, head.dy - cs * 0.10),
-    cs * 0.045,
+    headC,
+    headR,
+    Paint()
+      ..shader = RadialGradient(
+        center: const Alignment(-0.3, -0.4),
+        colors: const [Color(0xFF4ADE80), Color(0xFF15803D)],
+      ).createShader(Rect.fromCircle(center: headC, radius: headR)),
+  );
+
+  final eyeC = headC.translate(headR * 0.35, -headR * 0.20);
+  canvas.drawCircle(eyeC, headR * 0.38, Paint()..color = Colors.white);
+  canvas.drawCircle(
+    eyeC.translate(headR * 0.10, 0),
+    headR * 0.20,
     Paint()..color = const Color(0xFF0B2E1A),
   );
+  canvas.drawCircle(
+    eyeC.translate(headR * 0.06, -headR * 0.06),
+    headR * 0.08,
+    Paint()..color = Colors.white.withValues(alpha: 0.80),
+  );
 
-  // red apple ahead of the head
-  final apple = gridCenter(4, 3);
-  canvas.drawCircle(
-    apple,
-    cs * 0.40,
+  final tongueStart = headC.translate(headR * 0.75, headR * 0.10);
+  final tongueEnd = tongueStart.translate(headR * 0.55, headR * 0.15);
+  canvas.drawLine(
+    tongueStart,
+    tongueEnd,
     Paint()
-      ..color = const Color(0xFFEF4444).withValues(alpha: 0.30)
-      ..maskFilter = MaskFilter.blur(BlurStyle.normal, cs * 0.18),
+      ..color = const Color(0xFFEF4444)
+      ..strokeWidth = w * 0.012
+      ..strokeCap = StrokeCap.round,
   );
-  canvas.drawCircle(apple, cs * 0.26, Paint()..color = const Color(0xFFEF4444));
+  canvas.drawLine(
+    tongueEnd,
+    tongueEnd.translate(headR * 0.18, -headR * 0.15),
+    Paint()
+      ..color = const Color(0xFFEF4444)
+      ..strokeWidth = w * 0.010
+      ..strokeCap = StrokeCap.round,
+  );
+  canvas.drawLine(
+    tongueEnd,
+    tongueEnd.translate(headR * 0.18, headR * 0.15),
+    Paint()
+      ..color = const Color(0xFFEF4444)
+      ..strokeWidth = w * 0.010
+      ..strokeCap = StrokeCap.round,
+  );
+
+  final appleC = Offset(cx - w * 0.25, cy - h * 0.18);
+  final appleR = w * 0.10;
+
   canvas.drawCircle(
-    Offset(apple.dx - cs * 0.08, apple.dy - cs * 0.08),
-    cs * 0.08,
-    Paint()..color = const Color(0xFFFFC4C4).withValues(alpha: 0.9),
+    appleC,
+    appleR * 1.8,
+    Paint()
+      ..color = const Color(0xFFEF4444).withValues(alpha: 0.25)
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, appleR * 0.8),
   );
-  // leaf
+  canvas.drawCircle(appleC, appleR, Paint()..color = const Color(0xFFEF4444));
+  canvas.drawCircle(
+    appleC,
+    appleR,
+    Paint()
+      ..shader = RadialGradient(
+        center: const Alignment(-0.4, -0.4),
+        colors: const [Color(0xFFF87171), Color(0xFFDC2626)],
+      ).createShader(Rect.fromCircle(center: appleC, radius: appleR)),
+  );
+  canvas.drawCircle(
+    appleC.translate(-appleR * 0.30, -appleR * 0.30),
+    appleR * 0.22,
+    Paint()..color = Colors.white.withValues(alpha: 0.55),
+  );
+
+  final stemTop = appleC.translate(appleR * 0.05, -appleR * 1.0);
+  final stemBot = appleC.translate(0, -appleR * 0.7);
+  canvas.drawLine(
+    stemTop,
+    stemBot,
+    Paint()
+      ..color = const Color(0xFF5C3316)
+      ..strokeWidth = w * 0.018
+      ..strokeCap = StrokeCap.round,
+  );
+
+  final leafC = appleC.translate(appleR * 0.35, -appleR * 0.95);
   canvas.drawOval(
-    Rect.fromCenter(
-      center: Offset(apple.dx + cs * 0.06, apple.dy - cs * 0.26),
-      width: cs * 0.18,
-      height: cs * 0.09,
-    ),
+    Rect.fromCenter(center: leafC, width: appleR * 0.55, height: appleR * 0.28),
     Paint()..color = const Color(0xFF22C55E),
   );
 }

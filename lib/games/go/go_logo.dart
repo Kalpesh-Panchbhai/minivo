@@ -5,15 +5,20 @@ import '../shared/game_logo_scaffold.dart';
 Widget buildGoLogo(double size) => buildGlassSpotlightLogo(
       size: size,
       title: 'Go',
-      bg: const [Color(0xFF5C3A21), Color(0xFF2A1A0F)],
-      accent: const Color(0xFFE0B873),
-      art: _GoArt,
+      bg: const [Color(0xFF44271A), Color(0xFF2A1810)],
+      accent: const Color(0xFFCD7F32),
+      art: _goArt,
     );
 
-// ignore: non_constant_identifier_names
-void _GoArt(Canvas canvas, Rect zone) {
-  // Wooden board panel.
-  final board = RRect.fromRectAndRadius(zone, Radius.circular(zone.width * 0.06));
+void _goArt(Canvas canvas, Rect zone) {
+  final w = zone.width;
+
+  final boardRect = Rect.fromCenter(
+    center: zone.center,
+    width: w * 0.92,
+    height: w * 0.92,
+  );
+  final board = RRect.fromRectAndRadius(boardRect, Radius.circular(w * 0.05));
   canvas.drawRRect(
     board,
     Paint()
@@ -21,23 +26,22 @@ void _GoArt(Canvas canvas, Rect zone) {
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: [Color(0xFFE7B66E), Color(0xFFD49B4E)],
-      ).createShader(zone),
+      ).createShader(boardRect),
   );
   canvas.drawRRect(
     board,
     Paint()
       ..color = const Color(0xFF7A4F23)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = zone.width * 0.02,
+      ..strokeWidth = w * 0.02,
   );
 
-  // 5x5 intersection grid.
-  const n = 5;
-  final margin = zone.width * 0.14;
-  final inner = zone.width - margin * 2;
+  const n = 4;
+  final margin = boardRect.width * 0.14;
+  final inner = boardRect.width - margin * 2;
   final step = inner / (n - 1);
-  final originX = zone.left + margin;
-  final originY = zone.top + margin;
+  final originX = boardRect.left + margin;
+  final originY = boardRect.top + margin;
 
   double gx(int c) => originX + c * step;
   double gy(int r) => originY + r * step;
@@ -45,30 +49,37 @@ void _GoArt(Canvas canvas, Rect zone) {
   final linePaint = Paint()
     ..color = const Color(0xFF5A3A18)
     ..style = PaintingStyle.stroke
-    ..strokeWidth = zone.width * 0.012;
+    ..strokeWidth = w * 0.010;
 
   for (int i = 0; i < n; i++) {
     canvas.drawLine(Offset(gx(i), gy(0)), Offset(gx(i), gy(n - 1)), linePaint);
     canvas.drawLine(Offset(gx(0), gy(i)), Offset(gx(n - 1), gy(i)), linePaint);
   }
 
-  // Star points (hoshi): center + two corners.
   final starPaint = Paint()..color = const Color(0xFF4A2E12);
-  final starR = zone.width * 0.018;
-  for (final sp in const [
-    [2, 2],
-    [0, 0],
-    [4, 4],
-  ]) {
-    canvas.drawCircle(Offset(gx(sp[1]), gy(sp[0])), starR, starPaint);
-  }
+  final starR = w * 0.016;
+  canvas.drawCircle(Offset(gx(1), gy(1)), starR, starPaint);
+  canvas.drawCircle(Offset(gx(2), gy(2)), starR, starPaint);
 
-  // Stones on intersections.
-  final stoneR = step * 0.42;
-  void stone(int r, int c, bool black) {
+  final stoneR = step * 0.40;
+
+  void stone(int r, int c, bool black, {bool justPlaced = false}) {
     final ctr = Offset(gx(c), gy(r));
-    canvas.drawCircle(ctr.translate(0, stoneR * 0.18), stoneR,
-        Paint()..color = Colors.black.withValues(alpha: 0.28));
+    if (justPlaced) {
+      canvas.drawCircle(
+        ctr.translate(stoneR * 0.06, stoneR * 0.25),
+        stoneR * 1.15,
+        Paint()
+          ..color = Colors.black.withValues(alpha: 0.35)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
+      );
+    } else {
+      canvas.drawCircle(
+        ctr.translate(0, stoneR * 0.15),
+        stoneR,
+        Paint()..color = Colors.black.withValues(alpha: 0.25),
+      );
+    }
     canvas.drawCircle(
       ctr,
       stoneR,
@@ -80,13 +91,22 @@ void _GoArt(Canvas canvas, Rect zone) {
               : const [Colors.white, Color(0xFFC9C9C9)],
         ).createShader(Rect.fromCircle(center: ctr, radius: stoneR)),
     );
+    canvas.drawCircle(
+      ctr.translate(-stoneR * 0.28, -stoneR * 0.28),
+      stoneR * 0.14,
+      Paint()..color = Colors.white.withValues(alpha: black ? 0.22 : 0.50),
+    );
   }
 
-  // A small cluster of black and white stones.
+  stone(0, 1, true);
+  stone(0, 2, true);
+  stone(1, 0, true);
   stone(1, 1, true);
+  stone(2, 2, true, justPlaced: true);
+
+  stone(0, 3, false);
   stone(1, 2, false);
-  stone(2, 2, true);
+  stone(1, 3, false);
   stone(2, 1, false);
-  stone(3, 3, true);
   stone(2, 3, false);
 }

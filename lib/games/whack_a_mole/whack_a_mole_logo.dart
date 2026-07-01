@@ -7,37 +7,34 @@ import '../shared/game_logo_scaffold.dart';
 Widget buildWhackAMoleLogo(double size) => buildGlassSpotlightLogo(
       size: size,
       title: 'Whack-a-Mole',
-      bg: const [Color(0xFF166534), Color(0xFF052E16)],
-      accent: const Color(0xFF84CC16),
+      bg: const [Color(0xFF7C2D12), Color(0xFF431407)],
+      accent: const Color(0xFFFB923C),
       art: _whackAMoleArt,
     );
 
 void _whackAMoleArt(Canvas canvas, Rect zone) {
   final w = zone.width;
+  final h = zone.height;
   final cx = zone.center.dx;
 
-  // Grass mound across the lower part of the zone.
-  final grassRect = Rect.fromLTWH(zone.left, zone.top + w * 0.55, w, w * 0.45);
-  canvas.drawRRect(
-    RRect.fromRectAndRadius(grassRect, Radius.circular(w * 0.12)),
-    Paint()
-      ..shader = const LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [Color(0xFF65A30D), Color(0xFF3F6212)],
-      ).createShader(grassRect),
-  );
-
-  // Dark hole the mole pops out of.
-  final holeCenter = Offset(cx, zone.top + w * 0.62);
+  final holeCenter = Offset(cx, zone.top + h * 0.72);
   canvas.drawOval(
-    Rect.fromCenter(center: holeCenter, width: w * 0.62, height: w * 0.22),
-    Paint()..color = const Color(0xFF1A2E05),
+    Rect.fromCenter(center: holeCenter, width: w * 0.70, height: w * 0.22),
+    Paint()..color = const Color(0xFF1C0A00),
+  );
+  canvas.drawOval(
+    Rect.fromCenter(
+        center: Offset(holeCenter.dx, holeCenter.dy - w * 0.01),
+        width: w * 0.70,
+        height: w * 0.22),
+    Paint()
+      ..color = const Color(0xFF5C3A1E)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = w * 0.03,
   );
 
-  // Mole head.
   const brown = Color(0xFF8B5A2B);
-  final headCenter = Offset(cx, zone.top + w * 0.44);
+  final headCenter = Offset(cx, zone.top + h * 0.44);
   final headR = w * 0.26;
   final headRect = Rect.fromCircle(center: headCenter, radius: headR);
   canvas.drawCircle(
@@ -47,45 +44,58 @@ void _whackAMoleArt(Canvas canvas, Rect zone) {
       ..shader = RadialGradient(
         center: const Alignment(-0.3, -0.4),
         colors: [
-          Color.lerp(brown, Colors.white, 0.32)!,
+          Color.lerp(brown, Colors.white, 0.30)!,
           brown,
-          Color.lerp(brown, Colors.black, 0.20)!,
+          Color.lerp(brown, Colors.black, 0.22)!,
         ],
         stops: const [0.0, 0.55, 1.0],
       ).createShader(headRect),
   );
 
-  // Ears.
   for (final sign in const [-1.0, 1.0]) {
+    final earC =
+        Offset(headCenter.dx + sign * headR * 0.80, headCenter.dy - headR * 0.58);
+    canvas.drawCircle(earC, headR * 0.26, Paint()..color = brown);
     canvas.drawCircle(
-      Offset(headCenter.dx + sign * headR * 0.78, headCenter.dy - headR * 0.55),
-      headR * 0.28,
-      Paint()..color = brown,
+      earC,
+      headR * 0.14,
+      Paint()..color = const Color(0xFFD4956A),
     );
   }
 
-  // Eyes.
   for (final sign in const [-1.0, 1.0]) {
-    final eyeC = Offset(headCenter.dx + sign * headR * 0.4, headCenter.dy - headR * 0.18);
-    canvas.drawCircle(eyeC, headR * 0.2, Paint()..color = Colors.white);
+    final eyeC =
+        Offset(headCenter.dx + sign * headR * 0.38, headCenter.dy - headR * 0.12);
+    canvas.drawCircle(eyeC, headR * 0.20, Paint()..color = Colors.white);
     canvas.drawCircle(
-      eyeC.translate(sign * headR * 0.04, headR * 0.02),
-      headR * 0.1,
+      eyeC.translate(sign * headR * 0.05, headR * 0.02),
+      headR * 0.11,
       Paint()..color = const Color(0xFF1A1A1A),
     );
+    canvas.drawCircle(
+      eyeC.translate(sign * headR * 0.02, -headR * 0.04),
+      headR * 0.05,
+      Paint()..color = Colors.white.withValues(alpha: 0.7),
+    );
   }
 
-  // Nose.
-  final noseC = Offset(headCenter.dx, headCenter.dy + headR * 0.32);
-  canvas.drawCircle(noseC, headR * 0.16, Paint()..color = const Color(0xFFEC4899));
+  final noseC = Offset(headCenter.dx, headCenter.dy + headR * 0.30);
+  canvas.drawOval(
+    Rect.fromCenter(center: noseC, width: headR * 0.34, height: headR * 0.24),
+    Paint()..color = const Color(0xFFEC4899),
+  );
   canvas.drawCircle(
-    noseC.translate(-headR * 0.05, -headR * 0.05),
+    noseC.translate(-headR * 0.05, -headR * 0.04),
     headR * 0.06,
-    Paint()..color = Colors.white.withValues(alpha: 0.55),
+    Paint()..color = Colors.white.withValues(alpha: 0.50),
   );
 
-  // Mallet poised above, tilted to the upper-left.
-  _drawMallet(canvas, Offset(zone.left + w * 0.2, zone.top + w * 0.12), w * 0.34, -math.pi / 6);
+  _drawMallet(
+    canvas,
+    Offset(zone.right - w * 0.16, zone.top + h * 0.08),
+    w * 0.38,
+    math.pi / 5,
+  );
 }
 
 void _drawMallet(Canvas canvas, Offset pivot, double len, double angle) {
@@ -93,22 +103,33 @@ void _drawMallet(Canvas canvas, Offset pivot, double len, double angle) {
   canvas.translate(pivot.dx, pivot.dy);
   canvas.rotate(angle);
 
-  // Handle.
   canvas.drawRRect(
     RRect.fromRectAndRadius(
-      Rect.fromCenter(center: Offset(0, len * 0.45), width: len * 0.18, height: len * 0.95),
-      Radius.circular(len * 0.08),
+      Rect.fromCenter(
+          center: Offset(0, len * 0.45), width: len * 0.16, height: len * 0.90),
+      Radius.circular(len * 0.07),
     ),
     Paint()..color = const Color(0xFF92400E),
   );
-  // Head.
+  canvas.drawRRect(
+    RRect.fromRectAndRadius(
+      Rect.fromCenter(
+          center: Offset(0, len * 0.45), width: len * 0.16, height: len * 0.90),
+      Radius.circular(len * 0.07),
+    ),
+    Paint()
+      ..color = const Color(0xFFB45309)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = len * 0.02,
+  );
+
   final headRect = Rect.fromCenter(
-    center: Offset(0, -len * 0.18),
-    width: len * 0.72,
-    height: len * 0.42,
+    center: Offset(0, -len * 0.14),
+    width: len * 0.68,
+    height: len * 0.40,
   );
   canvas.drawRRect(
-    RRect.fromRectAndRadius(headRect, Radius.circular(len * 0.1)),
+    RRect.fromRectAndRadius(headRect, Radius.circular(len * 0.09)),
     Paint()
       ..shader = const LinearGradient(
         begin: Alignment.topCenter,
@@ -116,13 +137,20 @@ void _drawMallet(Canvas canvas, Offset pivot, double len, double angle) {
         colors: [Color(0xFFE5E7EB), Color(0xFF9CA3AF)],
       ).createShader(headRect),
   );
-  // Shine on the head.
   canvas.drawRRect(
     RRect.fromRectAndRadius(
-      Rect.fromLTWH(headRect.left, headRect.top, headRect.width, headRect.height * 0.4),
-      Radius.circular(len * 0.1),
+      Rect.fromLTWH(
+          headRect.left, headRect.top, headRect.width, headRect.height * 0.38),
+      Radius.circular(len * 0.09),
     ),
-    Paint()..color = Colors.white.withValues(alpha: 0.35),
+    Paint()..color = Colors.white.withValues(alpha: 0.30),
+  );
+  canvas.drawRRect(
+    RRect.fromRectAndRadius(headRect, Radius.circular(len * 0.09)),
+    Paint()
+      ..color = Colors.white.withValues(alpha: 0.25)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = len * 0.02,
   );
   canvas.restore();
 }

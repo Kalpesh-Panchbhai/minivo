@@ -1,4 +1,5 @@
 ---
+name: add-game
 description: Add a new mini game to Minivo — scaffolds all files, registers the game, and wires analytics/tutorials
 ---
 

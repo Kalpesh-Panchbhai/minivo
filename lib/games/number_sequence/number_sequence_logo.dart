@@ -7,92 +7,87 @@ Widget buildNumberSequenceLogo(double size) => buildGlassSpotlightLogo(
       title: 'Number Sequence',
       bg: const [Color(0xFF312E81), Color(0xFF1E1B4B)],
       accent: const Color(0xFF818CF8),
-      art: _NumberSequenceArt,
+      art: _numberSequenceArt,
     );
 
-// ignore: non_constant_identifier_names
-void _NumberSequenceArt(Canvas canvas, Rect zone) {
+void _numberSequenceArt(Canvas canvas, Rect zone) {
   const accent = Color(0xFF818CF8);
-  const labels = ['1', '2', '3', '4'];
+  const labels = ['1', '2', '3', '?'];
+  final count = labels.length;
 
-  // Four circles laid out in a 2x2 grid, connected 1 -> 2 -> 3 -> 4.
-  final r = zone.width * 0.16;
-  final cxL = zone.left + zone.width * 0.30;
-  final cxR = zone.left + zone.width * 0.70;
-  final cyT = zone.top + zone.height * 0.30;
-  final cyB = zone.top + zone.height * 0.70;
+  final r = zone.width * 0.10;
+  final totalSpan = zone.width * 0.88;
+  final spacing = totalSpan / (count - 1);
+  final cy = zone.top + zone.height * 0.50;
+  final startX = zone.left + (zone.width - totalSpan) / 2;
 
   final centers = <Offset>[
-    Offset(cxL, cyT), // 1
-    Offset(cxR, cyT), // 2
-    Offset(cxL, cyB), // 3
-    Offset(cxR, cyB), // 4
+    for (int i = 0; i < count; i++) Offset(startX + i * spacing, cy),
   ];
 
-  // Connecting arrows: 1->2 (right), 2->3 (diagonal down-left), 3->4 (right).
-  final arrowPaint = Paint()
-    ..color = Colors.white.withValues(alpha: 0.75)
+  final linePaint = Paint()
+    ..color = Colors.white.withValues(alpha: 0.50)
     ..style = PaintingStyle.stroke
     ..strokeWidth = zone.width * 0.022
-    ..strokeCap = StrokeCap.round
-    ..strokeJoin = StrokeJoin.round;
+    ..strokeCap = StrokeCap.round;
 
-  void arrow(Offset from, Offset to) {
+  for (int i = 0; i < count - 1; i++) {
+    final from = centers[i];
+    final to = centers[i + 1];
     final dir = (to - from);
     final len = dir.distance;
-    if (len == 0) return;
     final unit = Offset(dir.dx / len, dir.dy / len);
-    // Trim the segment so it starts/ends at the circle edges, not centers.
-    final start = from + unit * (r + zone.width * 0.02);
-    final end = to - unit * (r + zone.width * 0.045);
-    canvas.drawLine(start, end, arrowPaint);
-    // Arrow head.
-    final ah = zone.width * 0.06;
+    final start = from + unit * (r + zone.width * 0.015);
+    final end = to - unit * (r + zone.width * 0.04);
+    canvas.drawLine(start, end, linePaint);
+
+    final ah = zone.width * 0.045;
     final perp = Offset(-unit.dy, unit.dx);
-    final base = end - unit * ah;
-    final head = Path()
-      ..moveTo(end.dx, end.dy)
-      ..lineTo(base.dx + perp.dx * ah * 0.5, base.dy + perp.dy * ah * 0.5)
-      ..lineTo(base.dx - perp.dx * ah * 0.5, base.dy - perp.dy * ah * 0.5)
+    final arrowHead = Path()
+      ..moveTo(end.dx + unit.dx * ah * 0.3, end.dy + unit.dy * ah * 0.3)
+      ..lineTo(end.dx - unit.dx * ah + perp.dx * ah * 0.5,
+          end.dy - unit.dy * ah + perp.dy * ah * 0.5)
+      ..lineTo(end.dx - unit.dx * ah - perp.dx * ah * 0.5,
+          end.dy - unit.dy * ah - perp.dy * ah * 0.5)
       ..close();
-    canvas.drawPath(head, Paint()..color = Colors.white.withValues(alpha: 0.85));
+    canvas.drawPath(
+      arrowHead,
+      Paint()..color = Colors.white.withValues(alpha: 0.60),
+    );
   }
 
-  arrow(centers[0], centers[1]);
-  arrow(centers[1], centers[2]);
-  arrow(centers[2], centers[3]);
-
-  for (int i = 0; i < centers.length; i++) {
+  for (int i = 0; i < count; i++) {
     final c = centers[i];
-    final highlighted = i == 0;
-    // Contact shadow.
+    final isQuestion = i == count - 1;
+
     canvas.drawCircle(
-        c.translate(0, 2), r, Paint()..color = Colors.black.withValues(alpha: 0.22));
-    // Fill.
+      c.translate(0, 2),
+      r,
+      Paint()..color = Colors.black.withValues(alpha: 0.20),
+    );
     canvas.drawCircle(
       c,
       r,
-      Paint()..color = highlighted ? accent : const Color(0xFF312E81),
+      Paint()..color = isQuestion ? const Color(0xFF4338CA) : accent,
     );
-    // Ring.
     canvas.drawCircle(
       c,
       r,
       Paint()
-        ..color = highlighted
-            ? Colors.white.withValues(alpha: 0.9)
-            : accent.withValues(alpha: 0.85)
+        ..color = isQuestion
+            ? const Color(0xFFFBBF24)
+            : Colors.white.withValues(alpha: 0.85)
         ..style = PaintingStyle.stroke
         ..strokeWidth = zone.width * 0.018,
     );
-    // Digit.
+
     final tp = TextPainter(
       text: TextSpan(
         text: labels[i],
         style: TextStyle(
-          color: Colors.white,
+          color: isQuestion ? const Color(0xFFFBBF24) : Colors.white,
           fontWeight: FontWeight.w900,
-          fontSize: r * 1.05,
+          fontSize: r * 1.1,
           height: 1,
         ),
       ),

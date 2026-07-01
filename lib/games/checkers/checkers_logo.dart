@@ -5,58 +5,91 @@ import '../shared/game_logo_scaffold.dart';
 Widget buildCheckersLogo(double size) => buildGlassSpotlightLogo(
       size: size,
       title: 'Checkers',
-      bg: const [Color(0xFF5C3A21), Color(0xFF2A1A0F)],
-      accent: const Color(0xFFD2A679),
+      bg: const [Color(0xFF44271A), Color(0xFF2A1810)],
+      accent: const Color(0xFFCD7F32),
       art: _checkersArt,
     );
 
 void _checkersArt(Canvas canvas, Rect zone) {
-  const n = 4;
-  final cell = zone.width / n;
+  final s = zone.width;
+  final cx = zone.center.dx;
+  final cy = zone.center.dy;
 
-  // 4x4 checkerboard with alternating light/dark squares.
+  final cellSize = s * 0.28;
+  final boardLeft = cx - cellSize;
+  final boardTop = cy - cellSize * 0.15;
   final light = Paint()..color = const Color(0xFFF5DEB3);
   final dark = Paint()..color = const Color(0xFF6B4226);
-  for (int r = 0; r < n; r++) {
-    for (int c = 0; c < n; c++) {
+  for (int r = 0; r < 2; r++) {
+    for (int c = 0; c < 2; c++) {
       final isDark = (r + c) % 2 == 1;
-      final rect = Rect.fromLTWH(
-          zone.left + c * cell, zone.top + r * cell, cell, cell);
-      canvas.drawRect(rect, isDark ? dark : light);
+      canvas.drawRect(
+        Rect.fromLTWH(boardLeft + c * cellSize, boardTop + r * cellSize,
+            cellSize, cellSize),
+        isDark ? dark : light,
+      );
     }
   }
-  // Board border.
   canvas.drawRect(
-    zone,
+    Rect.fromLTWH(boardLeft, boardTop, cellSize * 2, cellSize * 2),
     Paint()
       ..color = const Color(0xFF3E2015)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = cell * 0.08,
+      ..strokeWidth = s * 0.025,
   );
 
-  void disc(int r, int c, Color fill, Color rim) {
-    final ctr = Offset(zone.left + (c + 0.5) * cell, zone.top + (r + 0.5) * cell);
-    final radius = cell * 0.36;
-    // Contact shadow.
-    canvas.drawCircle(ctr.translate(0, cell * 0.05), radius,
-        Paint()..color = Colors.black.withValues(alpha: 0.25));
-    canvas.drawCircle(ctr, radius, Paint()..color = fill);
-    // Inner ring detail.
-    canvas.drawCircle(
-      ctr,
-      radius * 0.62,
-      Paint()
-        ..color = rim
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = cell * 0.06,
-    );
-    // Top highlight.
-    canvas.drawCircle(ctr.translate(-radius * 0.3, -radius * 0.3), radius * 0.2,
-        Paint()..color = Colors.white.withValues(alpha: 0.4));
-  }
+  final discX = cx;
+  final discBottomY = boardTop + cellSize * 0.95;
+  final discR = s * 0.18;
+  final rimW = s * 0.025;
 
-  // Two red discs and one dark disc on dark squares.
-  disc(0, 1, const Color(0xFFE53935), const Color(0xFFFF8A80));
-  disc(3, 2, const Color(0xFFE53935), const Color(0xFFFF8A80));
-  disc(2, 1, const Color(0xFF1F2937), const Color(0xFF6B7280));
+  canvas.drawOval(
+    Rect.fromCenter(
+        center: Offset(discX, discBottomY + discR * 0.15),
+        width: discR * 2.2,
+        height: discR * 0.6),
+    Paint()..color = Colors.black.withValues(alpha: 0.30),
+  );
+
+  final darkDiscY = discBottomY;
+  canvas.drawCircle(
+      Offset(discX, darkDiscY), discR, Paint()..color = const Color(0xFF1F2937));
+  canvas.drawCircle(
+    Offset(discX, darkDiscY),
+    discR - rimW,
+    Paint()
+      ..color = const Color(0xFF374151)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = rimW,
+  );
+  canvas.drawCircle(
+    Offset(discX - discR * 0.28, darkDiscY - discR * 0.28),
+    discR * 0.18,
+    Paint()..color = Colors.white.withValues(alpha: 0.20),
+  );
+
+  final redDiscY = discBottomY - discR * 0.70;
+  canvas.drawCircle(
+      Offset(discX, redDiscY), discR, Paint()..color = const Color(0xFFCC3333));
+  canvas.drawCircle(
+    Offset(discX, redDiscY),
+    discR - rimW,
+    Paint()
+      ..color = const Color(0xFFE55555)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = rimW,
+  );
+  canvas.drawCircle(
+    Offset(discX, redDiscY),
+    discR * 0.55,
+    Paint()
+      ..color = const Color(0xFFDD4444)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = rimW * 0.7,
+  );
+  canvas.drawCircle(
+    Offset(discX - discR * 0.28, redDiscY - discR * 0.28),
+    discR * 0.20,
+    Paint()..color = Colors.white.withValues(alpha: 0.35),
+  );
 }

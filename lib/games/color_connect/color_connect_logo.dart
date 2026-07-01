@@ -2,69 +2,112 @@ import 'package:flutter/material.dart';
 
 import '../shared/game_logo_scaffold.dart';
 
-const _kFlowColors = [
-  Color(0xFFFF6B6B),
-  Color(0xFF4ECDC4),
-  Color(0xFFFFE66D),
-  Color(0xFF95E1D3),
-];
-
 Widget buildColorConnectLogo(double size) => buildGlassSpotlightLogo(
       size: size,
       title: 'Color Connect',
-      bg: const [Color(0xFF1A1A2E), Color(0xFF0A0A14)],
-      accent: const Color(0xFF6C63FF),
+      bg: const [Color(0xFF312E81), Color(0xFF1E1B4B)],
+      accent: const Color(0xFF818CF8),
       art: _colorConnectArt,
     );
 
 void _colorConnectArt(Canvas canvas, Rect zone) {
-  const n = 4;
-  final gap = zone.width * 0.08;
-  final cell = (zone.width - gap * (n - 1)) / n;
+  final cx = zone.center.dx;
+  final cy = zone.center.dy;
+  final dotR = zone.width * 0.065;
+  final lineW = zone.width * 0.045;
+  final gridW = zone.width * 0.72;
+  final gridH = zone.height * 0.72;
+  final left = cx - gridW / 2;
+  final top = cy - gridH / 2;
 
-  Rect cellRect(int r, int c) =>
-      Rect.fromLTWH(zone.left + c * (cell + gap), zone.top + r * (cell + gap), cell, cell);
-  Offset center(int r, int c) => cellRect(r, c).center;
-
-  for (int r = 0; r < n; r++) {
-    for (int c = 0; c < n; c++) {
-      final rr = RRect.fromRectAndRadius(cellRect(r, c), Radius.circular(cell * 0.22));
-      canvas.drawRRect(rr, Paint()..color = Colors.white.withValues(alpha: 0.06));
-      canvas.drawRRect(
-          rr,
-          Paint()
-            ..color = Colors.white.withValues(alpha: 0.18)
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = cell * 0.04);
-    }
+  final gridPaint = Paint()
+    ..color = Colors.white.withValues(alpha: 0.06)
+    ..strokeWidth = zone.width * 0.008;
+  const gridN = 5;
+  final stepX = gridW / (gridN - 1);
+  final stepY = gridH / (gridN - 1);
+  for (int i = 0; i < gridN; i++) {
+    canvas.drawLine(
+      Offset(left, top + i * stepY),
+      Offset(left + gridW, top + i * stepY),
+      gridPaint,
+    );
+    canvas.drawLine(
+      Offset(left + i * stepX, top),
+      Offset(left + i * stepX, top + gridH),
+      gridPaint,
+    );
   }
 
-  void drawFlow(List<List<int>> path, Color color) {
-    if (path.length < 2) return;
-    final p = Path()..moveTo(center(path[0][0], path[0][1]).dx, center(path[0][0], path[0][1]).dy);
-    for (int i = 1; i < path.length; i++) {
-      final c = center(path[i][0], path[i][1]);
-      p.lineTo(c.dx, c.dy);
-    }
+  void drawPair(
+    Offset a,
+    Offset b,
+    Offset ctrlA,
+    Offset ctrlB,
+    Color color,
+  ) {
+    final path = Path()
+      ..moveTo(a.dx, a.dy)
+      ..cubicTo(ctrlA.dx, ctrlA.dy, ctrlB.dx, ctrlB.dy, b.dx, b.dy);
     canvas.drawPath(
-      p,
+      path,
       Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = cell * 0.28
+        ..strokeWidth = lineW
         ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round
-        ..color = color.withValues(alpha: 0.85),
+        ..color = color.withValues(alpha: 0.70),
     );
-
-    final first = center(path.first[0], path.first[1]);
-    final last = center(path.last[0], path.last[1]);
-    final dotR = cell * 0.26;
-    canvas.drawCircle(first, dotR, Paint()..color = color);
-    canvas.drawCircle(last, dotR, Paint()..color = color);
+    canvas.drawCircle(a, dotR, Paint()..color = color);
+    canvas.drawCircle(b, dotR, Paint()..color = color);
+    canvas.drawCircle(
+      a,
+      dotR,
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.30)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = zone.width * 0.012,
+    );
+    canvas.drawCircle(
+      b,
+      dotR,
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.30)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = zone.width * 0.012,
+    );
   }
 
-  drawFlow([[0, 0], [0, 1], [1, 1], [2, 1], [2, 0]], _kFlowColors[0]);
-  drawFlow([[0, 3], [1, 3], [1, 2], [2, 2], [2, 3]], _kFlowColors[1]);
-  drawFlow([[3, 0], [3, 1]], _kFlowColors[2]);
-  drawFlow([[3, 2], [3, 3]], _kFlowColors[3]);
+  const red = Color(0xFFEF4444);
+  const blue = Color(0xFF3B82F6);
+  const green = Color(0xFF22C55E);
+
+  final rA = Offset(left + stepX * 0, top + stepY * 0);
+  final rB = Offset(left + stepX * 2, top + stepY * 2);
+  drawPair(
+    rA,
+    rB,
+    Offset(left + stepX * 0, top + stepY * 2),
+    Offset(left + stepX * 2, top + stepY * 0),
+    red,
+  );
+
+  final bA = Offset(left + stepX * 4, top + stepY * 0);
+  final bB = Offset(left + stepX * 4, top + stepY * 3);
+  drawPair(
+    bA,
+    bB,
+    Offset(left + stepX * 3, top + stepY * 1),
+    Offset(left + stepX * 3, top + stepY * 2),
+    blue,
+  );
+
+  final gA = Offset(left + stepX * 0, top + stepY * 4);
+  final gB = Offset(left + stepX * 3, top + stepY * 4);
+  drawPair(
+    gA,
+    gB,
+    Offset(left + stepX * 1, top + stepY * 3),
+    Offset(left + stepX * 2, top + stepY * 3),
+    green,
+  );
 }

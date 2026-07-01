@@ -7,85 +7,139 @@ import '../shared/game_logo_scaffold.dart';
 Widget buildQueensPuzzleLogo(double size) => buildGlassSpotlightLogo(
       size: size,
       title: 'Queens',
-      bg: const [Color(0xFF3B1F6E), Color(0xFF1A0A3E)],
-      accent: const Color(0xFFD4A0FF),
+      bg: const [Color(0xFF581C87), Color(0xFF3B0764)],
+      accent: const Color(0xFFC084FC),
       art: _queensArt,
     );
 
 void _queensArt(Canvas canvas, Rect zone) {
-  const n = 4;
-  final gap = zone.width * 0.06;
-  final cell = (zone.width - gap * (n - 1)) / n;
+  final cell = zone.width / 4;
+  final left = zone.left;
+  final top = zone.top + zone.height * 0.05;
 
-  final regionColors = [
-    const Color(0xFFFF6B6B),
-    const Color(0xFF51CF66),
-    const Color(0xFF339AF0),
-    const Color(0xFFFFD43B),
+  final gridW = cell * 4;
+  final gridH = cell * 4;
+
+  const regionMap = [
+    [0, 0, 1, 1],
+    [0, 2, 2, 1],
+    [3, 2, 4, 4],
+    [3, 3, 4, 4],
   ];
 
-  const regions = [
-    [0, 1, 4, 5],
-    [2, 3, 6, 7],
-    [8, 9, 12, 13],
-    [10, 11, 14, 15],
+  const regionColors = [
+    Color(0xFFFF6B6B),
+    Color(0xFF51CF66),
+    Color(0xFF339AF0),
+    Color(0xFFFFD43B),
+    Color(0xFFCC5DE8),
   ];
 
-  const queenPositions = [
-    [0, 2],
-    [1, 0],
-    [2, 3],
-    [3, 1],
-  ];
-
-  Rect cellRect(int r, int c) =>
-      Rect.fromLTWH(zone.left + c * (cell + gap), zone.top + r * (cell + gap), cell, cell);
-
-  for (int reg = 0; reg < n; reg++) {
-    for (final idx in regions[reg]) {
-      final r = idx ~/ n, c = idx % n;
-      final rect = cellRect(r, c);
-      final rr = RRect.fromRectAndRadius(rect, Radius.circular(cell * 0.18));
-      canvas.drawRRect(rr, Paint()..color = regionColors[reg].withValues(alpha: 0.35));
-      canvas.drawRRect(
-          rr,
-          Paint()
-            ..color = regionColors[reg].withValues(alpha: 0.55)
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = cell * 0.06);
+  for (int r = 0; r < 4; r++) {
+    for (int c = 0; c < 4; c++) {
+      final x = left + c * cell;
+      final y = top + r * cell;
+      final rect = Rect.fromLTWH(x, y, cell, cell);
+      canvas.drawRect(rect, Paint()..color = Colors.white);
+      canvas.drawRect(
+        rect,
+        Paint()..color = regionColors[regionMap[r][c]].withValues(alpha: 0.45),
+      );
     }
   }
 
-  for (final pos in queenPositions) {
-    final ctr = cellRect(pos[0], pos[1]).center;
-    final cr = cell * 0.30;
-    canvas.drawCircle(ctr.translate(0, 1.5), cr, Paint()..color = Colors.black.withValues(alpha: 0.22));
-    canvas.drawCircle(
-        ctr,
-        cr,
-        Paint()
-          ..shader = ui.Gradient.radial(
-            ctr.translate(-cr * 0.2, -cr * 0.3),
-            cr * 1.2,
-            [const Color(0xFFFFD43B), const Color(0xFFF59F00)],
-          ));
+  final thinLine = Paint()
+    ..color = const Color(0xFF2D2D3F).withValues(alpha: 0.55)
+    ..strokeWidth = cell * 0.04;
 
-    final crownSize = cr * 0.75;
-    final crownPath = Path();
-    final cx = ctr.dx, cy = ctr.dy;
-    crownPath.moveTo(cx - crownSize, cy + crownSize * 0.3);
-    crownPath.lineTo(cx - crownSize, cy - crownSize * 0.2);
-    crownPath.lineTo(cx - crownSize * 0.5, cy + crownSize * 0.1);
-    crownPath.lineTo(cx, cy - crownSize * 0.5);
-    crownPath.lineTo(cx + crownSize * 0.5, cy + crownSize * 0.1);
-    crownPath.lineTo(cx + crownSize, cy - crownSize * 0.2);
-    crownPath.lineTo(cx + crownSize, cy + crownSize * 0.3);
-    crownPath.close();
+  for (int i = 1; i < 4; i++) {
+    final y = top + i * cell;
+    canvas.drawLine(Offset(left, y), Offset(left + gridW, y), thinLine);
+    final x = left + i * cell;
+    canvas.drawLine(Offset(x, top), Offset(x, top + gridH), thinLine);
+  }
+
+  final outerBorder = Paint()
+    ..color = const Color(0xFF2D2D3F)
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = cell * 0.10;
+  canvas.drawRect(Rect.fromLTWH(left, top, gridW, gridH), outerBorder);
+
+  void drawCrown(double cx, double cy, double w) {
+    final h = w * 0.72;
+    final crownLeft = cx - w / 2;
+    final crownTop = cy - h / 2;
+    final crownBottom = crownTop + h;
+    final bandY = crownBottom - h * 0.22;
+    final peakY = crownTop;
+    final dipY = crownTop + h * 0.45;
+
+    final path = Path()
+      ..moveTo(crownLeft, crownBottom)
+      ..lineTo(crownLeft, bandY)
+      ..lineTo(crownLeft, dipY)
+      ..lineTo(crownLeft + w * 0.18, peakY + h * 0.05)
+      ..lineTo(crownLeft + w * 0.30, dipY)
+      ..lineTo(cx, peakY)
+      ..lineTo(crownLeft + w * 0.70, dipY)
+      ..lineTo(crownLeft + w * 0.82, peakY + h * 0.05)
+      ..lineTo(crownLeft + w, dipY)
+      ..lineTo(crownLeft + w, bandY)
+      ..lineTo(crownLeft + w, crownBottom)
+      ..close();
 
     canvas.drawPath(
-        crownPath,
+      path.shift(const Offset(0, 1)),
+      Paint()
+        ..color = Colors.black.withValues(alpha: 0.22)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
+    );
+
+    canvas.drawPath(
+      path,
+      Paint()
+        ..shader = ui.Gradient.linear(
+          Offset(cx, peakY),
+          Offset(cx, crownBottom),
+          [
+            const Color(0xFFFFD43B),
+            const Color(0xFFE8A817),
+            const Color(0xFFB8860B),
+          ],
+          [0.0, 0.55, 1.0],
+        ),
+    );
+
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = const Color(0xFFB8860B)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = w * 0.06,
+    );
+
+    final jewels = [
+      Offset(crownLeft + w * 0.18, peakY + h * 0.05),
+      Offset(cx, peakY),
+      Offset(crownLeft + w * 0.82, peakY + h * 0.05),
+    ];
+    final jr = w * 0.07;
+    for (final j in jewels) {
+      canvas.drawCircle(j, jr, Paint()..color = const Color(0xFFFFF9E6));
+      canvas.drawCircle(
+        j,
+        jr,
         Paint()
-          ..color = Colors.white
-          ..style = PaintingStyle.fill);
+          ..color = const Color(0xFFB8860B)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = w * 0.04,
+      );
+    }
   }
+
+  final crownSize = cell * 0.62;
+
+  drawCrown(left + 0.5 * cell, top + 0.5 * cell, crownSize);
+  drawCrown(left + 2.5 * cell, top + 1.5 * cell, crownSize);
+  drawCrown(left + 3.5 * cell, top + 3.5 * cell, crownSize);
 }

@@ -5,36 +5,17 @@ import '../shared/game_logo_scaffold.dart';
 Widget buildGomokuLogo(double size) => buildGlassSpotlightLogo(
       size: size,
       title: 'Gomoku',
-      bg: const [Color(0xFF1E3A8A), Color(0xFF0B1E4D)],
+      bg: const [Color(0xFF1E3A5F), Color(0xFF0C1F3A)],
       accent: const Color(0xFF60A5FA),
-      art: _GomokuArt,
+      art: _gomokuArt,
     );
 
-// ignore: non_constant_identifier_names
-void _GomokuArt(Canvas canvas, Rect zone) {
-  // Board panel.
-  final board = RRect.fromRectAndRadius(zone, Radius.circular(zone.width * 0.06));
-  canvas.drawRRect(
-    board,
-    Paint()
-      ..shader = const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [Color(0xFF3B6BC9), Color(0xFF24477F)],
-      ).createShader(zone),
-  );
-  canvas.drawRRect(
-    board,
-    Paint()
-      ..color = const Color(0xFF93C5FD)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = zone.width * 0.018,
-  );
+void _gomokuArt(Canvas canvas, Rect zone) {
+  final w = zone.width;
 
-  // 6x6 intersection grid.
-  const n = 6;
-  final margin = zone.width * 0.13;
-  final inner = zone.width - margin * 2;
+  const n = 7;
+  final margin = w * 0.08;
+  final inner = w - margin * 2;
   final step = inner / (n - 1);
   final originX = zone.left + margin;
   final originY = zone.top + margin;
@@ -43,44 +24,33 @@ void _GomokuArt(Canvas canvas, Rect zone) {
   double gy(int r) => originY + r * step;
 
   final linePaint = Paint()
-    ..color = Colors.white.withValues(alpha: 0.22)
+    ..color = Colors.white.withValues(alpha: 0.18)
     ..style = PaintingStyle.stroke
-    ..strokeWidth = zone.width * 0.008;
+    ..strokeWidth = w * 0.007;
 
   for (int i = 0; i < n; i++) {
     canvas.drawLine(Offset(gx(i), gy(0)), Offset(gx(i), gy(n - 1)), linePaint);
     canvas.drawLine(Offset(gx(0), gy(i)), Offset(gx(n - 1), gy(i)), linePaint);
   }
 
-  final stoneR = step * 0.40;
+  final stoneR = step * 0.38;
 
-  // Winning line: five black stones across the middle row.
-  const winRow = 2;
-  final winStart = Offset(gx(0), gy(winRow));
-  final winEnd = Offset(gx(4), gy(winRow));
-  // Glow under the winning line.
-  canvas.drawLine(
-    winStart,
-    winEnd,
-    Paint()
-      ..color = const Color(0xFFFBBF24).withValues(alpha: 0.55)
-      ..strokeWidth = stoneR * 0.9
-      ..strokeCap = StrokeCap.round
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
-  );
-  canvas.drawLine(
-    winStart,
-    winEnd,
-    Paint()
-      ..color = const Color(0xFFFCD34D).withValues(alpha: 0.85)
-      ..strokeWidth = stoneR * 0.30
-      ..strokeCap = StrokeCap.round,
-  );
-
-  void stone(int r, int c, bool black) {
+  void stone(int r, int c, bool black, {bool glow = false}) {
     final ctr = Offset(gx(c), gy(r));
-    canvas.drawCircle(ctr.translate(0, stoneR * 0.18), stoneR,
-        Paint()..color = Colors.black.withValues(alpha: 0.30));
+    canvas.drawCircle(
+      ctr.translate(0, stoneR * 0.15),
+      stoneR,
+      Paint()..color = Colors.black.withValues(alpha: 0.28),
+    );
+    if (glow) {
+      canvas.drawCircle(
+        ctr,
+        stoneR * 1.6,
+        Paint()
+          ..color = const Color(0xFFFBBF24).withValues(alpha: 0.35)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+      );
+    }
     canvas.drawCircle(
       ctr,
       stoneR,
@@ -92,16 +62,39 @@ void _GomokuArt(Canvas canvas, Rect zone) {
               : const [Colors.white, Color(0xFFCBD5E1)],
         ).createShader(Rect.fromCircle(center: ctr, radius: stoneR)),
     );
+    canvas.drawCircle(
+      ctr.translate(-stoneR * 0.3, -stoneR * 0.3),
+      stoneR * 0.15,
+      Paint()..color = Colors.white.withValues(alpha: black ? 0.25 : 0.50),
+    );
   }
 
-  // Five black stones in a row (the win).
-  for (int c = 0; c < 5; c++) {
-    stone(winRow, c, true);
+  final winStart = Offset(gx(1), gy(1));
+  final winEnd = Offset(gx(5), gy(5));
+  canvas.drawLine(
+    winStart,
+    winEnd,
+    Paint()
+      ..color = const Color(0xFFFBBF24).withValues(alpha: 0.45)
+      ..strokeWidth = stoneR * 0.8
+      ..strokeCap = StrokeCap.round
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
+  );
+  canvas.drawLine(
+    winStart,
+    winEnd,
+    Paint()
+      ..color = const Color(0xFFFCD34D).withValues(alpha: 0.70)
+      ..strokeWidth = stoneR * 0.25
+      ..strokeCap = StrokeCap.round,
+  );
+
+  for (int i = 0; i < 5; i++) {
+    stone(1 + i, 1 + i, true, glow: i == 2);
   }
 
-  // A few scattered white stones.
-  stone(0, 1, false);
-  stone(1, 3, false);
+  stone(2, 4, false);
   stone(4, 2, false);
-  stone(3, 4, false);
+  stone(1, 4, false);
+  stone(5, 3, false);
 }

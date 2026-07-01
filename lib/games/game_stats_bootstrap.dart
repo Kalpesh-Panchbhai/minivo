@@ -34,6 +34,7 @@ import 'ludo/ludo_stats.dart';
 import 'maze_paint/maze_paint_stats.dart';
 import 'block_escape/block_escape_stats.dart';
 
+
 /// Single entry point for registering all per-game custom stats builders.
 /// Add new games here as they ship.
 ///
