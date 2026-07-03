@@ -11,7 +11,7 @@ List<GameHowToPlayStep> waterSortSteps() => [
     demo: AnimatedDemo(
       period: const Duration(seconds: 3),
       painter: (t) => _PourPainter(t),
-      canvasSize: const Size(200, 160),
+      canvasSize: const Size(200, 180),
     ),
   ),
   GameHowToPlayStep(
@@ -19,15 +19,15 @@ List<GameHowToPlayStep> waterSortSteps() => [
     demo: AnimatedDemo(
       period: const Duration(seconds: 3),
       painter: (t) => _RulePainter(t),
-      canvasSize: const Size(200, 160),
+      canvasSize: const Size(200, 180),
     ),
   ),
   GameHowToPlayStep(
-    text: 'Sort all colors so each tube contains only one color. Watch an ad to unlock extra tube space!',
+    text: 'Sort all colors so each tube holds only one color. Complete all tubes to win!',
     demo: AnimatedDemo(
       period: const Duration(seconds: 3),
       painter: (t) => _SolvedPainter(t),
-      canvasSize: const Size(200, 160),
+      canvasSize: const Size(200, 180),
     ),
   ),
 ];
@@ -45,29 +45,114 @@ class _PourPainter extends CustomPainter {
     final tubeH = 90.0;
     final x1 = size.width * 0.3 - tubeW / 2;
     final x2 = size.width * 0.7 - tubeW / 2;
-    final y = size.height * 0.35;
-
-    _drawTubeOutline(canvas, x1, y, tubeW, tubeH);
-    _drawTubeOutline(canvas, x2, y, tubeW, tubeH);
-
+    final baseY = size.height * 0.35;
     final segH = tubeH / 4;
 
-    if (t < 0.5) {
-      _drawSeg(canvas, x1, y + tubeH - segH, tubeW, segH, _blue);
-      _drawSeg(canvas, x1, y + tubeH - segH * 2, tubeW, segH, _red);
-      _drawSeg(canvas, x2, y + tubeH - segH, tubeW, segH, _red);
+    if (t < 0.3) {
+      final selectP = (t / 0.3).clamp(0.0, 1.0);
+      final liftY = -10.0 * Curves.easeOut.transform(selectP);
 
-      if (t > 0.2) {
-        final selOffset = -8.0 * ((t - 0.2) / 0.3).clamp(0.0, 1.0);
-        canvas.drawRRect(
-          RRect.fromRectAndRadius(Rect.fromLTWH(x1 - 1, y + selOffset - 1, tubeW + 2, tubeH + 2), const Radius.circular(6)),
-          Paint()..color = Colors.white.withValues(alpha: 0.3)..style = PaintingStyle.stroke..strokeWidth = 2,
+      _drawTubeOutline(canvas, x1, baseY + liftY, tubeW, tubeH);
+      _drawTubeOutline(canvas, x2, baseY, tubeW, tubeH);
+
+      _drawSeg(canvas, x1, baseY + liftY + tubeH - segH, tubeW, segH, _blue);
+      _drawSeg(canvas, x1, baseY + liftY + tubeH - segH * 2, tubeW, segH, _red);
+      _drawSeg(canvas, x2, baseY + tubeH - segH, tubeW, segH, _red);
+
+      final glowAlpha = (0.25 + 0.35 * selectP).clamp(0.0, 1.0);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(x1 - 2, baseY + liftY - 2, tubeW + 4, tubeH + 4),
+          const Radius.circular(8),
+        ),
+        Paint()
+          ..color = Colors.white.withValues(alpha: glowAlpha)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.5,
+      );
+    } else if (t < 0.7) {
+      final pourP = ((t - 0.3) / 0.4).clamp(0.0, 1.0);
+      final eased = Curves.easeInOut.transform(pourP);
+
+      const liftY = -10.0;
+
+      _drawTubeOutline(canvas, x1, baseY + liftY, tubeW, tubeH);
+      _drawTubeOutline(canvas, x2, baseY, tubeW, tubeH);
+
+      _drawSeg(canvas, x1, baseY + liftY + tubeH - segH, tubeW, segH, _blue);
+
+      final srcRemain = segH * (1.0 - eased);
+      if (srcRemain > 0.5) {
+        _drawSeg(
+          canvas,
+          x1,
+          baseY + liftY + tubeH - segH - srcRemain,
+          tubeW,
+          srcRemain,
+          _red,
         );
       }
+
+      _drawSeg(canvas, x2, baseY + tubeH - segH, tubeW, segH, _red);
+
+      final dstGrow = segH * eased;
+      if (dstGrow > 0.5) {
+        _drawSeg(
+          canvas,
+          x2,
+          baseY + tubeH - segH - dstGrow,
+          tubeW,
+          dstGrow,
+          _red,
+        );
+      }
+
+      final streamAlpha = (1.0 - (pourP - 0.85).clamp(0.0, 1.0) * 6.67).clamp(0.0, 1.0);
+      if (streamAlpha > 0) {
+        final srcTopY = baseY + liftY + tubeH - segH - srcRemain;
+        final dstTopY = baseY + tubeH - segH - dstGrow;
+
+        final streamX1 = x1 + tubeW / 2;
+        final streamX2 = x2 + tubeW / 2;
+        final streamTopY = math.min(srcTopY, baseY + liftY) - 6;
+
+        final streamPaint = Paint()
+          ..color = _red.withValues(alpha: 0.8 * streamAlpha)
+          ..strokeWidth = 4.0
+          ..strokeCap = StrokeCap.round
+          ..style = PaintingStyle.stroke;
+
+        final path = Path()
+          ..moveTo(streamX1, srcTopY)
+          ..lineTo(streamX1, streamTopY)
+          ..quadraticBezierTo(
+            (streamX1 + streamX2) / 2,
+            streamTopY - 4,
+            streamX2,
+            streamTopY,
+          )
+          ..lineTo(streamX2, dstTopY);
+
+        canvas.drawPath(path, streamPaint);
+      }
+
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(x1 - 2, baseY + liftY - 2, tubeW + 4, tubeH + 4),
+          const Radius.circular(8),
+        ),
+        Paint()
+          ..color = Colors.white.withValues(alpha: 0.5 * (1.0 - eased))
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.5,
+      );
     } else {
-      _drawSeg(canvas, x1, y + tubeH - segH, tubeW, segH, _blue);
-      _drawSeg(canvas, x2, y + tubeH - segH, tubeW, segH, _red);
-      _drawSeg(canvas, x2, y + tubeH - segH * 2, tubeW, segH, _red);
+      _drawTubeOutline(canvas, x1, baseY, tubeW, tubeH);
+      _drawTubeOutline(canvas, x2, baseY, tubeW, tubeH);
+
+      _drawSeg(canvas, x1, baseY + tubeH - segH, tubeW, segH, _blue);
+      _drawSeg(canvas, x2, baseY + tubeH - segH, tubeW, segH, _red);
+      _drawSeg(canvas, x2, baseY + tubeH - segH * 2, tubeW, segH, _red);
     }
   }
 
@@ -90,7 +175,7 @@ class _PourPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_PourPainter old) => true;
+  bool shouldRepaint(_PourPainter old) => old.t != t;
 }
 
 class _RulePainter extends CustomPainter {
@@ -103,7 +188,6 @@ class _RulePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Alternate between a valid pour (matching tops) and an invalid one.
     final valid = t < 0.5;
     final tubeW = 30.0, tubeH = 78.0, gap = 30.0;
     final totalW = tubeW * 2 + gap;
@@ -137,13 +221,10 @@ class _RulePainter extends CustomPainter {
     final x1 = startX, x2 = startX + tubeW + gap;
     outline(x1);
     outline(x2);
-    // source (left): top = red
     seg(x1, 0, _blue);
     seg(x1, 1, _red);
-    // dest (right): top red (valid) or blue (invalid)
     seg(x2, 0, valid ? _red : _blue);
 
-    // pour arrow between tops
     final arrowY = y + 6;
     final ap = Paint()
       ..color = (valid ? _green : _red)
@@ -153,7 +234,6 @@ class _RulePainter extends CustomPainter {
     canvas.drawLine(Offset(x2 - 4, arrowY), Offset(x2 - 10, arrowY - 4), ap);
     canvas.drawLine(Offset(x2 - 4, arrowY), Offset(x2 - 10, arrowY + 4), ap);
 
-    // verdict badge
     final icon = valid ? '✓' : '✗';
     final col = valid ? _green : _red;
     final ip = TextPainter(
@@ -173,7 +253,7 @@ class _RulePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_RulePainter old) => true;
+  bool shouldRepaint(_RulePainter old) => old.t != t;
 }
 
 class _SolvedPainter extends CustomPainter {
@@ -225,5 +305,5 @@ class _SolvedPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_SolvedPainter old) => true;
+  bool shouldRepaint(_SolvedPainter old) => old.t != t;
 }

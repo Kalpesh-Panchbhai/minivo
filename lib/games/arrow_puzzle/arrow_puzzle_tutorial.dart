@@ -33,6 +33,17 @@ List<GameHowToPlayStep> arrowPuzzleSteps() => [
   ),
 ];
 
+void _drawGrid(Canvas canvas, Size size) {
+  final gridPaint = Paint()
+    ..color = Colors.grey.withValues(alpha: 0.15)
+    ..strokeWidth = 0.5;
+  final gridStep = size.width / 5;
+  for (int i = 0; i <= 5; i++) {
+    canvas.drawLine(Offset(i * gridStep, 0), Offset(i * gridStep, size.height), gridPaint);
+    canvas.drawLine(Offset(0, i * gridStep), Offset(size.width, i * gridStep), gridPaint);
+  }
+}
+
 const _kDark = Color(0xFF1E293B);
 const _kBlue = Color(0xFF3B82F6);
 const _kGreen = Color(0xFF22C55E);
@@ -72,6 +83,7 @@ class _TapArrowPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    _drawGrid(canvas, size);
     final cx = size.width / 2;
     final cy = size.height / 2;
 
@@ -103,15 +115,17 @@ class _BlockedPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    _drawGrid(canvas, size);
     final cx = size.width / 2;
     final cy = size.height / 2;
 
     _drawArrowShape(canvas, Offset(cx + 10, cy - 30), Offset(cx + 10, cy + 30), const Offset(0, 1), _kDark, 3);
-    _drawArrowShape(canvas, Offset(cx - 50, cy), Offset(cx + 30, cy), const Offset(1, 0), _kRed, 3);
 
     final shake = math.sin(t * math.pi * 6) * 3 * (1 - t).clamp(0.0, 1.0);
     if (t > 0.3 && t < 0.7) {
       _drawArrowShape(canvas, Offset(cx - 50 + shake, cy), Offset(cx + 30 + shake, cy), const Offset(1, 0), _kRed, 3);
+    } else {
+      _drawArrowShape(canvas, Offset(cx - 50, cy), Offset(cx + 30, cy), const Offset(1, 0), _kRed, 3);
     }
 
     final xPaint = Paint()
@@ -149,6 +163,7 @@ class _AllFreePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    _drawGrid(canvas, size);
     final cx = size.width / 2;
     final cy = size.height / 2;
 

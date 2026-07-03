@@ -2,216 +2,595 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../core/widgets/animated_demo.dart';
 import '../../core/widgets/how_to_play_sheet.dart';
+
+const _kBlue = Color(0xFF339AF0);
+const _kGreen = Color(0xFF51CF66);
+const _kOrange = Color(0xFFFF922B);
+const _kPink = Color(0xFFF06595);
+const _kRed = Color(0xFFEF4444);
+const _kCheckGreen = Color(0xFF22C55E);
+const _kGridLine = Color(0xFFCBD5E1);
+const _kCellBg = Color(0xFFF1F5F9);
+const _kTextDark = Color(0xFF334155);
+
+const _kCanvasSize = Size(200, 180);
+
+const _clues = [
+  [2, 0, 4, 0],
+  [0, 0, 0, 0],
+  [0, 3, 0, 0],
+  [0, 0, 0, 2],
+];
 
 List<GameHowToPlayStep> patchesTutorialSteps() => [
       GameHowToPlayStep(
-        text: 'Each clue shows a shape hint. The shape tells you if the patch is a square, wide, or tall rectangle.',
-        demo: const _ShapeKeyDemo(),
+        text:
+            'Each number tells you the area of its patch.',
+        demo: AnimatedDemo(
+          period: const Duration(milliseconds: 5000),
+          painter: (t) => _Step1Painter(t),
+          canvasSize: _kCanvasSize,
+        ),
       ),
       GameHowToPlayStep(
-        text: 'If a clue has a number, the number is the area (cell count) of its patch.',
-        demo: const _ClueDemo(),
+        text:
+            'Drag across cells to create a rectangular patch.',
+        demo: AnimatedDemo(
+          period: const Duration(milliseconds: 4000),
+          painter: (t) => _Step2Painter(t),
+          canvasSize: _kCanvasSize,
+        ),
       ),
       GameHowToPlayStep(
-        text: 'Some harder clues hide the number — only the shape is shown. Use logic to deduce the size!',
-        demo: const _HiddenClueDemo(),
+        text:
+            'Every cell must be covered. No gaps, no overlaps!',
+        demo: AnimatedDemo(
+          period: const Duration(milliseconds: 6000),
+          painter: (t) => _Step3Painter(t),
+          canvasSize: _kCanvasSize,
+        ),
       ),
       GameHowToPlayStep(
-        text: 'Drag across cells to create a rectangular patch. Tap a patch to remove it.',
-        demo: const _DragDemo(),
-      ),
-      GameHowToPlayStep(
-        text: 'Cover every cell — no gaps, no overlaps. Each patch must contain exactly one clue.',
-        demo: const _CoverageDemo(),
+        text:
+            'Each patch must contain exactly one clue number.',
+        demo: AnimatedDemo(
+          period: const Duration(milliseconds: 5000),
+          painter: (t) => _Step4Painter(t),
+          canvasSize: _kCanvasSize,
+        ),
       ),
     ];
 
-class _ShapeKeyDemo extends StatelessWidget {
-  const _ShapeKeyDemo();
-  @override
-  Widget build(BuildContext context) {
-    return FittedBox(fit: BoxFit.scaleDown, child: Column(mainAxisSize: MainAxisSize.min, children: [
-      Row(mainAxisSize: MainAxisSize.min, children: [
-        _shapeChip(28, 28, const Color(0xFF3B82F6), '4', 'Square'),
-        const SizedBox(width: 12),
-        _shapeChip(44, 24, const Color(0xFF22C55E), '6', 'Wide rect'),
-      ]),
-      const SizedBox(height: 8),
-      Row(mainAxisSize: MainAxisSize.min, children: [
-        _shapeChip(22, 38, const Color(0xFF8B5CF6), '3', 'Tall rect'),
-        const SizedBox(width: 12),
-        _anyChip(28, 28, const Color(0xFF6B7280), '4', 'Any shape'),
-      ]),
-    ]));
-  }
+const _gridN = 4;
+const _cellS = 32.0;
+const _gap = 2.0;
 
-  Widget _shapeChip(double w, double h, Color color, String num, String label) {
-    return Row(mainAxisSize: MainAxisSize.min, children: [
-      CustomPaint(size: Size(w, h), painter: _DashedShapePainter(color: color)),
-      const SizedBox(width: 4),
-      Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-        Text(num, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: color)),
-        Text(label, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
-      ]),
-    ]);
-  }
+double _gridTotalW() => _gridN * _cellS + (_gridN - 1) * _gap;
+double _gridTotalH() => _gridN * _cellS + (_gridN - 1) * _gap;
 
-  Widget _anyChip(double w, double h, Color color, String num, String label) {
-    return Row(mainAxisSize: MainAxisSize.min, children: [
-      CustomPaint(size: Size(w, h), painter: _DashedShapePainter(color: color, hatched: true)),
-      const SizedBox(width: 4),
-      Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-        Text(num, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: color)),
-        Text(label, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
-      ]),
-    ]);
+Offset _gridOrigin(Size size) {
+  final tw = _gridTotalW();
+  final th = _gridTotalH();
+  return Offset((size.width - tw) / 2, (size.height - th) / 2);
+}
+
+Rect _cellRect(Offset origin, int r, int c) => Rect.fromLTWH(
+      origin.dx + c * (_cellS + _gap),
+      origin.dy + r * (_cellS + _gap),
+      _cellS,
+      _cellS,
+    );
+
+void _drawGrid(Canvas canvas, Size size, {Offset? origin}) {
+  final o = origin ?? _gridOrigin(size);
+  for (int r = 0; r < _gridN; r++) {
+    for (int c = 0; c < _gridN; c++) {
+      final rect = _cellRect(o, r, c);
+      final rr = RRect.fromRectAndRadius(rect, const Radius.circular(4));
+      canvas.drawRRect(rr, Paint()..color = _kCellBg);
+      canvas.drawRRect(
+          rr,
+          Paint()
+            ..color = _kGridLine
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.0);
+    }
   }
 }
 
-class _ClueDemo extends StatelessWidget {
-  const _ClueDemo();
-  @override
-  Widget build(BuildContext context) {
-    return FittedBox(fit: BoxFit.scaleDown, child: Row(mainAxisSize: MainAxisSize.min, children: [
-      _examplePatch(56, 28, const Color(0xFF3B82F6), '2'),
-      const SizedBox(width: 6),
-      const Text('= 2 cells wide', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF64748B))),
-      const SizedBox(width: 14),
-      _examplePatch(24, 72, const Color(0xFFEF4444), '3'),
-      const SizedBox(width: 6),
-      const Text('= 3 cells tall', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF64748B))),
-    ]));
-  }
-
-  Widget _examplePatch(double w, double h, Color color, String num) {
-    return Container(width: w, height: h,
-      decoration: BoxDecoration(color: color.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(5),
-        border: Border.all(color: color, width: 2)),
-      child: Center(child: Text(num, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: color))));
-  }
+void _drawClueNumber(Canvas canvas, Offset center, int number,
+    {Color color = _kTextDark, double fontSize = 13}) {
+  final tp = TextPainter(
+    text: TextSpan(
+      text: '$number',
+      style: TextStyle(
+        color: color,
+        fontWeight: FontWeight.w900,
+        fontSize: fontSize,
+        height: 1,
+      ),
+    ),
+    textDirection: TextDirection.ltr,
+  )..layout();
+  tp.paint(
+      canvas, Offset(center.dx - tp.width / 2, center.dy - tp.height / 2));
 }
 
-class _HiddenClueDemo extends StatelessWidget {
-  const _HiddenClueDemo();
-  @override
-  Widget build(BuildContext context) {
-    return FittedBox(fit: BoxFit.scaleDown, child: Row(mainAxisSize: MainAxisSize.min, children: [
-      Column(mainAxisSize: MainAxisSize.min, children: [
-        SizedBox(width: 32, height: 32, child: CustomPaint(painter: _DashedShapePainter(color: const Color(0xFFEC4899)))),
-        const SizedBox(height: 2),
-        const Text('No number', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w600, color: Color(0xFF94A3B8))),
-      ]),
-      const SizedBox(width: 10),
-      const Icon(Icons.arrow_forward_rounded, size: 16, color: Color(0xFF94A3B8)),
-      const SizedBox(width: 10),
-      Column(mainAxisSize: MainAxisSize.min, children: [
-        Container(width: 32, height: 32,
-          decoration: BoxDecoration(color: const Color(0xFFEC4899).withValues(alpha: 0.18), borderRadius: BorderRadius.circular(5),
-            border: Border.all(color: const Color(0xFFEC4899), width: 2)),
-          child: const Center(child: Text('4', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFFEC4899))))),
-        const SizedBox(height: 2),
-        const Text('It was 4!', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w600, color: Color(0xFF22C55E))),
-      ]),
-    ]));
+void _drawClues(Canvas canvas, Offset origin) {
+  for (int r = 0; r < _gridN; r++) {
+    for (int c = 0; c < _gridN; c++) {
+      final v = _clues[r][c];
+      if (v > 0) {
+        _drawClueNumber(canvas, _cellRect(origin, r, c).center, v);
+      }
+    }
   }
 }
 
-class _DragDemo extends StatefulWidget {
-  const _DragDemo();
-  @override
-  State<_DragDemo> createState() => _DragDemoState();
-}
+void _drawPatch(Canvas canvas, Offset origin, int r1, int c1, int r2, int c2,
+    Color color,
+    {double opacity = 1.0, double scale = 1.0}) {
+  final topLeft = _cellRect(origin, r1, c1);
+  final bottomRight = _cellRect(origin, r2, c2);
+  final fullRect = Rect.fromLTRB(
+      topLeft.left, topLeft.top, bottomRight.right, bottomRight.bottom);
 
-class _DragDemoState extends State<_DragDemo> with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  @override
-  void initState() { super.initState(); _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 3000))..repeat(); }
-  @override
-  void dispose() { _ctrl.dispose(); super.dispose(); }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(animation: _ctrl, builder: (_, _) {
-      final phase = _ctrl.value;
-      final showPatch = phase > 0.4;
-      const color = Color(0xFF3B82F6);
-      return FittedBox(fit: BoxFit.scaleDown, child: SizedBox(width: 100, height: 60, child: Stack(children: [
-        Row(mainAxisSize: MainAxisSize.min, children: [
-          for (int i = 0; i < 3; i++)
-            Container(width: 28, height: 28, margin: const EdgeInsets.all(1),
-              decoration: BoxDecoration(
-                color: showPatch && i < 2 ? color.withValues(alpha: 0.22) : const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: showPatch && i < 2 ? color : const Color(0xFFCBD5E1), width: showPatch && i < 2 ? 2 : 0.5),
-              ),
-              child: i == 0 && showPatch ? const Center(child: Text('2', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Color(0xFF334155)))) : null),
-        ]),
-        if (!showPatch) Positioned(left: 4, top: 34, child: Row(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.touch_app_rounded, size: 14, color: color),
-          const SizedBox(width: 4),
-          Icon(Icons.arrow_forward_rounded, size: 14, color: color.withValues(alpha: 0.6)),
-        ])),
-        if (showPatch) Positioned(left: 64, top: 8,
-          child: const Icon(Icons.check_circle_rounded, size: 16, color: Color(0xFF22C55E))),
-      ])));
-    });
+  if (scale < 1.0) {
+    final ctr = fullRect.center;
+    final scaledW = fullRect.width * scale;
+    final scaledH = fullRect.height * scale;
+    final scaledRect =
+        Rect.fromCenter(center: ctr, width: scaledW, height: scaledH);
+    final rr = RRect.fromRectAndRadius(scaledRect, const Radius.circular(6));
+    canvas.drawRRect(
+        rr, Paint()..color = color.withValues(alpha: 0.20 * opacity));
+    canvas.drawRRect(
+        rr,
+        Paint()
+          ..color = color.withValues(alpha: 0.85 * opacity)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.5);
+  } else {
+    final rr = RRect.fromRectAndRadius(fullRect, const Radius.circular(6));
+    canvas.drawRRect(
+        rr, Paint()..color = color.withValues(alpha: 0.20 * opacity));
+    canvas.drawRRect(
+        rr,
+        Paint()
+          ..color = color.withValues(alpha: 0.85 * opacity)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.5);
   }
 }
 
-class _CoverageDemo extends StatelessWidget {
-  const _CoverageDemo();
-  @override
-  Widget build(BuildContext context) {
-    const colors = [Color(0xFF3B82F6), Color(0xFF3B82F6), Color(0xFF22C55E), Color(0xFF22C55E)];
-    const sz = 24.0;
-    return FittedBox(fit: BoxFit.scaleDown, child: Row(mainAxisSize: MainAxisSize.min, children: [
-      for (int i = 0; i < 4; i++)
-        Container(width: sz, height: sz, margin: const EdgeInsets.all(1),
-          decoration: BoxDecoration(
-            color: colors[i].withValues(alpha: 0.22),
-            borderRadius: BorderRadius.circular(3),
-            border: Border.all(color: colors[i], width: 1.5),
-          )),
-      const SizedBox(width: 8),
-      const Text('100%', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF22C55E))),
-    ]));
-  }
+void _drawHighlightRing(Canvas canvas, Rect rect, Color color, double pulse) {
+  final rr = RRect.fromRectAndRadius(rect.inflate(2), const Radius.circular(6));
+  canvas.drawRRect(
+      rr,
+      Paint()
+        ..color = color.withValues(alpha: 0.3 + 0.2 * pulse)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.5);
 }
 
-class _DashedShapePainter extends CustomPainter {
-  final Color color;
-  final bool hatched;
-  _DashedShapePainter({required this.color, this.hatched = false});
+void _drawLabel(Canvas canvas, Size size, String text, Color color,
+    {double y = 0.92, double fontSize = 10}) {
+  final tp = TextPainter(
+    text: TextSpan(
+      text: text,
+      style: TextStyle(
+        color: color,
+        fontWeight: FontWeight.w900,
+        fontSize: fontSize,
+        letterSpacing: 0.6,
+        height: 1,
+      ),
+    ),
+    textDirection: TextDirection.ltr,
+  )..layout();
+  tp.paint(canvas,
+      Offset(size.width / 2 - tp.width / 2, size.height * y - tp.height / 2));
+}
+
+void _drawCheckmark(Canvas canvas, Offset center, double radius,
+    {double alpha = 1.0}) {
+  canvas.drawCircle(
+      center, radius, Paint()..color = _kCheckGreen.withValues(alpha: alpha));
+  final check = Path()
+    ..moveTo(center.dx - radius * 0.4, center.dy)
+    ..lineTo(center.dx - radius * 0.1, center.dy + radius * 0.35)
+    ..lineTo(center.dx + radius * 0.45, center.dy - radius * 0.3);
+  canvas.drawPath(
+      check,
+      Paint()
+        ..color = Colors.white.withValues(alpha: alpha)
+        ..strokeWidth = 2.5
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..style = PaintingStyle.stroke);
+}
+
+void _drawFingerIcon(Canvas canvas, Offset pos, double alpha) {
+  canvas.drawCircle(
+      pos.translate(0, 1), 7, Paint()..color = Colors.black.withValues(alpha: 0.10 * alpha));
+  canvas.drawCircle(
+      pos, 7, Paint()..color = Colors.white.withValues(alpha: 0.9 * alpha));
+  canvas.drawCircle(
+      pos,
+      7,
+      Paint()
+        ..color = _kBlue.withValues(alpha: 0.7 * alpha)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5);
+  final dotR = 2.5;
+  canvas.drawCircle(
+      pos.translate(0, -1), dotR, Paint()..color = _kBlue.withValues(alpha: 0.5 * alpha));
+}
+
+class _Step1Painter extends CustomPainter {
+  final double t;
+  const _Step1Painter(this.t);
 
   @override
   void paint(Canvas canvas, Size size) {
-    final rr = RRect.fromRectAndRadius(
-      Rect.fromLTWH(1, 1, size.width - 2, size.height - 2),
-      Radius.circular(size.shortestSide * 0.15),
-    );
-    canvas.drawRRect(rr, Paint()..color = color.withValues(alpha: 0.16));
-    if (hatched) {
-      canvas.save();
-      canvas.clipRRect(rr);
-      final h = Paint()..color = color.withValues(alpha: 0.13)..strokeWidth = 1.0;
-      for (double d = -size.height; d < size.width + size.height; d += 4.0) {
-        canvas.drawLine(Offset(d, size.height - 1), Offset(d + size.height - 2, 1), h);
+    final origin = _gridOrigin(size);
+    _drawGrid(canvas, size, origin: origin);
+    _drawClues(canvas, origin);
+
+    final pulse = math.sin(t * math.pi * 4).abs();
+
+    if (t < 0.45) {
+      final sub = t / 0.45;
+      final clueRect = _cellRect(origin, 0, 0);
+      _drawHighlightRing(canvas, clueRect, _kBlue, pulse);
+
+      if (sub > 0.35) {
+        final patchT = ((sub - 0.35) / 0.65).clamp(0.0, 1.0);
+        final eased = Curves.elasticOut.transform(patchT.clamp(0.0, 1.0));
+        _drawPatch(canvas, origin, 0, 0, 0, 1, _kBlue, scale: eased);
+
+        _drawClueNumber(canvas, _cellRect(origin, 0, 0).center, 2,
+            color: _kBlue);
       }
-      canvas.restore();
-    }
-    final dp = Paint()..color = color.withValues(alpha: 0.70)..style = PaintingStyle.stroke..strokeWidth = 1.5;
-    final path = Path()..addRRect(rr);
-    for (final m in path.computeMetrics()) {
-      double d = 0;
-      while (d < m.length) {
-        canvas.drawPath(m.extractPath(d, math.min(d + 3.5, m.length)), dp);
-        d += 6.0;
+
+      _drawLabel(canvas, size, '"2" = PATCH OF 2 CELLS', _kBlue);
+    } else if (t < 0.90) {
+      _drawPatch(canvas, origin, 0, 0, 0, 1, _kBlue);
+      _drawClueNumber(canvas, _cellRect(origin, 0, 0).center, 2,
+          color: _kBlue);
+
+      final sub = (t - 0.45) / 0.45;
+      final clueRect = _cellRect(origin, 0, 2);
+      _drawHighlightRing(canvas, clueRect, _kOrange, pulse);
+
+      if (sub > 0.35) {
+        final patchT = ((sub - 0.35) / 0.65).clamp(0.0, 1.0);
+        final eased = Curves.elasticOut.transform(patchT.clamp(0.0, 1.0));
+        _drawPatch(canvas, origin, 0, 2, 1, 3, _kOrange, scale: eased);
+
+        _drawClueNumber(canvas, _cellRect(origin, 0, 2).center, 4,
+            color: _kOrange);
       }
+
+      _drawLabel(canvas, size, '"4" = PATCH OF 4 CELLS', _kOrange);
+    } else {
+      _drawPatch(canvas, origin, 0, 0, 0, 1, _kBlue);
+      _drawClueNumber(canvas, _cellRect(origin, 0, 0).center, 2,
+          color: _kBlue);
+      _drawPatch(canvas, origin, 0, 2, 1, 3, _kOrange);
+      _drawClueNumber(canvas, _cellRect(origin, 0, 2).center, 4,
+          color: _kOrange);
+
+      _drawLabel(canvas, size, 'AREA = CLUE NUMBER', _kCheckGreen);
     }
   }
 
   @override
-  bool shouldRepaint(covariant _DashedShapePainter old) =>
-      old.color != color || old.hatched != hatched;
+  bool shouldRepaint(covariant _Step1Painter old) => old.t != t;
+}
+
+class _Step2Painter extends CustomPainter {
+  final double t;
+  const _Step2Painter(this.t);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final origin = _gridOrigin(size);
+    _drawGrid(canvas, size, origin: origin);
+    _drawClues(canvas, origin);
+
+    if (t < 0.15) {
+      final startRect = _cellRect(origin, 2, 1);
+      final fingerPos = startRect.center.translate(0, 14 * (1 - t / 0.15));
+      _drawFingerIcon(canvas, fingerPos, (t / 0.15).clamp(0.0, 1.0));
+      _drawLabel(canvas, size, 'START DRAGGING', _kBlue);
+    } else if (t < 0.55) {
+      final dragT = ((t - 0.15) / 0.40).clamp(0.0, 1.0);
+      final startRect = _cellRect(origin, 2, 1);
+      final endRect = _cellRect(origin, 2, 3);
+
+      final startX = startRect.center.dx;
+      final endX = endRect.center.dx;
+      final currentX = startX + (endX - startX) * Curves.easeInOut.transform(dragT);
+      final fingerY = startRect.center.dy;
+
+      final cellsCovered = (dragT * 3).ceil().clamp(1, 3);
+      for (int i = 0; i < cellsCovered; i++) {
+        final cIdx = 1 + i;
+        if (cIdx < _gridN) {
+          final rect = _cellRect(origin, 2, cIdx);
+          final rr = RRect.fromRectAndRadius(rect, const Radius.circular(4));
+          canvas.drawRRect(
+              rr, Paint()..color = _kGreen.withValues(alpha: 0.25));
+          canvas.drawRRect(
+              rr,
+              Paint()
+                ..color = _kGreen.withValues(alpha: 0.5)
+                ..style = PaintingStyle.stroke
+                ..strokeWidth = 2.0);
+        }
+      }
+
+      _drawFingerIcon(canvas, Offset(currentX, fingerY), 1.0);
+      _drawLabel(canvas, size, 'DRAG TO SELECT CELLS', _kGreen);
+    } else if (t < 0.75) {
+      final popT = ((t - 0.55) / 0.20).clamp(0.0, 1.0);
+      final eased = Curves.elasticOut.transform(popT);
+      _drawPatch(canvas, origin, 2, 1, 2, 3, _kGreen, scale: eased);
+      _drawClueNumber(canvas, _cellRect(origin, 2, 1).center, 3,
+          color: _kGreen);
+      _drawLabel(canvas, size, 'PATCH CREATED!', _kCheckGreen);
+    } else {
+      _drawPatch(canvas, origin, 2, 1, 2, 3, _kGreen);
+      _drawClueNumber(canvas, _cellRect(origin, 2, 1).center, 3,
+          color: _kGreen);
+
+      final checkAlpha = ((t - 0.75) / 0.10).clamp(0.0, 1.0);
+      final patchTopLeft = _cellRect(origin, 2, 1);
+      final patchBottomRight = _cellRect(origin, 2, 3);
+      final checkCenter = Offset(
+          patchBottomRight.right - 2, patchTopLeft.top - 2);
+      _drawCheckmark(canvas, checkCenter, 8, alpha: checkAlpha);
+      _drawLabel(canvas, size, '3 CELLS = CLUE "3"', _kCheckGreen);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _Step2Painter old) => old.t != t;
+}
+
+class _Step3Painter extends CustomPainter {
+  final double t;
+  const _Step3Painter(this.t);
+
+  static const _patches = [
+    [0, 0, 0, 1, _kBlue, 2],
+    [0, 2, 1, 3, _kOrange, 4],
+    [2, 1, 2, 3, _kGreen, 3],
+    [2, 0, 3, 0, _kPink, 2],
+    [1, 0, 1, 0, _kBlue, 1],
+    [3, 1, 3, 3, _kGreen, 3],
+  ];
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final origin = _gridOrigin(size);
+    _drawGrid(canvas, size, origin: origin);
+
+    final patchPhases = _patches.length;
+    final totalPhases = patchPhases + 1.5;
+    final progress = t * totalPhases;
+    final patchesShown = progress.floor().clamp(0, patchPhases);
+
+    for (int i = 0; i < patchesShown; i++) {
+      final p = _patches[i];
+      final color = p[4] as Color;
+      _drawPatch(canvas, origin, p[0] as int, p[1] as int, p[2] as int,
+          p[3] as int, color);
+
+      final clueR = p[0] as int;
+      final clueC = p[1] as int;
+      final clueVal = p[5] as int;
+      if (clueVal > 0) {
+        _drawClueNumber(canvas, _cellRect(origin, clueR, clueC).center,
+            clueVal,
+            color: color);
+      }
+    }
+
+    if (patchesShown < patchPhases) {
+      final frac = progress - patchesShown;
+      final p = _patches[patchesShown];
+      final color = p[4] as Color;
+      final eased = Curves.elasticOut.transform(frac.clamp(0.0, 1.0));
+      _drawPatch(canvas, origin, p[0] as int, p[1] as int, p[2] as int,
+          p[3] as int, color,
+          scale: eased);
+
+      final clueVal = p[5] as int;
+      if (clueVal > 0 && frac > 0.3) {
+        _drawClueNumber(
+            canvas,
+            _cellRect(origin, p[0] as int, p[1] as int).center,
+            clueVal,
+            color: color);
+      }
+
+      _drawLabel(canvas, size, '${patchesShown + 1}/$patchPhases PATCHES',
+          _kBlue);
+    } else {
+      final checkT = ((progress - patchPhases) / 1.5).clamp(0.0, 1.0);
+
+      for (final p in _patches) {
+        final clueR = p[0] as int;
+        final clueC = p[1] as int;
+        final clueVal = p[5] as int;
+        final color = p[4] as Color;
+        if (clueVal > 0) {
+          _drawClueNumber(
+              canvas, _cellRect(origin, clueR, clueC).center, clueVal,
+              color: color);
+        }
+      }
+
+      final tw = _gridTotalW();
+      final checkCenter =
+          Offset(origin.dx + tw / 2, origin.dy + _gridTotalH() + 14);
+      final checkScale = Curves.elasticOut.transform(checkT);
+      canvas.save();
+      canvas.translate(checkCenter.dx, checkCenter.dy);
+      canvas.scale(checkScale);
+      _drawCheckmark(canvas, Offset.zero, 10);
+      canvas.restore();
+
+      _drawLabel(canvas, size, 'ALL CELLS COVERED!', _kCheckGreen, y: 0.96);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _Step3Painter old) => old.t != t;
+}
+
+class _Step4Painter extends CustomPainter {
+  final double t;
+  const _Step4Painter(this.t);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final halfW = size.width / 2;
+    final leftOrigin = Offset(halfW / 2 - _gridTotalW() / 2, 20);
+    final rightOrigin = Offset(halfW + halfW / 2 - _gridTotalW() / 2, 20);
+
+    final pulse = math.sin(t * math.pi * 4).abs();
+
+    if (t < 0.50) {
+      final sub = (t / 0.50).clamp(0.0, 1.0);
+      _drawMiniGrid(canvas, leftOrigin);
+
+      if (sub > 0.15) {
+        final patchAlpha = ((sub - 0.15) / 0.35).clamp(0.0, 1.0);
+        _drawPatch(canvas, leftOrigin, 0, 0, 1, 1, _kRed,
+            opacity: patchAlpha);
+
+        _drawClueNumber(canvas, _cellRect(leftOrigin, 0, 0).center, 2,
+            color: _kRed);
+        _drawClueNumber(canvas, _cellRect(leftOrigin, 1, 1).center, 3,
+            color: _kRed);
+
+        if (sub > 0.50) {
+          final shakeT = ((sub - 0.50) / 0.50).clamp(0.0, 1.0);
+          final shakeX = math.sin(shakeT * math.pi * 6) * 2 * (1 - shakeT);
+
+          final badgeCenter = Offset(
+              leftOrigin.dx + _gridTotalW() / 2 + shakeX,
+              leftOrigin.dy + _gridTotalH() + 14);
+          _drawXBadge(canvas, badgeCenter, pulse);
+        }
+      }
+
+      final wrongLabel = Offset(leftOrigin.dx + _gridTotalW() / 2,
+          leftOrigin.dy - 10);
+      _drawBadgeLabel(canvas, wrongLabel, 'WRONG', _kRed, 8);
+      _drawLabel(canvas, size, '2 CLUES IN 1 PATCH', _kRed, y: 0.95);
+    } else {
+      final sub = ((t - 0.50) / 0.50).clamp(0.0, 1.0);
+      _drawMiniGrid(canvas, rightOrigin);
+
+      if (sub > 0.10) {
+        final p1Alpha = ((sub - 0.10) / 0.30).clamp(0.0, 1.0);
+        _drawPatch(canvas, rightOrigin, 0, 0, 0, 1, _kBlue,
+            opacity: p1Alpha);
+        _drawClueNumber(canvas, _cellRect(rightOrigin, 0, 0).center, 2,
+            color: _kBlue);
+      }
+
+      if (sub > 0.40) {
+        final p2Alpha = ((sub - 0.40) / 0.30).clamp(0.0, 1.0);
+        _drawPatch(canvas, rightOrigin, 1, 0, 1, 2, _kGreen,
+            opacity: p2Alpha);
+        _drawClueNumber(canvas, _cellRect(rightOrigin, 1, 1).center, 3,
+            color: _kGreen);
+      }
+
+      if (sub > 0.70) {
+        final checkAlpha = ((sub - 0.70) / 0.30).clamp(0.0, 1.0);
+        final checkCenter = Offset(
+            rightOrigin.dx + _gridTotalW() / 2,
+            rightOrigin.dy + _gridTotalH() + 14);
+        _drawCheckmark(canvas, checkCenter, 9, alpha: checkAlpha);
+      }
+
+      final correctLabel = Offset(rightOrigin.dx + _gridTotalW() / 2,
+          rightOrigin.dy - 10);
+      _drawBadgeLabel(canvas, correctLabel, 'CORRECT', _kCheckGreen, 8);
+      _drawLabel(canvas, size, '1 CLUE PER PATCH', _kCheckGreen, y: 0.95);
+    }
+  }
+
+  void _drawMiniGrid(Canvas canvas, Offset origin) {
+    for (int r = 0; r < 2; r++) {
+      for (int c = 0; c < 3; c++) {
+        final rect = Rect.fromLTWH(
+            origin.dx + c * (_cellS + _gap),
+            origin.dy + r * (_cellS + _gap),
+            _cellS,
+            _cellS);
+        final rr = RRect.fromRectAndRadius(rect, const Radius.circular(4));
+        canvas.drawRRect(rr, Paint()..color = _kCellBg);
+        canvas.drawRRect(
+            rr,
+            Paint()
+              ..color = _kGridLine
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 1.0);
+      }
+    }
+  }
+
+  void _drawXBadge(Canvas canvas, Offset center, double pulse) {
+    final r = 9.0;
+    canvas.drawCircle(
+        center, r, Paint()..color = _kRed.withValues(alpha: 0.8 + 0.2 * pulse));
+    final xs = r * 0.4;
+    final xPaint = Paint()
+      ..color = Colors.white
+      ..strokeWidth = 2.5
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(Offset(center.dx - xs, center.dy - xs),
+        Offset(center.dx + xs, center.dy + xs), xPaint);
+    canvas.drawLine(Offset(center.dx + xs, center.dy - xs),
+        Offset(center.dx - xs, center.dy + xs), xPaint);
+  }
+
+  void _drawBadgeLabel(
+      Canvas canvas, Offset pos, String text, Color color, double fontSize) {
+    final tp = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w900,
+          fontSize: fontSize,
+          height: 1,
+          letterSpacing: 0.5,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    final pad = 4.0;
+    final rect = RRect.fromRectAndRadius(
+      Rect.fromCenter(
+          center: pos,
+          width: tp.width + pad * 2,
+          height: tp.height + pad * 2),
+      const Radius.circular(6),
+    );
+    canvas.drawRRect(rect, Paint()..color = color);
+    tp.paint(canvas, Offset(pos.dx - tp.width / 2, pos.dy - tp.height / 2));
+  }
+
+  @override
+  bool shouldRepaint(covariant _Step4Painter old) => old.t != t;
 }

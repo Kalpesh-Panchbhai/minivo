@@ -122,20 +122,19 @@ void _drawO(Canvas canvas, Offset center, double cellSize, double progress,
   );
 }
 
-// ── Step 1: Tap cell → ripple → X draws in ─────────────────────────────────
+// ── Step 1: Tap cells → marks accumulate on board ───────────────────────────
 //
-// Sequence per cycle:
-//   0.00–0.20  empty grid + finger ripple over target cell
-//   0.20–0.55  X strokes draw into the cell
-//   0.55–0.80  X shown completed, subtle glow
-//   0.80–1.00  fade out, move to next cell
+// Sequence (marks stay visible once placed):
+//   0.00–0.33  Tap ripple + X draws at (0,0). X stays.
+//   0.33–0.66  Tap ripple + X draws at (2,2). Both X's visible.
+//   0.66–1.00  Tap ripple + X draws at (0,2). All 3 X's visible.
 
 class _TttPlacePainter extends CustomPainter {
   final double t;
   const _TttPlacePainter(this.t);
 
-  // Cycle through 3 different cells
   static const _cells = [[0, 0], [2, 2], [0, 2]];
+  static const _stepDur = 1.0 / 3.0;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -143,52 +142,47 @@ class _TttPlacePainter extends CustomPainter {
         Paint()..color = _kBg);
     final (origin, cellSize) = _drawGrid(canvas, size);
 
-    final cellIdx = (t * _cells.length / 1).floor() % _cells.length;
-    final cycle = (t * _cells.length) % 1.0;
-    final cell = _cells[cellIdx];
-    final center = _cellCenter(cell[0], cell[1], origin, cellSize);
+    for (int i = 0; i < _cells.length; i++) {
+      final stepStart = i * _stepDur;
+      if (t < stepStart) continue;
 
-    // Overall alpha for fade-out at end of cycle
-    final alpha = cycle > 0.82
-        ? (1 - (cycle - 0.82) / 0.18).clamp(0.0, 1.0)
-        : 1.0;
+      final cell = _cells[i];
+      final center = _cellCenter(cell[0], cell[1], origin, cellSize);
+      final local = ((t - stepStart) / _stepDur).clamp(0.0, 1.0);
 
-    // 1) Tap ripple (0→0.20): expanding ring from cell center
-    if (cycle < 0.22) {
-      final ripT = cycle / 0.22;
-      final ripR = cellSize * 0.18 + ripT * cellSize * 0.40;
-      final ripAlpha = (1 - ripT) * 0.65 * alpha;
-      canvas.drawCircle(center, ripR,
-          Paint()
-            ..color = _kXColor.withValues(alpha: ripAlpha)
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 2.5);
-      // Finger icon
-      final fingerAlpha = (1 - ripT * 1.4).clamp(0.0, 1.0) * alpha;
-      if (fingerAlpha > 0) {
-        final tp = TextPainter(
-          text: TextSpan(
-            text: '👆',
-            style: TextStyle(fontSize: cellSize * 0.48, color: Colors.black.withValues(alpha: fingerAlpha)),
-          ),
-          textDirection: TextDirection.ltr,
-        )..layout();
-        tp.paint(canvas, Offset(center.dx - tp.width / 2, center.dy - cellSize * 0.1 - tp.height));
-      }
-    }
-
-    // 2) X draws in (0.20→0.55)
-    if (cycle >= 0.18) {
-      final xProgress = ((cycle - 0.18) / 0.37).clamp(0.0, 1.0);
-      _drawX(canvas, center, cellSize, xProgress, alpha: alpha);
-
-      // Glow ring around completed X
-      if (cycle > 0.58 && cycle < 0.82) {
-        final glowAlpha = math.sin((cycle - 0.58) / 0.24 * math.pi) * 0.30 * alpha;
-        canvas.drawCircle(center, cellSize * 0.32,
+      if (local < 0.25) {
+        final ripT = local / 0.25;
+        final ripR = cellSize * 0.18 + ripT * cellSize * 0.40;
+        final ripAlpha = (1 - ripT) * 0.65;
+        canvas.drawCircle(center, ripR,
             Paint()
-              ..color = _kXColor.withValues(alpha: glowAlpha)
-              ..maskFilter = MaskFilter.blur(BlurStyle.normal, 6));
+              ..color = _kXColor.withValues(alpha: ripAlpha)
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 2.5);
+        final fingerAlpha = (1 - ripT * 1.4).clamp(0.0, 1.0);
+        if (fingerAlpha > 0) {
+          final tp = TextPainter(
+            text: TextSpan(
+              text: '👆',
+              style: TextStyle(fontSize: cellSize * 0.48, color: Colors.black.withValues(alpha: fingerAlpha)),
+            ),
+            textDirection: TextDirection.ltr,
+          )..layout();
+          tp.paint(canvas, Offset(center.dx - tp.width / 2, center.dy - cellSize * 0.1 - tp.height));
+        }
+      }
+
+      final xProgress = ((local - 0.20) / 0.40).clamp(0.0, 1.0);
+      if (xProgress > 0) {
+        _drawX(canvas, center, cellSize, xProgress);
+
+        if (local > 0.65 && local < 0.90) {
+          final glowAlpha = math.sin((local - 0.65) / 0.25 * math.pi) * 0.30;
+          canvas.drawCircle(center, cellSize * 0.32,
+              Paint()
+                ..color = _kXColor.withValues(alpha: glowAlpha)
+                ..maskFilter = MaskFilter.blur(BlurStyle.normal, 6));
+        }
       }
     }
   }

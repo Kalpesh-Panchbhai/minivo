@@ -25,7 +25,7 @@ List<GameHowToPlayStep> snakeClassicSteps() => [
         ),
       ),
       GameHowToPlayStep(
-        text: "Don't hit the walls — game over!",
+        text: "Don't hit the walls or yourself — game over!",
         demo: AnimatedDemo(
           period: const Duration(milliseconds: 2800),
           painter: (t) => _SnakeDangerPainter(t),
@@ -257,7 +257,7 @@ class _SnakeEatPainter extends CustomPainter {
       final scoreRise = popT * 14;
       final tp = TextPainter(
         text: TextSpan(
-          text: '+1',
+          text: '+5',
           style: TextStyle(
             color: Colors.white.withValues(alpha: scoreAlpha),
             fontSize: 14,
@@ -342,8 +342,6 @@ class _SnakeDangerPainter extends CustomPainter {
 
     // Crash effects
     if (crashed) {
-      final crashT = ((rawHeadX - impactX) / (wallX - startX) * (1 / (1 - (impactX - startX) / (wallX - startX)))).clamp(0.0, 1.0);
-      // Actually compute crashT based on t directly:
       final tImpact = (impactX - startX) / (wallX - startX);
       final localT = ((t - tImpact) / (1 - tImpact)).clamp(0.0, 1.0);
 

@@ -9,7 +9,7 @@ List<GameHowToPlayStep> goSteps() => [
         demo: AnimatedDemo(
           period: const Duration(seconds: 3),
           painter: (t) => _PlacePainter(t),
-          canvasSize: const Size(180, 150),
+          canvasSize: const Size(200, 180),
         ),
       ),
       GameHowToPlayStep(
@@ -17,23 +17,23 @@ List<GameHowToPlayStep> goSteps() => [
         demo: AnimatedDemo(
           period: const Duration(seconds: 4),
           painter: (t) => _CapturePainter(t),
-          canvasSize: const Size(180, 150),
+          canvasSize: const Size(200, 180),
         ),
       ),
       GameHowToPlayStep(
         text: 'Pass when you have no good moves. Two passes end the game.',
         demo: AnimatedDemo(
-          period: const Duration(seconds: 3),
+          period: const Duration(seconds: 5),
           painter: (t) => _PassPainter(t),
-          canvasSize: const Size(180, 150),
+          canvasSize: const Size(200, 180),
         ),
       ),
       GameHowToPlayStep(
         text: 'The player with the most territory + captures wins!',
         demo: AnimatedDemo(
-          period: const Duration(seconds: 4),
+          period: const Duration(seconds: 5),
           painter: (t) => _ScorePainter(t),
-          canvasSize: const Size(180, 150),
+          canvasSize: const Size(200, 180),
         ),
       ),
     ];
@@ -127,16 +127,57 @@ class _PassPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), Paint()..color = _kBoard);
-    final phase = (t * 2).clamp(0.0, 1.0);
-    final label = phase < 0.5 ? 'PASS' : 'PASS ×2';
-    final alpha = math.sin(phase * math.pi);
+    const lines = 5;
+    final cellSize = size.width / (lines + 1);
+    final left = cellSize;
+    final top = (size.height - (lines - 1) * cellSize) / 2;
+    _drawGrid(canvas, left, top, cellSize, lines);
+    final r = cellSize * 0.35;
+
+    const stones = <(int, int, bool)>[
+      (0, 0, true),  (0, 1, false), (0, 2, true),  (0, 3, false), (0, 4, true),
+      (1, 0, false), (1, 1, true),  (1, 2, false), (1, 3, true),  (1, 4, false),
+      (2, 0, true),  (2, 1, false),                 (2, 3, true),  (2, 4, false),
+      (3, 0, false), (3, 1, true),  (3, 2, false),                 (3, 4, true),
+      (4, 0, true),  (4, 1, false), (4, 2, true),  (4, 3, false),
+    ];
+
+    final stoneAlpha = t > 0.10 ? 0.55 : 1.0;
+    for (final (row, col, isBlack) in stones) {
+      _drawStone(canvas, left + col * cellSize, top + row * cellSize, r, isBlack, alpha: stoneAlpha);
+    }
+
+    if (t >= 0.10 && t < 0.40) {
+      final p = ((t - 0.10) / 0.30).clamp(0.0, 1.0);
+      final pulse = 0.6 + 0.4 * math.sin(p * math.pi * 3);
+      _drawBanner(canvas, size, 'PASS', pulse, 26);
+    } else if (t >= 0.40 && t < 0.65) {
+      final p = ((t - 0.40) / 0.25).clamp(0.0, 1.0);
+      final pulse = 0.6 + 0.4 * math.sin(p * math.pi * 3);
+      _drawBanner(canvas, size, 'PASS \u00d72', pulse, 24);
+    } else if (t >= 0.65) {
+      final fade = ((t - 0.65) / 0.15).clamp(0.0, 1.0);
+      _drawBanner(canvas, size, 'GAME OVER', fade, 22);
+    }
+  }
+
+  void _drawBanner(Canvas canvas, Size size, String text, double alpha, double fontSize) {
+    final bgRect = Rect.fromCenter(
+      center: Offset(size.width / 2, size.height / 2),
+      width: size.width * 0.85,
+      height: 36,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(bgRect, const Radius.circular(8)),
+      Paint()..color = _kBoard.withValues(alpha: 0.88 * alpha),
+    );
     final tp = TextPainter(
       text: TextSpan(
-        text: label,
+        text: text,
         style: TextStyle(
-          color: const Color(0xFF5D4037).withValues(alpha: 0.5 + alpha * 0.5),
+          color: _kLine.withValues(alpha: alpha),
           fontWeight: FontWeight.w900,
-          fontSize: 28,
+          fontSize: fontSize,
           letterSpacing: 2,
         ),
       ),
@@ -159,31 +200,97 @@ class _ScorePainter extends CustomPainter {
     const lines = 5;
     final cellSize = size.width / (lines + 1);
     final left = cellSize;
-    final top = (size.height - (lines - 1) * cellSize) / 2;
+    final top = 14.0;
     _drawGrid(canvas, left, top, cellSize, lines);
     final r = cellSize * 0.35;
 
-    _drawStone(canvas, left + 0, top + 0, r, true);
-    _drawStone(canvas, left + cellSize, top + 0, r, true);
-    _drawStone(canvas, left + 0, top + cellSize, r, true);
+    const stones = <(int, int, bool)>[
+      (0, 0, true),  (0, 1, true),  (0, 2, true),  (0, 3, false), (0, 4, false),
+      (1, 0, true),                  (1, 2, true),  (1, 3, false),
+      (2, 0, true),  (2, 1, true),  (2, 2, true),  (2, 3, false), (2, 4, false),
+      (3, 0, true),                  (3, 2, true),  (3, 3, false),
+      (4, 0, true),  (4, 1, true),  (4, 2, true),  (4, 3, false), (4, 4, false),
+    ];
 
-    _drawStone(canvas, left + 3 * cellSize, top + 3 * cellSize, r, false);
-    _drawStone(canvas, left + 4 * cellSize, top + 3 * cellSize, r, false);
+    for (final (row, col, isBlack) in stones) {
+      _drawStone(canvas, left + col * cellSize, top + row * cellSize, r, isBlack);
+    }
 
-    if (t > 0.5) {
-      final celebT = ((t - 0.5) * 2).clamp(0.0, 1.0);
-      final tp = TextPainter(
-        text: TextSpan(
-          text: 'Black: 15  White: 12',
-          style: TextStyle(
-            color: const Color(0xFF5D4037).withValues(alpha: celebT),
-            fontWeight: FontWeight.w800,
-            fontSize: 13,
+    if (t > 0.25) {
+      final tA = ((t - 0.25) / 0.20).clamp(0.0, 1.0);
+      final markerS = cellSize * 0.30;
+      for (final (row, col) in [(1, 1), (3, 1)]) {
+        canvas.drawRect(
+          Rect.fromCenter(center: Offset(left + col * cellSize, top + row * cellSize), width: markerS, height: markerS),
+          Paint()..color = Colors.black.withValues(alpha: 0.4 * tA),
+        );
+      }
+      for (final (row, col) in [(1, 4), (3, 4)]) {
+        canvas.drawRect(
+          Rect.fromCenter(center: Offset(left + col * cellSize, top + row * cellSize), width: markerS, height: markerS),
+          Paint()..color = Colors.white.withValues(alpha: 0.55 * tA),
+        );
+        canvas.drawRect(
+          Rect.fromCenter(center: Offset(left + col * cellSize, top + row * cellSize), width: markerS, height: markerS),
+          Paint()..color = Colors.grey.withValues(alpha: 0.3 * tA)..style = PaintingStyle.stroke..strokeWidth = 1,
+        );
+      }
+    }
+
+    if (t > 0.50) {
+      final sT = ((t - 0.50) / 0.20).clamp(0.0, 1.0);
+      const barH = 24.0;
+      final barY = size.height - barH - 4;
+      final barRect = RRect.fromRectAndRadius(
+        Rect.fromLTWH(10, barY, size.width - 20, barH),
+        const Radius.circular(6),
+      );
+      canvas.drawRRect(barRect, Paint()..color = _kBoard.withValues(alpha: 0.95 * sT));
+      canvas.drawRRect(barRect, Paint()..color = _kLine.withValues(alpha: 0.12 * sT)..style = PaintingStyle.stroke..strokeWidth = 1);
+
+      final showWinner = t > 0.75;
+      if (showWinner) {
+        final gT = ((t - 0.75) / 0.10).clamp(0.0, 1.0);
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromLTWH(12, barY + 2, (size.width - 24) * 0.45, barH - 4),
+            const Radius.circular(4),
           ),
+          Paint()..color = Colors.green.withValues(alpha: 0.22 * gT),
+        );
+      }
+
+      _drawStone(canvas, 24, barY + barH / 2, 6, true, alpha: sT);
+      final bTp = TextPainter(
+        text: TextSpan(
+          text: ' 15',
+          style: TextStyle(color: Colors.black.withValues(alpha: sT), fontWeight: FontWeight.w800, fontSize: 13),
         ),
         textDirection: TextDirection.ltr,
       )..layout();
-      tp.paint(canvas, Offset((size.width - tp.width) / 2, size.height - tp.height - 6));
+      bTp.paint(canvas, Offset(32, barY + (barH - bTp.height) / 2));
+
+      if (showWinner) {
+        final gT = ((t - 0.75) / 0.10).clamp(0.0, 1.0);
+        final cTp = TextPainter(
+          text: TextSpan(
+            text: ' \u2713',
+            style: TextStyle(color: Colors.green.withValues(alpha: gT), fontWeight: FontWeight.w900, fontSize: 14),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        cTp.paint(canvas, Offset(32 + bTp.width, barY + (barH - cTp.height) / 2));
+      }
+
+      _drawStone(canvas, size.width - 24, barY + barH / 2, 6, false, alpha: sT);
+      final wTp = TextPainter(
+        text: TextSpan(
+          text: '10 ',
+          style: TextStyle(color: _kLine.withValues(alpha: sT), fontWeight: FontWeight.w800, fontSize: 13),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      wTp.paint(canvas, Offset(size.width - 32 - wTp.width, barY + (barH - wTp.height) / 2));
     }
   }
 

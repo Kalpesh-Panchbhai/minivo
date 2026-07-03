@@ -348,7 +348,10 @@ class _PatchesScreenState extends State<PatchesScreen> with SingleTickerProvider
     _won = won;
     if (won) {
       final diff = _activeDifficulty!;
-      LevelProgressService()..advanceLevel(kPatchesGameId, diff.subKey)..clearGameState(kPatchesGameId, diff.subKey);
+      final lps = LevelProgressService();
+      lps.advanceLevel(kPatchesGameId, diff.subKey);
+      lps.saveLevelBest(kPatchesGameId, diff.subKey, _level, _moves + _hintsUsed * 3);
+      lps.clearGameState(kPatchesGameId, diff.subKey);
       GameWrapper.of(context).updateScore(_level);
       AudioService().playScore();
       _showAppreciation();

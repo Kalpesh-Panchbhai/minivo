@@ -220,7 +220,10 @@ class _TangoScreenState extends State<TangoScreen> with SingleTickerProviderStat
     _won = won;
     if (won) {
       final diff = _activeDifficulty!;
-      LevelProgressService()..advanceLevel(kTangoGameId, diff.subKey)..clearGameState(kTangoGameId, diff.subKey);
+      final lps = LevelProgressService();
+      lps.advanceLevel(kTangoGameId, diff.subKey);
+      lps.saveLevelBest(kTangoGameId, diff.subKey, _level, _moves + _hintsUsed * 3);
+      lps.clearGameState(kTangoGameId, diff.subKey);
       GameWrapper.of(context).updateScore(_level);
       AudioService().playScore();
       _showAppreciation();

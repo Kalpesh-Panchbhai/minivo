@@ -27,6 +27,14 @@ List<GameHowToPlayStep> gomokuSteps() => [
           canvasSize: const Size(180, 150),
         ),
       ),
+      GameHowToPlayStep(
+        text: 'Win horizontally, vertically, or diagonally — any direction counts!',
+        demo: AnimatedDemo(
+          period: const Duration(seconds: 4),
+          painter: (t) => _DiagonalWinPainter(t),
+          canvasSize: const Size(180, 150),
+        ),
+      ),
     ];
 
 const _kLine = Color(0xFF4A90D9);
@@ -144,4 +152,48 @@ class _BlockPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_BlockPainter old) => old.t != t;
+}
+
+class _DiagonalWinPainter extends CustomPainter {
+  final double t;
+  const _DiagonalWinPainter(this.t);
+
+  static const _stones = [[1, 1], [2, 2], [3, 3], [4, 4], [5, 5]];
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), Paint()..color = const Color(0xFFDCEAF8));
+    const lines = 7;
+    final cellSize = size.width / (lines + 1);
+    final left = cellSize;
+    final top = (size.height - (lines - 1) * cellSize) / 2;
+    _drawGrid(canvas, left, top, cellSize, lines);
+    final r = cellSize * 0.38;
+
+    final stonePhase = (t * 2.0).clamp(0.0, 1.0);
+    final stoneCount = (stonePhase * 5).floor().clamp(0, 5);
+    final currentFrac = (stonePhase * 5 - stoneCount).clamp(0.0, 1.0);
+
+    for (int i = 0; i < stoneCount; i++) {
+      _drawStone(canvas, left + _stones[i][0] * cellSize, top + _stones[i][1] * cellSize, r, true);
+    }
+    if (stoneCount < 5) {
+      final scale = Curves.elasticOut.transform(currentFrac);
+      _drawStone(canvas, left + _stones[stoneCount][0] * cellSize, top + _stones[stoneCount][1] * cellSize, r * scale, true);
+    }
+
+    if (stoneCount >= 5 && t > 0.6) {
+      final start = Offset(left + _stones[0][0] * cellSize, top + _stones[0][1] * cellSize);
+      final end = Offset(left + _stones[4][0] * cellSize, top + _stones[4][1] * cellSize);
+      final lineT = ((t - 0.6) / 0.4).clamp(0.0, 1.0);
+      final current = Offset.lerp(start, end, lineT)!;
+      canvas.drawLine(start, current, Paint()
+        ..color = Colors.amber.withValues(alpha: 0.6)
+        ..strokeWidth = cellSize * 0.12
+        ..strokeCap = StrokeCap.round);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DiagonalWinPainter old) => old.t != t;
 }

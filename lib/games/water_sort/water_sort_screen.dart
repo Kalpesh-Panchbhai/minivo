@@ -330,6 +330,7 @@ class _WaterSortScreenState extends State<WaterSortScreen> with TickerProviderSt
       final diff = _activeDifficulty!;
       final lps = LevelProgressService();
       lps.advanceLevel(kWaterSortGameId, diff.subKey);
+      lps.saveLevelBest(kWaterSortGameId, diff.subKey, _level, _moves);
       lps.clearGameState(kWaterSortGameId, diff.subKey);
       GameWrapper.of(context).updateScore(_level);
       AudioService().playScore();

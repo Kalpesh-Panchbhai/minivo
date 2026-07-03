@@ -1,74 +1,7 @@
 import 'package:flutter/material.dart';
+import '../shared/living_icons_group3.dart';
 
-import '../shared/game_logo_scaffold.dart';
-
-Widget buildDinoRunLogo(double size) => buildGlassSpotlightLogo(
-      size: size,
-      title: 'Dino Run',
-      bg: const [Color(0xFF374151), Color(0xFF111827)],
-      accent: const Color(0xFF9CA3AF),
-      art: _dinoRunArt,
-    );
-
-void _dinoRunArt(Canvas canvas, Rect zone) {
-  final w = zone.width;
-  final h = zone.height;
-  const dino = Color(0xFFE5E7EB);
-  const ground = Color(0xFF9CA3AF);
-
-  final groundY = zone.bottom - h * 0.12;
-  canvas.drawLine(
-    Offset(zone.left, groundY),
-    Offset(zone.right, groundY),
-    Paint()
-      ..color = ground
-      ..strokeWidth = w * 0.025
-      ..strokeCap = StrokeCap.round,
-  );
-  final dashPaint = Paint()
-    ..color = ground.withValues(alpha: 0.4)
-    ..strokeWidth = w * 0.012;
-  for (double x = zone.left + w * 0.05; x < zone.right - w * 0.1; x += w * 0.2) {
-    canvas.drawLine(
-      Offset(x, groundY + w * 0.05),
-      Offset(x + w * 0.08, groundY + w * 0.05),
-      dashPaint,
-    );
-  }
-
-  final dinoX = zone.left + w * 0.08;
-  final s = w * 0.034;
-  drawPixelDino(canvas, dinoX, groundY, s, dino, const Color(0xFF1F2937));
-
-  final cactusPaint = Paint()..color = ground;
-  final cx = zone.right - w * 0.22;
-  final trunkW = w * 0.05;
-  final trunkH = w * 0.28;
-  canvas.drawRRect(
-    RRect.fromRectAndRadius(
-      Rect.fromLTWH(cx - trunkW / 2, groundY - trunkH, trunkW, trunkH),
-      Radius.circular(trunkW * 0.4),
-    ),
-    cactusPaint,
-  );
-  final armW = w * 0.04;
-  canvas.drawRRect(
-    RRect.fromRectAndRadius(
-      Rect.fromLTWH(
-          cx + trunkW / 2, groundY - trunkH * 0.75, armW, trunkH * 0.45),
-      Radius.circular(armW * 0.5),
-    ),
-    cactusPaint,
-  );
-  canvas.drawRRect(
-    RRect.fromRectAndRadius(
-      Rect.fromLTWH(cx - trunkW / 2 - armW, groundY - trunkH * 0.6, armW,
-          trunkH * 0.35),
-      Radius.circular(armW * 0.5),
-    ),
-    cactusPaint,
-  );
-}
+Widget buildDinoRunLogo(double size) => buildDinoRunLivingLogo(size);
 
 void drawPixelDino(Canvas canvas, double x, double groundY, double s,
     Color fg, Color bg,

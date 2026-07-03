@@ -1,74 +1,74 @@
 import 'package:flutter/material.dart';
 import '../core/models/game_info.dart';
-import 'color_tap/color_tap_logo.dart';
-import 'color_tap/color_tap_screen.dart';
-import 'flappy_tap/flappy_tap_logo.dart';
-import 'flappy_tap/flappy_tap_screen.dart';
-import 'memory_match/memory_match_logo.dart';
-import 'memory_match/memory_match_screen.dart';
-import 'number_merge/number_merge_logo.dart';
-import 'number_merge/number_merge_screen.dart';
-import 'snake_classic/snake_classic_logo.dart';
-import 'snake_classic/snake_classic_screen.dart';
-import 'sudoku/sudoku_logo.dart';
-import 'sudoku/sudoku_screen.dart';
-import 'dots_and_boxes/dots_and_boxes_logo.dart';
-import 'dots_and_boxes/dots_and_boxes_screen.dart';
-import 'tic_tac_toe/tic_tac_toe_logo.dart';
-import 'tic_tac_toe/tic_tac_toe_screen.dart';
-import 'dino_run/dino_run_logo.dart';
-import 'dino_run/dino_run_screen.dart';
-import 'drop_merge/drop_merge_logo.dart';
-import 'drop_merge/drop_merge_screen.dart';
-import 'whack_a_mole/whack_a_mole_logo.dart';
-import 'whack_a_mole/whack_a_mole_screen.dart';
-import 'dodge_ball/dodge_ball_logo.dart';
-import 'dodge_ball/dodge_ball_screen.dart';
-import 'tap_tap_dash/tap_tap_dash_logo.dart';
-import 'tap_tap_dash/tap_tap_dash_screen.dart';
-import 'connect_four/connect_four_logo.dart';
-import 'connect_four/connect_four_screen.dart';
-import 'reversi/reversi_logo.dart';
-import 'reversi/reversi_screen.dart';
-import 'checkers/checkers_logo.dart';
-import 'checkers/checkers_screen.dart';
-import 'go/go_logo.dart';
-import 'go/go_screen.dart';
-import 'mancala/mancala_logo.dart';
-import 'mancala/mancala_screen.dart';
-import 'gomoku/gomoku_logo.dart';
-import 'gomoku/gomoku_screen.dart';
-import 'hangman/hangman_logo.dart';
-import 'hangman/hangman_screen.dart';
-import 'minesweeper/minesweeper_logo.dart';
-import 'minesweeper/minesweeper_screen.dart';
-import 'solitaire/solitaire_logo.dart';
-import 'solitaire/solitaire_screen.dart';
-import 'sliding_puzzle/sliding_puzzle_logo.dart';
-import 'sliding_puzzle/sliding_puzzle_screen.dart';
-import 'number_sequence/number_sequence_logo.dart';
-import 'number_sequence/number_sequence_screen.dart';
-import 'water_sort/water_sort_logo.dart';
-import 'water_sort/water_sort_screen.dart';
 import 'arrow_puzzle/arrow_puzzle_logo.dart';
-import 'arrow_puzzle/arrow_puzzle_screen.dart';
-import 'zip/zip_logo.dart';
-import 'zip/zip_screen.dart';
-import 'queens_puzzle/queens_puzzle_logo.dart';
-import 'queens_puzzle/queens_puzzle_screen.dart';
-import 'tango/tango_logo.dart';
-import 'tango/tango_screen.dart';
-import 'patches/patches_logo.dart';
-import 'patches/patches_screen.dart';
-import 'color_connect/color_connect_logo.dart';
-import 'color_connect/color_connect_screen.dart';
-import 'chess/chess_logo.dart';
-import 'chess/chess_screen.dart';
-import 'ludo/ludo_logo.dart';
-import 'ludo/ludo_screen.dart';
-import 'maze_paint/maze_paint_logo.dart';
-import 'maze_paint/maze_paint_screen.dart';
 import 'block_escape/block_escape_logo.dart';
+import 'checkers/checkers_logo.dart';
+import 'chess/chess_logo.dart';
+import 'color_connect/color_connect_logo.dart';
+import 'color_tap/color_tap_logo.dart';
+import 'connect_four/connect_four_logo.dart';
+import 'dino_run/dino_run_logo.dart';
+import 'dodge_ball/dodge_ball_logo.dart';
+import 'dots_and_boxes/dots_and_boxes_logo.dart';
+import 'drop_merge/drop_merge_logo.dart';
+import 'flappy_tap/flappy_tap_logo.dart';
+import 'go/go_logo.dart';
+import 'gomoku/gomoku_logo.dart';
+import 'hangman/hangman_logo.dart';
+import 'ludo/ludo_logo.dart';
+import 'mancala/mancala_logo.dart';
+import 'maze_paint/maze_paint_logo.dart';
+import 'memory_match/memory_match_logo.dart';
+import 'minesweeper/minesweeper_logo.dart';
+import 'number_merge/number_merge_logo.dart';
+import 'number_sequence/number_sequence_logo.dart';
+import 'patches/patches_logo.dart';
+import 'queens_puzzle/queens_puzzle_logo.dart';
+import 'reversi/reversi_logo.dart';
+import 'sliding_puzzle/sliding_puzzle_logo.dart';
+import 'snake_classic/snake_classic_logo.dart';
+import 'solitaire/solitaire_logo.dart';
+import 'sudoku/sudoku_logo.dart';
+import 'tango/tango_logo.dart';
+import 'tap_tap_dash/tap_tap_dash_logo.dart';
+import 'tic_tac_toe/tic_tac_toe_logo.dart';
+import 'water_sort/water_sort_logo.dart';
+import 'whack_a_mole/whack_a_mole_logo.dart';
+import 'zip/zip_logo.dart';
+import 'color_tap/color_tap_screen.dart';
+import 'flappy_tap/flappy_tap_screen.dart';
+import 'memory_match/memory_match_screen.dart';
+import 'number_merge/number_merge_screen.dart';
+import 'snake_classic/snake_classic_screen.dart';
+import 'sudoku/sudoku_screen.dart';
+import 'dots_and_boxes/dots_and_boxes_screen.dart';
+import 'tic_tac_toe/tic_tac_toe_screen.dart';
+import 'dino_run/dino_run_screen.dart';
+import 'drop_merge/drop_merge_screen.dart';
+import 'whack_a_mole/whack_a_mole_screen.dart';
+import 'dodge_ball/dodge_ball_screen.dart';
+import 'tap_tap_dash/tap_tap_dash_screen.dart';
+import 'connect_four/connect_four_screen.dart';
+import 'reversi/reversi_screen.dart';
+import 'checkers/checkers_screen.dart';
+import 'go/go_screen.dart';
+import 'mancala/mancala_screen.dart';
+import 'gomoku/gomoku_screen.dart';
+import 'hangman/hangman_screen.dart';
+import 'minesweeper/minesweeper_screen.dart';
+import 'solitaire/solitaire_screen.dart';
+import 'sliding_puzzle/sliding_puzzle_screen.dart';
+import 'number_sequence/number_sequence_screen.dart';
+import 'water_sort/water_sort_screen.dart';
+import 'arrow_puzzle/arrow_puzzle_screen.dart';
+import 'zip/zip_screen.dart';
+import 'queens_puzzle/queens_puzzle_screen.dart';
+import 'tango/tango_screen.dart';
+import 'patches/patches_screen.dart';
+import 'color_connect/color_connect_screen.dart';
+import 'chess/chess_screen.dart';
+import 'ludo/ludo_screen.dart';
+import 'maze_paint/maze_paint_screen.dart';
 import 'block_escape/block_escape_screen.dart';
 
 
@@ -239,7 +239,7 @@ class GameRegistry {
       bgColor: Color(0xFFFFF0F0),
       playCount: 43000,
       isFeatured: true,
-      customLogo: build2048Logo,
+      customLogo: buildNumberMergeLogo,
     ),
     const GameInfo(
       id: 'snake_classic',
@@ -286,10 +286,11 @@ class GameRegistry {
       howToPlay:
           'Choose your difficulty (Easy = 5×5, Medium = 6×6–7×7, Hard = 7×7–8×8).\n'
           'Tap a cell to place a queen. Tap a queen to remove it.\n'
-          'Long press a cell to mark it with an X (elimination marker).\n'
+          'Long press a cell to mark it with an ✕ (elimination marker).\n'
           'Place exactly one queen in each colored region.\n'
           'Each row and column must have exactly one queen.\n'
-          'Queens cannot touch — horizontally, vertically, or diagonally.\n'
+          'Queens cannot touch — not even 1 cell diagonally!\n'
+          'But 2+ cells apart on the same diagonal is allowed.\n'
           'Solve the puzzle when all queens are placed without conflicts!',
       category: GameCategory.puzzle,
       icon: Icons.auto_awesome_rounded,

@@ -7,7 +7,7 @@ import '../../core/widgets/how_to_play_sheet.dart';
 
 List<GameHowToPlayStep> whackAMoleSteps() => [
       GameHowToPlayStep(
-        text: 'Moles pop up from holes — tap them fast!',
+        text: 'Moles pop up from holes — tap them before time runs out!',
         demo: AnimatedDemo(
           period: const Duration(milliseconds: 2800),
           painter: (t) => _MolePopPainter(t),

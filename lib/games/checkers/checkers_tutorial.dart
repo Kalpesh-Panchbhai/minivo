@@ -158,10 +158,11 @@ class _KingPainter extends CustomPainter {
     final eased = Curves.easeInOut.transform(moveT);
     final isKing = moveT > 0.95;
 
-    final startR = 1.0;
-    final endR = 0.0;
+    final startR = 1.0, startC = 2.0;
+    final endR = 0.0, endC = 3.0;
     final curR = startR + (endR - startR) * eased;
-    final cx = left + 2.5 * cellSize;
+    final curC = startC + (endC - startC) * eased;
+    final cx = left + (curC + 0.5) * cellSize;
     final cy = top + (curR + 0.5) * cellSize;
 
     if (isKing) {

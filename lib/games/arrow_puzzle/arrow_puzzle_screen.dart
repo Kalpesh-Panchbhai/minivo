@@ -346,6 +346,7 @@ class _ArrowPuzzleScreenState extends State<ArrowPuzzleScreen> with TickerProvid
       final diff = _activeDifficulty!;
       final lps = LevelProgressService();
       lps.advanceLevel(kArrowPuzzleGameId, diff.subKey);
+      lps.saveLevelBest(kArrowPuzzleGameId, diff.subKey, _level, _taps + _hintsUsed * 3);
       lps.clearGameState(kArrowPuzzleGameId, diff.subKey);
       GameWrapper.of(context).updateScore(_level);
       AudioService().playSuccess();
@@ -506,7 +507,7 @@ class _ArrowPuzzleScreenState extends State<ArrowPuzzleScreen> with TickerProvid
   void _saveState() {
     final diff = _activeDifficulty;
     if (diff == null || _gameOver || _won) return;
-    if (_taps == 0) return;
+    if (_taps == 0 && _hintsUsed == 0) return;
     final freedIds = _arrows.where((a) => a.freed).map((a) => a.id).toList();
     LevelProgressService().saveGameState(kArrowPuzzleGameId, diff.subKey, {
       'level': _level,

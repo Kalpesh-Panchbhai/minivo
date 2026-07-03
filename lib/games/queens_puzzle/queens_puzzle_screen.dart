@@ -285,6 +285,7 @@ class _QueensPuzzleScreenState extends State<QueensPuzzleScreen> with SingleTick
       final diff = _activeDifficulty!;
       final lps = LevelProgressService();
       lps.advanceLevel(kQueensPuzzleGameId, diff.subKey);
+      lps.saveLevelBest(kQueensPuzzleGameId, diff.subKey, _level, _hintsUsed);
       lps.clearGameState(kQueensPuzzleGameId, diff.subKey);
       GameWrapper.of(context).updateScore(_level);
       AudioService().playScore();

@@ -1,350 +1,398 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+
+import '../../core/widgets/animated_demo.dart';
 import '../../core/widgets/how_to_play_sheet.dart';
 
-List<GameHowToPlayStep> dotsAndBoxesSteps() {
-  return const [
-    GameHowToPlayStep(
-      text: '✏️  Tap the gap between two dots to draw a line. '
-          'Players take turns drawing one line at a time.',
-      demo: _Step1Demo(),
-    ),
-    GameHowToPlayStep(
-      text: '📦  Complete a box by drawing its 4th side! '
-          'The box fills with your color and you score a point.',
-      demo: _Step2Demo(),
-    ),
-    GameHowToPlayStep(
-      text: '🔗  Chain reaction! If you complete a box you go again — '
-          'keep going until you can\'t complete any more boxes.',
-      demo: _Step3Demo(),
-    ),
-    GameHowToPlayStep(
-      text: '🏆  When all boxes are filled the player with the most '
-          'boxes wins. Plan ahead to avoid giving away chains!',
-      demo: _Step4Demo(),
-    ),
-  ];
-}
+const _kP1 = Color(0xFF339AF0);
+const _kP2 = Color(0xFFFF6B6B);
+const _kDot = Color(0xFF333333);
+const _kPad = 30.0;
+const _kStep = 60.0;
+const _kDotR = 5.0;
+const _kLineW = 3.5;
 
-// ── Demo widgets (simple static illustrations) ────────────────────────────
+Offset _dot(int r, int c) => Offset(_kPad + c * _kStep, _kPad + r * _kStep);
 
-class _Step1Demo extends StatelessWidget {
-  const _Step1Demo();
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 120,
-      height: 120,
-      child: CustomPaint(painter: _DrawLinePainter()),
-    );
-  }
-}
-
-class _DrawLinePainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final step = size.width / 2;
-    final dotR = 6.0;
-
-    final linePaint = Paint()
-      ..color = const Color(0xFF339AF0)
-      ..strokeWidth = 3.5
-      ..strokeCap = StrokeCap.round;
-
-    final dottedPaint = Paint()
-      ..color = const Color(0xFF339AF0).withValues(alpha: 0.40)
-      ..strokeWidth = 2.5
-      ..strokeCap = StrokeCap.round;
-
-    final dotPaint = Paint()..color = const Color(0xFF333333);
-
-    // Draw a 3×3 dot grid
-    for (int r = 0; r <= 2; r++) {
-      for (int c = 0; c <= 2; c++) {
-        canvas.drawCircle(Offset(c * step, r * step), dotR, dotPaint);
-      }
-    }
-
-    // Draw one solid line (top of top-left box)
-    canvas.drawLine(Offset(0, 0), Offset(step, 0), linePaint);
-
-    // Show a "pending" dotted line
-    _drawDashed(canvas, Offset(0, step), Offset(step, step), dottedPaint);
-
-    // Arrow hint
-    final arrowPaint = Paint()
-      ..color = const Color(0xFFFF6B6B)
-      ..strokeWidth = 2.0
-      ..strokeCap = StrokeCap.round;
-    canvas.drawLine(Offset(step * 0.5 + 18, step - 18), Offset(step * 0.5, step), arrowPaint);
-  }
-
-  void _drawDashed(Canvas canvas, Offset p1, Offset p2, Paint paint) {
-    final total = (p2 - p1).distance;
-    final dir = (p2 - p1) / total;
-    double drawn = 0;
-    bool on = true;
-    while (drawn < total) {
-      final seg = on ? 6.0 : 4.0;
-      final end = drawn + seg;
-      if (on) {
-        canvas.drawLine(p1 + dir * drawn, p1 + dir * end.clamp(0, total), paint);
-      }
-      drawn = end;
-      on = !on;
+void _drawDots(Canvas canvas) {
+  final p = Paint()..color = _kDot;
+  for (int r = 0; r <= 2; r++) {
+    for (int c = 0; c <= 2; c++) {
+      canvas.drawCircle(_dot(r, c), _kDotR, p);
     }
   }
-
-  @override
-  bool shouldRepaint(_DrawLinePainter old) => false;
 }
 
-class _Step2Demo extends StatelessWidget {
-  const _Step2Demo();
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 120,
-      height: 120,
-      child: CustomPaint(painter: _CompleteBoxPainter()),
-    );
-  }
+void _edge(Canvas canvas, Offset a, Offset b, Color color,
+    [double progress = 1.0]) {
+  if (progress <= 0) return;
+  final end = Offset.lerp(a, b, progress.clamp(0.0, 1.0))!;
+  canvas.drawLine(
+    a,
+    end,
+    Paint()
+      ..color = color
+      ..strokeWidth = _kLineW
+      ..strokeCap = StrokeCap.round,
+  );
 }
 
-class _CompleteBoxPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final step = size.width / 2;
-    final dotR = 6.0;
+void _boxFill(Canvas canvas, int r, int c, Color color,
+    [double alpha = 0.28]) {
+  if (alpha <= 0) return;
+  final o = _dot(r, c);
+  canvas.drawRect(
+    Rect.fromLTWH(o.dx, o.dy, _kStep, _kStep),
+    Paint()..color = color.withValues(alpha: alpha),
+  );
+}
 
-    final linePaint = Paint()
-      ..color = const Color(0xFF339AF0)
-      ..strokeWidth = 3.5
-      ..strokeCap = StrokeCap.round;
+void _centeredText(
+    Canvas canvas, String text, Offset center, Color color, double fontSize,
+    {FontWeight weight = FontWeight.w900}) {
+  final tp = TextPainter(
+    text: TextSpan(
+      text: text,
+      style: TextStyle(
+        color: color,
+        fontSize: fontSize,
+        fontWeight: weight,
+      ),
+    ),
+    textDirection: TextDirection.ltr,
+  )..layout();
+  tp.paint(
+    canvas,
+    Offset(center.dx - tp.width / 2, center.dy - tp.height / 2),
+  );
+}
 
-    final lastLinePaint = Paint()
-      ..color = const Color(0xFFFF6B6B)
-      ..strokeWidth = 3.5
-      ..strokeCap = StrokeCap.round;
-
-    final boxFill = Paint()
-      ..color = const Color(0xFF339AF0).withValues(alpha: 0.30);
-
-    final dotPaint = Paint()..color = const Color(0xFF333333);
-
-    // Fill the completed box
-    canvas.drawRect(Rect.fromLTWH(0, 0, step, step), boxFill);
-
-    // Draw 3 existing lines
-    canvas.drawLine(Offset(0, 0), Offset(step, 0), linePaint);
-    canvas.drawLine(Offset(step, 0), Offset(step, step), linePaint);
-    canvas.drawLine(Offset(0, 0), Offset(0, step), linePaint);
-
-    // Draw the completing 4th line in P2 color
-    canvas.drawLine(Offset(0, step), Offset(step, step), lastLinePaint);
-
-    // Dots
-    for (int r = 0; r <= 2; r++) {
-      for (int c = 0; c <= 2; c++) {
-        canvas.drawCircle(Offset(c * step, r * step), dotR, dotPaint);
-      }
-    }
-
-    // P1 initial inside box
-    final tp = TextPainter(
-      text: const TextSpan(
-        text: 'P1',
-        style: TextStyle(
-          color: Color(0xFF339AF0),
-          fontSize: 20,
-          fontWeight: FontWeight.w900,
+List<GameHowToPlayStep> dotsAndBoxesSteps() => [
+      GameHowToPlayStep(
+        text: 'Tap between dots to draw a line. Players take turns.',
+        demo: AnimatedDemo(
+          period: const Duration(milliseconds: 3500),
+          painter: (t) => _TurnsPainter(t),
+          canvasSize: const Size(180, 180),
         ),
       ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    tp.paint(canvas, Offset(step / 2 - tp.width / 2, step / 2 - tp.height / 2));
-  }
+      GameHowToPlayStep(
+        text:
+            'Complete a box by drawing its 4th side — you claim it and score!',
+        demo: AnimatedDemo(
+          period: const Duration(milliseconds: 4000),
+          painter: (t) => _ClaimPainter(t),
+          canvasSize: const Size(180, 180),
+        ),
+      ),
+      GameHowToPlayStep(
+        text: 'Complete a box and you go again — chain your moves!',
+        demo: AnimatedDemo(
+          period: const Duration(milliseconds: 5000),
+          painter: (t) => _ChainPainter(t),
+          canvasSize: const Size(180, 180),
+        ),
+      ),
+      GameHowToPlayStep(
+        text: 'Most boxes when the board is full wins!',
+        demo: AnimatedDemo(
+          period: const Duration(milliseconds: 4500),
+          painter: (t) => _WinPainter(t),
+          canvasSize: const Size(180, 180),
+        ),
+      ),
+    ];
+
+class _TurnsPainter extends CustomPainter {
+  final double t;
+  const _TurnsPainter(this.t);
 
   @override
-  bool shouldRepaint(_CompleteBoxPainter old) => false;
-}
+  void paint(Canvas canvas, Size size) {
+    if (t >= 0.08) {
+      final p = Curves.easeOut.transform(
+        ((t - 0.08) / 0.30).clamp(0.0, 1.0),
+      );
+      _edge(canvas, _dot(0, 0), _dot(0, 1), _kP1, p);
+    }
 
-class _Step3Demo extends StatelessWidget {
-  const _Step3Demo();
+    if (t >= 0.52) {
+      final p = Curves.easeOut.transform(
+        ((t - 0.52) / 0.30).clamp(0.0, 1.0),
+      );
+      _edge(canvas, _dot(0, 1), _dot(0, 2), _kP2, p);
+    }
 
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 120,
-      height: 120,
-      child: CustomPaint(painter: _ChainPainter()),
+    _drawDots(canvas);
+
+    final isP1 = t < 0.46;
+    final color = isP1 ? _kP1 : _kP2;
+    final who = isP1 ? 'P1' : 'P2';
+    final indicatorY = size.height - 10.0;
+
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromCenter(
+          center: Offset(size.width / 2, indicatorY),
+          width: 72,
+          height: 17,
+        ),
+        const Radius.circular(8),
+      ),
+      Paint()..color = color.withValues(alpha: 0.15),
+    );
+    _centeredText(
+      canvas,
+      "$who's turn",
+      Offset(size.width / 2, indicatorY),
+      color,
+      9,
+      weight: FontWeight.w800,
     );
   }
+
+  @override
+  bool shouldRepaint(_TurnsPainter old) => old.t != t;
+}
+
+class _ClaimPainter extends CustomPainter {
+  final double t;
+  const _ClaimPainter(this.t);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (t >= 0.50) {
+      final a = ((t - 0.50) / 0.10).clamp(0.0, 1.0);
+      _boxFill(canvas, 0, 0, _kP1, a * 0.28);
+    }
+
+    _edge(canvas, _dot(0, 0), _dot(0, 1), _kP1);
+    _edge(canvas, _dot(0, 0), _dot(1, 0), _kP1);
+    _edge(canvas, _dot(0, 1), _dot(1, 1), _kP1);
+
+    if (t >= 0.15) {
+      final p = Curves.easeOut.transform(
+        ((t - 0.15) / 0.35).clamp(0.0, 1.0),
+      );
+      _edge(canvas, _dot(1, 0), _dot(1, 1), _kP1, p);
+    }
+
+    _drawDots(canvas);
+
+    if (t >= 0.62) {
+      final a = ((t - 0.62) / 0.10).clamp(0.0, 1.0);
+      _centeredText(
+        canvas,
+        'P1',
+        _dot(0, 0) + const Offset(_kStep / 2, _kStep / 2),
+        _kP1.withValues(alpha: a),
+        18,
+      );
+    }
+
+    if (t >= 0.74) {
+      final bt = ((t - 0.74) / 0.18).clamp(0.0, 1.0);
+      final scale = Curves.elasticOut.transform(bt);
+      final pos = Offset(_dot(0, 1).dx + 14, _dot(0, 0).dy + _kStep * 0.35);
+      canvas.save();
+      canvas.translate(pos.dx, pos.dy);
+      canvas.scale(scale);
+      canvas.translate(-pos.dx, -pos.dy);
+      _centeredText(canvas, '+1', pos, _kP1.withValues(alpha: bt), 15);
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(_ClaimPainter old) => old.t != t;
 }
 
 class _ChainPainter extends CustomPainter {
+  final double t;
+  const _ChainPainter(this.t);
+
   @override
   void paint(Canvas canvas, Size size) {
-    final step = size.width / 2;
-    final dotR = 5.0;
+    if (t >= 0.30) {
+      final a = ((t - 0.30) / 0.08).clamp(0.0, 1.0);
+      _boxFill(canvas, 0, 0, _kP1, a * 0.28);
+    }
+    if (t >= 0.66) {
+      final a = ((t - 0.66) / 0.08).clamp(0.0, 1.0);
+      _boxFill(canvas, 0, 1, _kP1, a * 0.28);
+    }
 
-    final p1Line = Paint()
-      ..color = const Color(0xFF339AF0)
-      ..strokeWidth = 3.0
-      ..strokeCap = StrokeCap.round;
+    _edge(canvas, _dot(0, 0), _dot(0, 1), _kP1);
+    _edge(canvas, _dot(0, 0), _dot(1, 0), _kP2);
+    _edge(canvas, _dot(0, 1), _dot(1, 1), _kP1);
+    _edge(canvas, _dot(0, 1), _dot(0, 2), _kP2);
+    _edge(canvas, _dot(0, 2), _dot(1, 2), _kP2);
 
-    final p1Fill = Paint()
-      ..color = const Color(0xFF339AF0).withValues(alpha: 0.25);
+    if (t >= 0.08) {
+      final p = Curves.easeOut.transform(
+        ((t - 0.08) / 0.22).clamp(0.0, 1.0),
+      );
+      _edge(canvas, _dot(1, 0), _dot(1, 1), _kP1, p);
+    }
 
-    final dotPaint = Paint()..color = const Color(0xFF333333);
+    if (t >= 0.44) {
+      final p = Curves.easeOut.transform(
+        ((t - 0.44) / 0.22).clamp(0.0, 1.0),
+      );
+      _edge(canvas, _dot(1, 1), _dot(1, 2), _kP1, p);
+    }
 
-    // Two adjacent boxes both claimed by P1 (chain)
-    // Box 1 (top-left)
-    canvas.drawRect(Rect.fromLTWH(0, 0, step, step), p1Fill);
-    canvas.drawLine(Offset(0, 0), Offset(step, 0), p1Line);
-    canvas.drawLine(Offset(step, 0), Offset(step, step), p1Line);
-    canvas.drawLine(Offset(0, 0), Offset(0, step), p1Line);
-    canvas.drawLine(Offset(0, step), Offset(step, step), p1Line);
+    _drawDots(canvas);
 
-    // Box 2 (top-right)
-    canvas.drawRect(Rect.fromLTWH(step, 0, step, step), p1Fill);
-    canvas.drawLine(Offset(step, 0), Offset(step * 2, 0), p1Line);
-    canvas.drawLine(Offset(step * 2, 0), Offset(step * 2, step), p1Line);
-    canvas.drawLine(Offset(step, step), Offset(step * 2, step), p1Line);
+    if (t >= 0.34 && t < 0.44) {
+      final a = (t < 0.37)
+          ? ((t - 0.34) / 0.03).clamp(0.0, 1.0)
+          : ((0.44 - t) / 0.07).clamp(0.0, 1.0);
+      _centeredText(
+        canvas,
+        'GO AGAIN!',
+        Offset(size.width / 2, size.height - 12),
+        const Color(0xFFFF9900).withValues(alpha: a),
+        10,
+        weight: FontWeight.w800,
+      );
+    }
 
-    // Chain arrow
-    final arrowPaint = Paint()
-      ..color = const Color(0xFFFF9900)
-      ..strokeWidth = 2.5
-      ..strokeCap = StrokeCap.round;
-    canvas.drawLine(
-      Offset(step * 0.5, step + 14),
-      Offset(step * 1.5, step + 14),
-      arrowPaint,
-    );
-    canvas.drawLine(
-      Offset(step * 1.5 - 8, step + 8),
-      Offset(step * 1.5, step + 14),
-      arrowPaint,
-    );
-    canvas.drawLine(
-      Offset(step * 1.5 - 8, step + 20),
-      Offset(step * 1.5, step + 14),
-      arrowPaint,
-    );
+    if (t >= 0.76) {
+      final bt = ((t - 0.76) / 0.16).clamp(0.0, 1.0);
+      final scale = Curves.elasticOut.transform(bt);
+      final center = Offset(size.width / 2, size.height - 12);
 
-    for (int r = 0; r <= 2; r++) {
-      for (int c = 0; c <= 2; c++) {
-        canvas.drawCircle(Offset(c * step, r * step), dotR, dotPaint);
+      for (int i = 0; i < 8; i++) {
+        final angle = i * math.pi / 4;
+        final dist = bt * 28;
+        final pa = (1 - bt).clamp(0.0, 1.0) * 0.55;
+        canvas.drawCircle(
+          Offset(
+            center.dx + math.cos(angle) * dist,
+            center.dy + math.sin(angle) * dist,
+          ),
+          2.5 * (1 - bt * 0.5),
+          Paint()
+            ..color = (i.isEven ? _kP1 : const Color(0xFFFF9900))
+                .withValues(alpha: pa),
+        );
       }
+
+      canvas.save();
+      canvas.translate(center.dx, center.dy);
+      canvas.scale(scale);
+      canvas.translate(-center.dx, -center.dy);
+
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(center: center, width: 72, height: 20),
+          const Radius.circular(10),
+        ),
+        Paint()..color = const Color(0xFFFF9900).withValues(alpha: bt * 0.2),
+      );
+      _centeredText(
+        canvas,
+        'CHAIN!',
+        center,
+        const Color(0xFFFF9900).withValues(alpha: bt),
+        12,
+      );
+      canvas.restore();
     }
   }
 
   @override
-  bool shouldRepaint(_ChainPainter old) => false;
-}
-
-class _Step4Demo extends StatelessWidget {
-  const _Step4Demo();
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 120,
-      height: 120,
-      child: CustomPaint(painter: _WinPainter()),
-    );
-  }
+  bool shouldRepaint(_ChainPainter old) => old.t != t;
 }
 
 class _WinPainter extends CustomPainter {
+  final double t;
+  const _WinPainter(this.t);
+
   @override
   void paint(Canvas canvas, Size size) {
-    final step = size.width / 2;
-    final dotR = 5.0;
-
-    final p1Line = Paint()
-      ..color = const Color(0xFF339AF0)
-      ..strokeWidth = 2.5
-      ..strokeCap = StrokeCap.round;
-
-    final p2Line = Paint()
-      ..color = const Color(0xFFFF6B6B)
-      ..strokeWidth = 2.5
-      ..strokeCap = StrokeCap.round;
-
-    final p1Fill = Paint()
-      ..color = const Color(0xFF339AF0).withValues(alpha: 0.28);
-
-    final p2Fill = Paint()
-      ..color = const Color(0xFFFF6B6B).withValues(alpha: 0.28);
-
-    final dotPaint = Paint()..color = const Color(0xFF333333);
-
-    // 4 boxes: P1 claims 3, P2 claims 1
-    final rects = [
-      (Rect.fromLTWH(0, 0, step, step), true),
-      (Rect.fromLTWH(step, 0, step, step), true),
-      (Rect.fromLTWH(0, step, step, step), false),
-      (Rect.fromLTWH(step, step, step, step), true),
+    final boxes = [
+      (0, 0, _kP1, 0.05),
+      (0, 1, _kP1, 0.12),
+      (1, 0, _kP2, 0.19),
+      (1, 1, _kP1, 0.26),
     ];
-
-    for (final (rect, isP1) in rects) {
-      canvas.drawRect(rect, isP1 ? p1Fill : p2Fill);
-      final lp = isP1 ? p1Line : p2Line;
-      canvas.drawLine(rect.topLeft, rect.topRight, lp);
-      canvas.drawLine(rect.topRight, rect.bottomRight, lp);
-      canvas.drawLine(rect.bottomRight, rect.bottomLeft, lp);
-      canvas.drawLine(rect.bottomLeft, rect.topLeft, lp);
+    for (final (r, c, color, start) in boxes) {
+      final a = ((t - start) / 0.10).clamp(0.0, 1.0);
+      if (a > 0) _boxFill(canvas, r, c, color, a * 0.28);
     }
 
-    // Dots
+    const lc = Color(0xFF555555);
     for (int r = 0; r <= 2; r++) {
+      for (int c = 0; c < 2; c++) {
+        _edge(canvas, _dot(r, c), _dot(r, c + 1), lc);
+      }
+    }
+    for (int r = 0; r < 2; r++) {
       for (int c = 0; c <= 2; c++) {
-        canvas.drawCircle(Offset(c * step, r * step), dotR, dotPaint);
+        _edge(canvas, _dot(r, c), _dot(r + 1, c), lc);
       }
     }
 
-    // Score
-    final tp = TextPainter(
-      text: const TextSpan(
-        children: [
-          TextSpan(
-            text: '3',
-            style: TextStyle(
-              color: Color(0xFF339AF0),
-              fontSize: 14,
-              fontWeight: FontWeight.w900,
+    _drawDots(canvas);
+
+    if (t >= 0.50) {
+      final st = ((t - 0.50) / 0.15).clamp(0.0, 1.0);
+      final tp = TextPainter(
+        text: TextSpan(
+          children: [
+            TextSpan(
+              text: '3',
+              style: TextStyle(
+                color: _kP1.withValues(alpha: st),
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+              ),
             ),
-          ),
-          TextSpan(
-            text: ' vs ',
-            style: TextStyle(
-              color: Color(0xFF666666),
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+            TextSpan(
+              text: ' vs ',
+              style: TextStyle(
+                color: _kDot.withValues(alpha: st * 0.6),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          ),
-          TextSpan(
-            text: '1',
-            style: TextStyle(
-              color: Color(0xFFFF6B6B),
-              fontSize: 14,
-              fontWeight: FontWeight.w900,
+            TextSpan(
+              text: '1',
+              style: TextStyle(
+                color: _kP2.withValues(alpha: st),
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+              ),
             ),
-          ),
-        ],
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    tp.paint(
-      canvas,
-      Offset(size.width / 2 - tp.width / 2, size.height - tp.height - 2),
-    );
+          ],
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      final scoreX = size.width / 2 - tp.width / 2;
+      final scoreY = size.height - tp.height - 4;
+      tp.paint(canvas, Offset(scoreX, scoreY));
+
+      if (t >= 0.70) {
+        final ct = ((t - 0.70) / 0.12).clamp(0.0, 1.0);
+        final cp = Paint()
+          ..color = const Color(0xFF51CF66).withValues(alpha: ct)
+          ..strokeWidth = 2.5
+          ..strokeCap = StrokeCap.round
+          ..style = PaintingStyle.stroke;
+        final cx = scoreX - 14;
+        final cy = scoreY + tp.height / 2;
+        final path = Path()
+          ..moveTo(cx - 4, cy)
+          ..lineTo(cx - 1, cy + 4)
+          ..lineTo(cx + 6, cy - 5);
+        canvas.drawPath(path, cp);
+      }
+    }
   }
 
   @override
-  bool shouldRepaint(_WinPainter old) => false;
+  bool shouldRepaint(_WinPainter old) => old.t != t;
 }

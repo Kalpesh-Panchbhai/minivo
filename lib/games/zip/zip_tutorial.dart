@@ -42,8 +42,24 @@ List<GameHowToPlayStep> zipSteps() => [
       GameHowToPlayStep(
         text: 'Fill every cell to win. Retrace your path to undo a move.',
         demo: AnimatedDemo(
-          period: const Duration(seconds: 3),
-          painter: (t) => _ZipBoardPainter(1.0, drawFraction: 1.0, celebrate: t),
+          period: const Duration(seconds: 4),
+          painter: (t) {
+            double fraction;
+            double celebrateT;
+            if (t < 0.5) {
+              fraction = 1.0;
+              celebrateT = t / 0.5;
+            } else if (t < 0.75) {
+              final retractT = (t - 0.5) / 0.25;
+              fraction = 1.0 - retractT * 0.25;
+              celebrateT = -1;
+            } else {
+              final extendT = (t - 0.75) / 0.25;
+              fraction = 0.75 + extendT * 0.25;
+              celebrateT = extendT;
+            }
+            return _ZipBoardPainter(t, drawFraction: fraction, celebrate: celebrateT);
+          },
           canvasSize: const Size(200, 170),
         ),
       ),
@@ -173,5 +189,5 @@ class _ZipBoardPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_ZipBoardPainter old) => true;
+  bool shouldRepaint(_ZipBoardPainter old) => old.t != t;
 }

@@ -89,7 +89,7 @@ class _SelectPainter extends CustomPainter {
         Rect.fromLTWH(left + 2 * cellSize, top + 3 * cellSize, cellSize, cellSize),
         Paint()..color = Colors.amber.withValues(alpha: 0.35 * alpha),
       );
-      for (final pos in [(2, 2), (1, 3), (3, 1)]) {
+      for (final pos in [(2, 1), (2, 3), (1, 0)]) {
         final cx = left + (pos.$2 + 0.5) * cellSize;
         final cy = top + (pos.$1 + 0.5) * cellSize;
         canvas.drawCircle(Offset(cx, cy), cellSize * 0.14, Paint()..color = Colors.green.withValues(alpha: 0.55 * alpha));
