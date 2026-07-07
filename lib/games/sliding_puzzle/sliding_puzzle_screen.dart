@@ -17,6 +17,7 @@ import '../shared/game_control_buttons.dart';
 import '../shared/game_difficulty_picker.dart';
 import '../shared/game_hud_bar.dart';
 import '../shared/generic_game_result_screen.dart' as game_result;
+import 'sliding_puzzle_gen.dart';
 import 'sliding_puzzle_logo.dart';
 import 'sliding_puzzle_tutorial.dart';
 
@@ -204,31 +205,14 @@ class _SlidingPuzzleScreenState extends State<SlidingPuzzleScreen> {
   }
 
   void _shuffle(int n) {
-    final rng = math.Random();
-    do {
-      _tiles = List.generate(n * n - 1, (i) => i + 1)..add(0);
-      _emptyIndex = n * n - 1;
-      for (int i = 0; i < n * n * 200; i++) {
-        final neighbors = _getMovableIndices(n);
-        if (neighbors.isEmpty) continue;
-        final pick = neighbors[rng.nextInt(neighbors.length)];
-        _tiles[_emptyIndex] = _tiles[pick];
-        _tiles[pick] = 0;
-        _emptyIndex = pick;
-      }
-    } while (_isSolved());
+    // Always produces a solvable, non-solved board (see SlidingPuzzleGen).
+    final board = SlidingPuzzleGen.generate(n);
+    _tiles = board.tiles;
+    _emptyIndex = board.emptyIndex;
   }
 
-  List<int> _getMovableIndices(int n) {
-    final r = _emptyIndex ~/ n;
-    final c = _emptyIndex % n;
-    final result = <int>[];
-    if (r > 0) result.add((r - 1) * n + c);
-    if (r < n - 1) result.add((r + 1) * n + c);
-    if (c > 0) result.add(r * n + c - 1);
-    if (c < n - 1) result.add(r * n + c + 1);
-    return result;
-  }
+  List<int> _getMovableIndices(int n) =>
+      SlidingPuzzleGen.movableIndices(_emptyIndex, n);
 
   void _onTileTap(int idx) {
     if (_gameOver || _activeGridSize == null) return;
@@ -251,12 +235,7 @@ class _SlidingPuzzleScreenState extends State<SlidingPuzzleScreen> {
     }
   }
 
-  bool _isSolved() {
-    for (int i = 0; i < _tiles.length - 1; i++) {
-      if (_tiles[i] != i + 1) return false;
-    }
-    return true;
-  }
+  bool _isSolved() => SlidingPuzzleGen.isSolved(_tiles);
 
   void _endGame() {
     _gameOver = true;
