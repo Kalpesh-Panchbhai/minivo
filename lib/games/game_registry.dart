@@ -127,7 +127,7 @@ class GameRegistry {
   static bool hasGame(String gameId) => _builders.containsKey(gameId);
 
   static final List<GameInfo> allGames = [
-    const GameInfo(
+    GameInfo(
       id: 'solitaire',
       name: 'Solitaire',
       description: 'Classic Klondike solitaire — stack cards from Ace to King!',
@@ -146,7 +146,7 @@ class GameRegistry {
       isFeatured: true,
       customLogo: buildSolitaireLogo,
     ),
-    const GameInfo(
+    GameInfo(
       id: 'maze_paint',
       name: 'Maze Paint',
       description: 'Swipe a paint roller through the maze and cover every reachable tile!',
@@ -164,7 +164,7 @@ class GameRegistry {
       isFeatured: true,
       customLogo: buildMazePaintLogo,
     ),
-    const GameInfo(
+    GameInfo(
       id: 'block_escape',
       name: 'Block Escape',
       description: 'Slide blocks to free the red piece — a Rush Hour puzzle!',
@@ -183,7 +183,7 @@ class GameRegistry {
       isFeatured: true,
       customLogo: buildBlockEscapeLogo,
     ),
-    const GameInfo(
+    GameInfo(
       id: 'sudoku',
       name: 'Sudoku',
       description: 'Fill the 9×9 grid — every row, column and box must contain 1–9.',
@@ -202,7 +202,7 @@ class GameRegistry {
       isFeatured: true,
       customLogo: buildSudokuLogo,
     ),
-    const GameInfo(
+    GameInfo(
       id: 'water_sort',
       name: 'Water Sort',
       description: 'Pour and sort colored water into matching tubes!',
@@ -222,7 +222,7 @@ class GameRegistry {
       isFeatured: true,
       customLogo: buildWaterSortLogo,
     ),
-    const GameInfo(
+    GameInfo(
       id: 'number_merge',
       name: '2048 Merge',
       description: 'Slide tiles and merge numbers. Can you reach 2048?',
@@ -241,7 +241,7 @@ class GameRegistry {
       isFeatured: true,
       customLogo: buildNumberMergeLogo,
     ),
-    const GameInfo(
+    GameInfo(
       id: 'snake_classic',
       name: 'Snake Classic',
       description: 'Guide the snake to eat apples and grow longer. How long can you survive?',
@@ -260,7 +260,7 @@ class GameRegistry {
       isFeatured: true,
       customLogo: buildSnakeLogo,
     ),
-    const GameInfo(
+    GameInfo(
       id: 'zip',
       name: 'Zip',
       description: 'Draw a single path through every cell — visit checkpoints in order!',
@@ -279,7 +279,7 @@ class GameRegistry {
       playCount: 37000,
       customLogo: buildZipLogo,
     ),
-    const GameInfo(
+    GameInfo(
       id: 'queens_puzzle',
       name: 'Queens',
       description: 'Place queens on the board — no two may touch!',
@@ -299,7 +299,7 @@ class GameRegistry {
       playCount: 36000,
       customLogo: buildQueensPuzzleLogo,
     ),
-    const GameInfo(
+    GameInfo(
       id: 'tango',
       name: 'Tango',
       description: 'Fill the grid with suns and moons — balance rows, columns and clues!',
@@ -318,7 +318,7 @@ class GameRegistry {
       playCount: 35500,
       customLogo: buildTangoLogo,
     ),
-    const GameInfo(
+    GameInfo(
       id: 'ludo',
       name: 'Ludo',
       description: 'Roll the die, race your tokens around the board, and get all four home first!',
@@ -336,7 +336,7 @@ class GameRegistry {
       playCount: 35000,
       customLogo: buildLudoLogo,
     ),
-    const GameInfo(
+    GameInfo(
       id: 'patches',
       name: 'Patches',
       description: 'Divide the grid into rectangles — each clue tells you the patch size!',
@@ -354,7 +354,7 @@ class GameRegistry {
       playCount: 35000,
       customLogo: buildPatchesLogo,
     ),
-    const GameInfo(
+    GameInfo(
       id: 'color_connect',
       name: 'Color Connect',
       description: 'Link matching dots with paths — fill every cell without crossing!',
@@ -372,7 +372,7 @@ class GameRegistry {
       playCount: 34000,
       customLogo: buildColorConnectLogo,
     ),
-    const GameInfo(
+    GameInfo(
       id: 'arrow_puzzle',
       name: 'Arrow Puzzle',
       description: 'Untangle overlapping arrows and free them one by one!',
@@ -390,7 +390,7 @@ class GameRegistry {
       playCount: 34000,
       customLogo: buildArrowPuzzleLogo,
     ),
-    const GameInfo(
+    GameInfo(
       id: 'flappy_tap',
       name: 'Flappy Tap',
       description: 'Tap to fly through the gaps. How far can you go? Simple yet addictive!',
@@ -409,7 +409,7 @@ class GameRegistry {
       isFeatured: true,
       customLogo: buildFlappyTapLogo,
     ),
-    const GameInfo(
+    GameInfo(
       id: 'chess',
       name: 'Chess',
       description: 'The ultimate strategy game — checkmate the King to win!',
@@ -427,7 +427,7 @@ class GameRegistry {
       playCount: 30000,
       customLogo: buildChessLogo,
     ),
-    const GameInfo(
+    GameInfo(
       id: 'dino_run',
       name: 'Dino Run',
       description: 'Run through the desert — jump over cacti and survive!',
@@ -444,7 +444,7 @@ class GameRegistry {
       playCount: 29000,
       customLogo: buildDinoRunLogo,
     ),
-    const GameInfo(
+    GameInfo(
       id: 'tic_tac_toe',
       name: 'Tic Tac Toe',
       description: 'Classic X and O. Play against the computer!',
@@ -462,7 +462,7 @@ class GameRegistry {
       playCount: 27000,
       customLogo: buildTicTacToeLogo,
     ),
-    const GameInfo(
+    GameInfo(
       id: 'checkers',
       name: 'Checkers',
       description: 'Jump, capture, and crown your kings on the classic board!',
@@ -480,7 +480,7 @@ class GameRegistry {
       playCount: 25000,
       customLogo: buildCheckersLogo,
     ),
-    const GameInfo(
+    GameInfo(
       id: 'memory_match',
       name: 'Memory Match',
       description: 'Flip cards and find matching emoji pairs. Train your memory!',
@@ -499,7 +499,7 @@ class GameRegistry {
       playCount: 23000,
       customLogo: buildMemoryMatchLogo,
     ),
-    const GameInfo(
+    GameInfo(
       id: 'minesweeper',
       name: 'Minesweeper',
       description: 'Clear the minefield without detonating any mines!',
@@ -517,7 +517,7 @@ class GameRegistry {
       playCount: 21000,
       customLogo: buildMinesweeperLogo,
     ),
-    const GameInfo(
+    GameInfo(
       id: 'connect_four',
       name: 'Connect Four',
       description: 'Drop discs, connect 4 in a row — play vs AI or a friend!',
@@ -535,7 +535,7 @@ class GameRegistry {
       playCount: 19000,
       customLogo: buildConnectFourLogo,
     ),
-    const GameInfo(
+    GameInfo(
       id: 'drop_merge',
       name: 'Drop Merge',
       description: 'Drop tiles, merge numbers, chain reactions — how high can you score?',
@@ -553,7 +553,7 @@ class GameRegistry {
       playCount: 17000,
       customLogo: buildDropMergeLogo,
     ),
-    const GameInfo(
+    GameInfo(
       id: 'sliding_puzzle',
       name: 'Sliding Puzzle',
       description: 'Slide tiles into order — numbers, animals, flags & more!',
@@ -571,7 +571,7 @@ class GameRegistry {
       playCount: 15000,
       customLogo: buildSlidingPuzzleLogo,
     ),
-    const GameInfo(
+    GameInfo(
       id: 'hangman',
       name: 'Hangman',
       description: 'Guess the hidden word letter by letter before the hangman is complete!',
@@ -589,7 +589,7 @@ class GameRegistry {
       playCount: 13000,
       customLogo: buildHangmanLogo,
     ),
-    const GameInfo(
+    GameInfo(
       id: 'tap_tap_dash',
       name: 'Tap Tap Dash',
       description: 'Auto-running ball on a zigzag path — tap to turn at corners or fall off!',
@@ -607,7 +607,7 @@ class GameRegistry {
       playCount: 11000,
       customLogo: buildTapTapDashLogo,
     ),
-    const GameInfo(
+    GameInfo(
       id: 'whack_a_mole',
       name: 'Whack-a-Mole',
       description: 'Moles pop up — whack them fast! Avoid the bombs!',
@@ -626,7 +626,7 @@ class GameRegistry {
       playCount: 9500,
       customLogo: buildWhackAMoleLogo,
     ),
-    const GameInfo(
+    GameInfo(
       id: 'color_tap',
       name: 'Color Tap',
       description: 'Match the color circle to the target. Tap fast, skip smart — 3 lives!',
@@ -644,7 +644,7 @@ class GameRegistry {
       playCount: 8000,
       customLogo: buildColorTapLogo,
     ),
-    const GameInfo(
+    GameInfo(
       id: 'dots_and_boxes',
       name: 'Dots & Boxes',
       description: 'Draw lines, complete boxes, outsmart your opponent!',
@@ -662,7 +662,7 @@ class GameRegistry {
       playCount: 6500,
       customLogo: buildDotsAndBoxesLogo,
     ),
-    const GameInfo(
+    GameInfo(
       id: 'dodge_ball',
       name: 'Dodge Ball',
       description: 'Dodge falling obstacles — drag left and right to survive!',
@@ -680,7 +680,7 @@ class GameRegistry {
       playCount: 5500,
       customLogo: buildDodgeBallLogo,
     ),
-    const GameInfo(
+    GameInfo(
       id: 'mancala',
       name: 'Mancala',
       description: 'Sow seeds, capture stones, and outplay your opponent!',
@@ -698,7 +698,7 @@ class GameRegistry {
       playCount: 4500,
       customLogo: buildMancalaLogo,
     ),
-    const GameInfo(
+    GameInfo(
       id: 'reversi',
       name: 'Reversi',
       description: 'Flip discs, dominate the board — classic Othello strategy!',
@@ -716,7 +716,7 @@ class GameRegistry {
       playCount: 3500,
       customLogo: buildReversiLogo,
     ),
-    const GameInfo(
+    GameInfo(
       id: 'gomoku',
       name: 'Gomoku',
       description: 'Five in a row wins! Place stones strategically on a 13x13 board.',
@@ -733,7 +733,7 @@ class GameRegistry {
       bgColor: Color(0xFFF0F5FF),
       playCount: 2500,
       customLogo: buildGomokuLogo,
-    ),    const GameInfo(
+    ),    GameInfo(
       id: 'number_sequence',
       name: 'Number Sequence',
       description: 'Find scattered numbers in order — race the clock!',
@@ -752,7 +752,7 @@ class GameRegistry {
       customLogo: buildNumberSequenceLogo,
     ),
 
-    const GameInfo(
+    GameInfo(
       id: 'go',
       name: 'Go',
       description: 'Ancient strategy — surround territory and capture stones on a 9x9 board!',
@@ -772,25 +772,72 @@ class GameRegistry {
     ),
   ];
 
+  static bool _logosRegistered = false;
+
+  static void _ensureLogosRegistered() {
+    if (_logosRegistered) return;
+    _logosRegistered = true;
+    GameInfo.registerLogo('solitaire', buildSolitaireLogo);
+    GameInfo.registerLogo('maze_paint', buildMazePaintLogo);
+    GameInfo.registerLogo('block_escape', buildBlockEscapeLogo);
+    GameInfo.registerLogo('sudoku', buildSudokuLogo);
+    GameInfo.registerLogo('water_sort', buildWaterSortLogo);
+    GameInfo.registerLogo('number_merge', buildNumberMergeLogo);
+    GameInfo.registerLogo('snake_classic', buildSnakeLogo);
+    GameInfo.registerLogo('zip', buildZipLogo);
+    GameInfo.registerLogo('queens_puzzle', buildQueensPuzzleLogo);
+    GameInfo.registerLogo('tango', buildTangoLogo);
+    GameInfo.registerLogo('ludo', buildLudoLogo);
+    GameInfo.registerLogo('patches', buildPatchesLogo);
+    GameInfo.registerLogo('color_connect', buildColorConnectLogo);
+    GameInfo.registerLogo('arrow_puzzle', buildArrowPuzzleLogo);
+    GameInfo.registerLogo('flappy_tap', buildFlappyTapLogo);
+    GameInfo.registerLogo('chess', buildChessLogo);
+    GameInfo.registerLogo('dino_run', buildDinoRunLogo);
+    GameInfo.registerLogo('tic_tac_toe', buildTicTacToeLogo);
+    GameInfo.registerLogo('memory_match', buildMemoryMatchLogo);
+    GameInfo.registerLogo('color_tap', buildColorTapLogo);
+    GameInfo.registerLogo('checkers', buildCheckersLogo);
+    GameInfo.registerLogo('connect_four', buildConnectFourLogo);
+    GameInfo.registerLogo('minesweeper', buildMinesweeperLogo);
+    GameInfo.registerLogo('drop_merge', buildDropMergeLogo);
+    GameInfo.registerLogo('dots_and_boxes', buildDotsAndBoxesLogo);
+    GameInfo.registerLogo('sliding_puzzle', buildSlidingPuzzleLogo);
+    GameInfo.registerLogo('hangman', buildHangmanLogo);
+    GameInfo.registerLogo('whack_a_mole', buildWhackAMoleLogo);
+    GameInfo.registerLogo('tap_tap_dash', buildTapTapDashLogo);
+    GameInfo.registerLogo('dodge_ball', buildDodgeBallLogo);
+    GameInfo.registerLogo('number_sequence', buildNumberSequenceLogo);
+    GameInfo.registerLogo('reversi', buildReversiLogo);
+    GameInfo.registerLogo('gomoku', buildGomokuLogo);
+    GameInfo.registerLogo('mancala', buildMancalaLogo);
+    GameInfo.registerLogo('go', buildGoLogo);
+  }
+
   static List<GameInfo> get visibleGames {
+    _ensureLogosRegistered();
     return allGames.where((g) => !g.hidden).toList();
   }
 
   static List<GameInfo> getByCategory(GameCategory category) {
+    _ensureLogosRegistered();
     return allGames.where((g) => !g.hidden && g.category == category).toList();
   }
 
   static List<GameInfo> get featured {
+    _ensureLogosRegistered();
     return allGames.where((g) => !g.hidden && g.isFeatured).toList();
   }
 
   static List<GameInfo> get trending {
+    _ensureLogosRegistered();
     final sorted = List<GameInfo>.from(allGames.where((g) => !g.hidden));
     sorted.sort((a, b) => b.playCount.compareTo(a.playCount));
     return sorted;
   }
 
   static GameInfo? getById(String id) {
+    _ensureLogosRegistered();
     try {
       return allGames.firstWhere((g) => g.id == id);
     } catch (_) {
@@ -799,6 +846,7 @@ class GameRegistry {
   }
 
   static List<GameInfo> search(String query) {
+    _ensureLogosRegistered();
     final q = query.toLowerCase();
     return allGames.where((g) {
       return !g.hidden &&

@@ -21,6 +21,12 @@ enum GameCategory {
 typedef GameLogoBuilder = Widget Function(double size);
 
 class GameInfo {
+  static final Map<String, GameLogoBuilder> _logoRegistry = {};
+
+  static void registerLogo(String id, GameLogoBuilder builder) {
+    _logoRegistry[id] = builder;
+  }
+
   final String id;
   final String name;
   final String description;
@@ -57,17 +63,20 @@ class GameInfo {
     this.customLogo,
   });
 
+  GameLogoBuilder? get _effectiveLogo => customLogo ?? _logoRegistry[id];
+
   /// True when the game has a "branded" filled-tile logo (asset or widget).
   /// Use this instead of `iconAsset != null` so widget-based logos are picked
   /// up automatically by every tile/card surface.
-  bool get hasBrandedLogo => customLogo != null || iconAsset != null;
+  bool get hasBrandedLogo => _effectiveLogo != null || iconAsset != null;
 
   /// Returns a [size]×[size] widget that fills the tile, using either the
   /// custom widget logo or the image asset. Returns `null` when neither is
   /// configured — caller should fall back to its own centered-icon layout.
   Widget? buildBrandedLogo({required double size}) {
-    if (customLogo != null) {
-      return SizedBox(width: size, height: size, child: customLogo!(size));
+    final logo = _effectiveLogo;
+    if (logo != null) {
+      return SizedBox(width: size, height: size, child: logo(size));
     }
     if (iconAsset != null) {
       return Image.asset(
@@ -84,10 +93,11 @@ class GameInfo {
   /// Inline icon for compact contexts (lists, leaderboards, picker mascot).
   /// Falls back through customLogo → iconAsset → Material `icon`.
   Widget buildIcon({double size = 48}) {
-    if (customLogo != null) {
+    final logo = _effectiveLogo;
+    if (logo != null) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(size * 0.2),
-        child: SizedBox(width: size, height: size, child: customLogo!(size)),
+        child: SizedBox(width: size, height: size, child: logo(size)),
       );
     }
     if (iconAsset != null) {
