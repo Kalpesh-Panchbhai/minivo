@@ -56,7 +56,9 @@ Future<void> bootstrap({
       PerfLogger.startFrameMonitoring();
 
       PerfLogger.startOp('firebase-init');
-      await Firebase.initializeApp(options: firebaseOptions);
+      if (Firebase.apps.isEmpty) {
+        await Firebase.initializeApp(options: firebaseOptions);
+      }
       PerfLogger.endOp('firebase-init');
       if (!firebaseReady.isCompleted) firebaseReady.complete();
 
