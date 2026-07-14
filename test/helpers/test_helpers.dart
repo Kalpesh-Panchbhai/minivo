@@ -36,6 +36,7 @@ Future<void> initTestDependencies() async {
     'tutorial_seen_sliding_puzzle': true,
     'tutorial_seen_queens_puzzle': true,
     'tutorial_seen_maze_paint': true,
+    'tutorial_seen_frame_rush': true,
   });
   await ScoreService().init();
   await LevelProgressService().init();
@@ -105,6 +106,9 @@ Future<void> pumpScreen(
         size: Size(device.width, device.height),
         devicePixelRatio: device.pixelRatio,
         textScaler: TextScaler.linear(textScale),
+        // Perpetual "living" animations honour this flag (like AnimatedBackground),
+        // so pumpAndSettle can actually settle in tests instead of hanging.
+        disableAnimations: true,
         padding: EdgeInsets.only(
           top: device.platform == TargetPlatform.iOS ? 47 : 24,
           bottom: device.platform == TargetPlatform.iOS ? 34 : 0,

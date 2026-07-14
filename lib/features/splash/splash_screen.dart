@@ -24,8 +24,21 @@ class _SplashScreenState extends State<SplashScreen>
     _particleCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 8000),
-    )..repeat();
+    );
     _navigate();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Honour the OS / test "disable animations" flag so the perpetual particle
+    // loop doesn't keep pumpAndSettle spinning forever in widget tests.
+    final disabled = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    if (disabled) {
+      if (_particleCtrl.isAnimating) _particleCtrl.stop();
+    } else {
+      if (!_particleCtrl.isAnimating) _particleCtrl.repeat();
+    }
   }
 
   @override

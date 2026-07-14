@@ -258,6 +258,20 @@ class _BlockEscapeScreenState extends State<BlockEscapeScreen> with TickerProvid
   }
 
   void _startSlide(int blockId, double fromPx, double toPx, int moveDelta, double cell) {
+    // Reduced motion: skip the slide and commit the move immediately, so there
+    // is no awaited animation (also makes moves deterministic in widget tests).
+    if (MediaQuery.maybeDisableAnimationsOf(context) ?? false) {
+      _isSliding = false;
+      _selectedBlockId = null;
+      _slidingBlockId = -1;
+      _dragNotifier.value = 0;
+      if (moveDelta != 0) {
+        _applyMove(blockId, moveDelta);
+      } else {
+        setState(() {});
+      }
+      return;
+    }
     _slidingBlockId = blockId;
     _slideFrom = fromPx;
     _slideTo = toPx;

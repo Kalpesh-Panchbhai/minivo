@@ -12,6 +12,7 @@ import 'dodge_ball/dodge_ball_logo.dart';
 import 'dots_and_boxes/dots_and_boxes_logo.dart';
 import 'drop_merge/drop_merge_logo.dart';
 import 'flappy_tap/flappy_tap_logo.dart';
+import 'frame_rush/frame_rush_logo.dart';
 import 'go/go_logo.dart';
 import 'gomoku/gomoku_logo.dart';
 import 'hangman/hangman_logo.dart';
@@ -70,6 +71,7 @@ import 'chess/chess_screen.dart';
 import 'ludo/ludo_screen.dart';
 import 'maze_paint/maze_paint_screen.dart';
 import 'block_escape/block_escape_screen.dart';
+import 'frame_rush/frame_rush_screen.dart';
 
 
 typedef GameWidgetBuilder = Widget Function();
@@ -113,6 +115,7 @@ class GameRegistry {
     'ludo': () => const LudoScreen(),
     'maze_paint': () => const MazePaintScreen(),
     'block_escape': () => const BlockEscapeScreen(),
+    'frame_rush': () => const FrameRushScreen(),
 
   };
 
@@ -182,6 +185,26 @@ class GameRegistry {
       playCount: 48000,
       isFeatured: true,
       customLogo: buildBlockEscapeLogo,
+    ),
+    GameInfo(
+      id: 'frame_rush',
+      name: 'Frame Rush',
+      description: 'Freeze the moving object exactly inside the green frame!',
+      howToPlay:
+          'Choose your difficulty (Easy = slow + roomy, Medium, Hard = fast + pinpoint).\n'
+          'An object — a car, bird, plane and more — loops smoothly around a track.\n'
+          'A glowing green frame marks the exact spot and angle to hit.\n'
+          'Tap anywhere to freeze the object. Line it up inside the frame to win!\n'
+          'Miss and it keeps looping — try again until you nail it.\n'
+          'Beat every level in as few taps as you can — one-tap captures are the goal.\n'
+          '10,000 unique, always-capturable levels per difficulty!',
+      category: GameCategory.arcade,
+      icon: Icons.center_focus_strong_rounded,
+      color: Color(0xFF10B981),
+      bgColor: Color(0xFFDCFCE9),
+      playCount: 47500,
+      isFeatured: true,
+      customLogo: buildFrameRushLogo,
     ),
     GameInfo(
       id: 'sudoku',

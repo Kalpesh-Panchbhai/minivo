@@ -1170,7 +1170,7 @@ class _MoreGamesBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final banner = Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
@@ -1231,7 +1231,11 @@ class _MoreGamesBanner extends StatelessWidget {
           ),
         ],
       ),
-    )
+    );
+    // The shimmer repeats forever; skip it when animations are disabled so
+    // pumpAndSettle can settle (reduced-motion users get the static banner).
+    if (MediaQuery.maybeDisableAnimationsOf(context) ?? false) return banner;
+    return banner
         .animate(onPlay: (c) => c.repeat(reverse: true))
         .shimmer(
           duration: 2500.ms,

@@ -51,7 +51,21 @@ class _LivingPreviewLogoState extends State<_LivingPreviewLogo>
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(vsync: this, duration: widget.period)..repeat();
+    _ctrl = AnimationController(vsync: this, duration: widget.period);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Honour the OS / test "disable animations" flag — without this the
+    // perpetual repeat() keeps scheduling frames, so `pumpAndSettle` in widget
+    // tests never returns (and reduced-motion users would still see motion).
+    final disabled = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    if (disabled) {
+      if (_ctrl.isAnimating) _ctrl.stop();
+    } else {
+      if (!_ctrl.isAnimating) _ctrl.repeat();
+    }
   }
 
   @override

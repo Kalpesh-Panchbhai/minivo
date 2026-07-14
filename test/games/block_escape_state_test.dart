@@ -64,8 +64,12 @@ Future<Finder> _startEasy(WidgetTester tester) async {
   await selectDifficultyStop(tester, 0);
   final play = find.text('Play Block Escape');
   final board = find.byKey(_boardKey);
+  // A pre-seeded in-progress game shows a "Continue" dialog before the board.
+  final cont = find.widgetWithText(FilledButton, 'Continue');
   for (int i = 0; i < 10 && !tester.any(board); i++) {
-    if (tester.any(play)) {
+    if (tester.any(cont)) {
+      await tester.tap(cont);
+    } else if (tester.any(play)) {
       try {
         await tester.ensureVisible(play.first);
       } catch (_) {}

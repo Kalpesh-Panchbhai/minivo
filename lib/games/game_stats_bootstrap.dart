@@ -33,6 +33,7 @@ import 'chess/chess_stats.dart';
 import 'ludo/ludo_stats.dart';
 import 'maze_paint/maze_paint_stats.dart';
 import 'block_escape/block_escape_stats.dart';
+import 'frame_rush/frame_rush_stats.dart';
 
 
 /// Single entry point for registering all per-game custom stats builders.
@@ -76,4 +77,5 @@ void registerAllGameStats() {
   registerLudoStats();
   registerMazePaintStats();
   registerBlockEscapeStats();
+  registerFrameRushStats();
 }
